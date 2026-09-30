@@ -1,0 +1,1972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Riverside U10s — Squad & Match Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --turf-1: #1F4A33; --turf-2: #2A6244; --chalk: #F4F1E6; --chalk-dim: #C9D6CB;
+    --ink: #12241A; --ink-soft: #3C4E42; --amber: #E3A23C; --amber-ink: #4A3411;
+    --coral: #C1503F; --card: #FFFFFF; --card-line: #E4E1D4; --bench-card: #EFEBDD; --shell-bg: #F7F5EC;
+  }
+  :root:not([data-theme="light"]) { @media (prefers-color-scheme: dark) {
+    --shell-bg: #0E1712; --card: #17251C; --card-line: #26362B;
+    --ink: #EDEBDF; --ink-soft: #AFC0B3; --bench-card: #1E2C22; --chalk-dim: #7C9484;
+  } }
+  :root[data-theme="dark"] {
+    --shell-bg: #0E1712; --card: #17251C; --card-line: #26362B;
+    --ink: #EDEBDF; --ink-soft: #AFC0B3; --bench-card: #1E2C22; --chalk-dim: #7C9484;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--shell-bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  .shell { max-width: 460px; margin: 0 auto; padding: 18px 16px 60px; }
+
+  .scoreboard { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+  .scoreboard h1 { font-family: "Oswald", sans-serif; font-weight: 600; font-size: 22px; margin: 0; }
+  .scoreboard .meta { font-size: 13px; color: var(--ink-soft); }
+
+  .tabs { display: flex; gap: 6px; margin: 14px 0 18px; background: var(--bench-card); border-radius: 12px; padding: 4px; }
+  .tab { flex: 1; text-align: center; padding: 9px 4px; border-radius: 9px; font-family: "Oswald", sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--ink-soft); }
+  .tab.active { background: var(--turf-1); color: var(--chalk); }
+  .tab.disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  h2 { font-family: "Oswald", sans-serif; font-size: 13px; letter-spacing: 0.4px; color: var(--ink-soft); font-weight: 500; margin: 0 0 8px; }
+  section { margin-bottom: 20px; }
+
+  .player-card { background: var(--card); border: 1px solid var(--card-line); border-radius: 12px; padding: 11px 13px; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+  .player-card .name { font-weight: 600; font-size: 14px; }
+  .player-card .tags { font-size: 11px; color: var(--ink-soft); margin-top: 3px; }
+  .player-card .num { font-family: "Oswald", sans-serif; font-size: 15px; color: var(--chalk-dim); width: 26px; text-align: center; }
+  :root[data-theme="dark"] .player-card .num, :root:not([data-theme="light"]) .player-card .num { color: var(--ink-soft); }
+  .gk-pill { display: inline-block; background: var(--amber); color: var(--amber-ink); font-size: 10px; padding: 1px 6px; border-radius: 5px; margin-left: 5px; font-family: "Oswald", sans-serif; }
+
+  .btn { display: block; width: 100%; padding: 13px; border-radius: 12px; border: none; font-family: "Oswald", sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; }
+  .btn-primary { background: var(--turf-1); color: var(--chalk); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ghost { background: var(--bench-card); color: var(--ink); margin-top: 8px; }
+  .btn-danger { background: transparent; color: var(--coral); border: 1px solid var(--coral); margin-top: 8px; }
+
+  .form-card { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; padding: 14px; margin-bottom: 16px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
+  .field input[type="text"], .field input[type="number"], .field select {
+    width: 100%; padding: 10px; border-radius: 9px; border: 1px solid var(--card-line);
+    background: var(--shell-bg); color: var(--ink); font-size: 14px;
+  }
+  .pos-row { display: flex; gap: 8px; }
+  .pos-row .field { flex: 1; }
+  .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 10px; }
+  .check-row input { width: 18px; height: 18px; }
+
+  .avail-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--card-line); font-size: 14px; }
+  .avail-row input { width: 19px; height: 19px; flex-shrink: 0; }
+  .avail-row .name { flex: 1; font-weight: 500; }
+  .avail-count { font-size: 12.5px; color: var(--ink-soft); margin: 8px 0 4px; }
+  .avail-count.warn { color: var(--coral); font-weight: 600; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .preset-chip { padding: 7px 12px; border-radius: 9px; border: 1px solid var(--card-line); font-size: 13px; cursor: pointer; background: var(--card); }
+  .preset-chip.active { background: var(--turf-1); color: var(--chalk); border-color: var(--turf-1); }
+
+  .radio-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .radio-opt { flex: 1; text-align: center; padding: 9px; border-radius: 9px; border: 1px solid var(--card-line); font-size: 13px; cursor: pointer; }
+  .radio-opt.selected { background: var(--turf-1); color: var(--chalk); border-color: var(--turf-1); }
+  .radio-opt.disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .warn-box { font-size: 12.5px; background: #FCEFD9; color: var(--amber-ink); border: 1px solid var(--amber); border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; }
+  :root[data-theme="dark"] .warn-box, :root:not([data-theme="light"]) .warn-box { background: #2E2412; }
+
+  .config-card { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; margin-bottom: 16px; overflow: hidden; }
+  .config-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; cursor: pointer; }
+  .config-header h2 { margin: 0; }
+  .config-summary { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+  .config-cog { width: 30px; height: 30px; border-radius: 50%; background: var(--bench-card); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; transition: transform 0.2s; }
+  .config-cog.open { transform: rotate(35deg); }
+  .config-body { padding: 0 14px 14px; display: none; }
+  .config-body.open { display: block; }
+  .config-row { margin-bottom: 12px; }
+  .config-row:last-child { margin-bottom: 0; }
+  .config-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .config-label .val { font-weight: 600; color: var(--turf-1); }
+  :root[data-theme="dark"] .config-label .val, :root:not([data-theme="light"]) .config-label .val { color: #6FD98F; }
+  .config-ends { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--ink-soft); margin-top: 3px; }
+  .config-row input[type="range"] { width: 100%; }
+  .config-note { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+
+  .clock-row { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .clock { font-family: "Oswald", sans-serif; font-variant-numeric: tabular-nums; font-size: 40px; font-weight: 600; min-width: 92px; }
+  .clock small { font-size: 16px; color: var(--ink-soft); font-weight: 400; }
+  .play-btn { width: 52px; height: 52px; border-radius: 50%; border: none; background: var(--turf-1); color: var(--chalk); font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+  input[type="range"] { flex: 1; appearance: none; height: 6px; border-radius: 3px; background: var(--card-line); outline: none; }
+  input[type="range"]::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--amber); border: 3px solid var(--turf-1); cursor: pointer; }
+  .half-marks { display: flex; justify-content: space-between; font-size: 11px; color: var(--chalk-dim); margin: 4px 2px 16px; }
+
+  .next-sub { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+  .next-sub .tag { font-family: "Oswald", sans-serif; font-size: 11px; background: var(--amber); color: var(--amber-ink); padding: 3px 8px; border-radius: 6px; flex-shrink: 0; }
+  .next-sub.done .tag { background: var(--chalk-dim); color: var(--ink); }
+
+  .pitch-wrap { background: linear-gradient(180deg, var(--turf-2), var(--turf-1)); border-radius: 18px; padding: 10px; margin-bottom: 8px; box-shadow: inset 0 0 0 1px rgba(244,241,230,0.08); }
+  .pitch-svg { width: 100%; height: auto; display: block; }
+  .token-name { font-family: "Oswald", sans-serif; font-size: 13px; fill: var(--turf-1); font-weight: 600; text-anchor: middle; }
+  .token-label { font-size: 8px; fill: var(--chalk); text-anchor: middle; letter-spacing: 0.5px; }
+  .token-hit { cursor: pointer; }
+  .edit-hint { font-size: 11.5px; color: var(--ink-soft); text-align: center; margin: 0 0 18px; }
+
+  .bench-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .bench-card { background: var(--bench-card); border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; flex-shrink: 0; border: 1px solid var(--card-line); }
+
+  .timeline { border-left: 2px solid var(--card-line); padding-left: 14px; }
+  .tl-event { position: relative; padding-bottom: 14px; font-size: 13px; }
+  .tl-event::before { content: ""; position: absolute; left: -19px; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--card-line); border: 2px solid var(--shell-bg); }
+  .tl-event.past::before { background: var(--turf-1); }
+  .tl-event.next::before { background: var(--amber); }
+  .tl-time { font-family: "Oswald", sans-serif; font-weight: 600; margin-right: 6px; }
+  .tl-event.future { color: var(--ink-soft); }
+  .tl-swap { margin-bottom: 2px; }
+  .tl-swap .off { color: var(--coral); }
+  .tl-swap .on { color: var(--turf-1); font-weight: 600; cursor: pointer; text-decoration: underline dotted; }
+  :root[data-theme="dark"] .tl-swap .on, :root:not([data-theme="light"]) .tl-swap .on { color: #6FD98F; }
+  .tl-swap .on.locked-past { cursor: default; text-decoration: none; }
+  .edited-badge { font-size: 10px; background: var(--amber); color: var(--amber-ink); padding: 1px 6px; border-radius: 5px; margin-left: 6px; font-family: "Oswald", sans-serif; }
+
+  .picker { background: var(--bench-card); border: 1px solid var(--card-line); border-radius: 10px; padding: 8px; margin: 6px 0 10px; }
+  .picker-title { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 6px; }
+  .picker-opt { display: flex; justify-content: space-between; padding: 7px 8px; border-radius: 7px; font-size: 13px; cursor: pointer; }
+  .picker-opt:hover, .picker-opt:active { background: var(--card); }
+  .picker-opt .tier { font-size: 11px; color: var(--ink-soft); }
+  .picker-opt .tier.warn { color: var(--coral); }
+  .picker-cancel { font-size: 12px; color: var(--ink-soft); text-align: center; padding: 6px; cursor: pointer; }
+
+  .fair-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+  .fair-name { width: 62px; flex-shrink: 0; font-weight: 600; }
+  .fair-bar-track { flex: 1; height: 16px; background: var(--card-line); border-radius: 8px; overflow: visible; position: relative; }
+  .fair-bar-fill { position: absolute; top: 0; height: 100%; background: var(--turf-1); }
+  .fair-bar-fill.gk { background: var(--amber); }
+  .fair-target-line { position: absolute; top: -3px; width: 2px; height: 22px; background: var(--ink); opacity: 0.35; }
+  .fair-progress-tick { position: absolute; top: -6px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid var(--coral); transform: translateX(-5px); }
+  .fair-mins { width: 66px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--ink-soft); font-size: 12px; }
+  .fair-legend { display: flex; gap: 14px; font-size: 11px; color: var(--ink-soft); margin-bottom: 10px; flex-wrap: wrap; }
+  .fair-legend span { display: flex; align-items: center; gap: 4px; }
+  .fair-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .fair-legend i.outfield { background: var(--turf-1); }
+  .fair-legend i.gk { background: var(--amber); }
+  .fair-legend i.target { background: var(--ink); opacity: 0.35; width: 2px; height: 11px; border-radius: 0; }
+  .fair-legend i.tick { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--coral); background: none; }
+
+  .banner { font-size: 12.5px; background: #FCEFD9; color: var(--amber-ink); border: 1px solid var(--amber); border-radius: 10px; padding: 9px 12px; margin-bottom: 14px; display: none; }
+  :root[data-theme="dark"] .banner, :root:not([data-theme="light"]) .banner { background: #2E2412; }
+  .banner.show { display: block; }
+  .note { font-size: 12px; color: var(--ink-soft); border-top: 1px dashed var(--card-line); padding-top: 12px; margin-top: 4px; }
+
+  .plan-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .plan-back { font-family: "Oswald", sans-serif; font-weight: 500; font-size: 14px; color: var(--turf-1); cursor: pointer; flex-shrink: 0; }
+  :root[data-theme="dark"] .plan-back, :root:not([data-theme="light"]) .plan-back { color: #6FD98F; }
+  .plan-topbar .subline { font-size: 13px; color: var(--ink-soft); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plan-subtabs { display: flex; gap: 6px; background: var(--bench-card); border-radius: 10px; padding: 3px; margin-bottom: 12px; }
+  .plan-subtab { flex: 1; text-align: center; padding: 7px 4px; border-radius: 8px; font-family: "Oswald", sans-serif; font-size: 12.5px; font-weight: 500; cursor: pointer; color: var(--ink-soft); }
+  .plan-subtab.active { background: var(--turf-1); color: var(--chalk); }
+
+  .score-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; font-family: "Oswald", sans-serif; }
+  .score-row .score-team { font-size: 11px; color: var(--ink-soft); letter-spacing: 0.3px; }
+  .score-row .score-val { font-size: 22px; font-weight: 600; min-width: 20px; text-align: center; }
+  .score-row .score-sep { font-size: 16px; color: var(--ink-soft); }
+  .score-row .score-add { margin-left: 8px; font-size: 12px; font-weight: 500; background: var(--bench-card); padding: 5px 10px; border-radius: 8px; cursor: pointer; color: var(--ink); }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(18,36,26,0.55); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
+  .modal-card { background: var(--card); border-radius: 14px; padding: 18px; max-width: 320px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
+  .modal-msg { font-size: 14px; margin-bottom: 16px; line-height: 1.45; white-space: pre-line; }
+  .modal-btn-row { display: flex; gap: 8px; }
+  .modal-btn-row .btn { margin-top: 0; }
+
+  .action-panel { background: var(--card); border: 2px solid var(--amber); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  .action-panel .headline { font-family: "Oswald", sans-serif; font-size: 15px; margin-bottom: 10px; }
+  .action-btn-row { display: flex; gap: 8px; }
+  .action-btn { flex: 1; padding: 14px 6px; border-radius: 12px; border: none; font-family: "Oswald", sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .action-btn.done { background: var(--turf-1); color: var(--chalk); }
+  .action-btn.delay { background: var(--bench-card); color: var(--ink); }
+  .action-btn.skip { background: transparent; color: var(--coral); border: 1px solid var(--coral); }
+  .delay-opts { display: flex; gap: 8px; margin-top: 8px; }
+  .delay-opts .preset-chip { flex: 1; text-align: center; }
+
+  .halftime-card { background: var(--turf-1); color: var(--chalk); border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 16px; }
+  .halftime-card h2 { color: var(--chalk-dim); margin-bottom: 4px; }
+  .halftime-card .big { font-family: "Oswald", sans-serif; font-size: 32px; font-weight: 600; margin: 6px 0 14px; }
+  .halftime-mins { text-align: left; background: rgba(244,241,230,0.08); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
+  .halftime-mins div { display: flex; justify-content: space-between; padding: 3px 0; }
+
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
+  .summary-table th, .summary-table td { text-align: right; padding: 7px 6px; border-bottom: 1px solid var(--card-line); }
+  .summary-table th:first-child, .summary-table td:first-child { text-align: left; font-weight: 600; }
+  .summary-table .diff-pos { color: var(--turf-1); }
+  .summary-table .diff-neg { color: var(--coral); }
+  :root[data-theme="dark"] .summary-table .diff-pos, :root:not([data-theme="light"]) .summary-table .diff-pos { color: #6FD98F; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="scoreboard">
+    <h1>Riverside U10s</h1>
+    <span class="meta" id="squadCountMeta"></span>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="squad">Squad</div>
+    <div class="tab" data-tab="setup">New Match</div>
+    <div class="tab disabled" data-tab="plan" id="planTab">Match Plan</div>
+  </div>
+
+  <!-- SQUAD SCREEN -->
+  <div class="screen active" id="screen-squad">
+    <section>
+      <h2>Squad</h2>
+      <div id="squadList"></div>
+      <button class="btn btn-ghost" id="addPlayerBtn">+ Add player</button>
+    </section>
+  </div>
+
+  <!-- PLAYER EDIT FORM (shared add/edit) -->
+  <div class="screen" id="screen-playerForm">
+    <div class="form-card">
+      <div class="field"><label>Name</label><input type="text" id="pf-name" placeholder="e.g. Oliver"></div>
+      <div class="field"><label>Shirt number (optional)</label><input type="number" id="pf-number" min="1" max="99"></div>
+      <div class="pos-row">
+        <div class="field"><label>Defence</label>
+          <select id="pf-def"><option value="0">Do not use</option><option value="1">Can play</option><option value="2" selected>Comfortable</option><option value="3">Preferred</option></select>
+        </div>
+        <div class="field"><label>Midfield</label>
+          <select id="pf-mid"><option value="0">Do not use</option><option value="1">Can play</option><option value="2" selected>Comfortable</option><option value="3">Preferred</option></select>
+        </div>
+        <div class="field"><label>Attack</label>
+          <select id="pf-att"><option value="0">Do not use</option><option value="1" selected>Can play</option><option value="2">Comfortable</option><option value="3">Preferred</option></select>
+        </div>
+      </div>
+      <div class="check-row"><input type="checkbox" id="pf-gk"><label for="pf-gk">Goalkeeper-eligible</label></div>
+      <button class="btn btn-primary" id="pf-save">Save player</button>
+      <button class="btn btn-ghost" id="pf-cancel">Cancel</button>
+      <button class="btn btn-danger" id="pf-delete" style="display:none;">Remove from squad</button>
+    </div>
+  </div>
+
+  <!-- SETUP SCREEN -->
+  <div class="screen" id="screen-setup">
+
+    <!-- STEP 1: MATCH FORMAT (must be confirmed before planning) -->
+    <div id="setupStepFormat">
+      <section>
+        <h2>Step 1 · Match format</h2>
+        <div class="preset-row" id="presetRow">
+          <div class="preset-chip" data-preset="3">3v3</div>
+          <div class="preset-chip" data-preset="5">5v5</div>
+          <div class="preset-chip" data-preset="6">6v6</div>
+          <div class="preset-chip active" data-preset="7">7v7</div>
+          <div class="preset-chip" data-preset="9">9v9</div>
+          <div class="preset-chip" data-preset="11">11v11</div>
+          <div class="preset-chip" data-preset="custom">Custom</div>
+        </div>
+        <div class="pos-row">
+          <div class="field"><label>Players per side</label><input type="number" id="fmt-players" min="2" max="11" value="7"></div>
+          <div class="field"><label>Duration (min)</label><input type="number" id="fmt-duration" min="10" max="120" value="50"></div>
+          <div class="field"><label>Periods</label><input type="number" id="fmt-periods" min="1" max="8" value="2"></div>
+        </div>
+        <div class="config-note" id="periodPreview"></div>
+        <div class="check-row" style="margin-top:10px;"><input type="checkbox" id="fmt-gk" checked><label for="fmt-gk">This format uses a goalkeeper</label></div>
+      </section>
+
+      <section>
+        <h2>Formation shape</h2>
+        <div class="config-note" style="margin-bottom:8px;">Split your outfield players across defence, midfield and attack however you like — including all in one line if that's what you want to try. Numbers just need to add up to your outfield total.</div>
+        <div class="pos-row">
+          <div class="field"><label>Defence</label><input type="number" id="fmt-def" min="0" value="2"></div>
+          <div class="field"><label>Midfield</label><input type="number" id="fmt-mid" min="0" value="3"></div>
+          <div class="field"><label>Attack</label><input type="number" id="fmt-att" min="0" value="1"></div>
+        </div>
+        <div class="config-note" id="shapeTotal"></div>
+      </section>
+
+      <div class="warn-box" id="formatError" style="display:none;"></div>
+      <button class="btn btn-primary" id="confirmFormatBtn">Confirm format →</button>
+    </div>
+
+    <!-- STEP 2: TEAM & MATCH PLANNING (only shown once format is confirmed) -->
+    <div id="setupStepPlan" style="display:none;">
+      <div class="config-note" style="margin-bottom:10px;"><span id="formatSummaryLine"></span> — <span id="changeFormatLink" style="text-decoration:underline; cursor:pointer; color:var(--turf-1);">change format</span></div>
+
+      <section>
+        <h2 id="availHeading">Available for this match</h2>
+        <div id="availList"></div>
+        <div class="avail-count" id="availCount"></div>
+      </section>
+
+      <section id="gkSection">
+        <h2>Goalkeeper plan</h2>
+        <div id="gkWarning"></div>
+        <div class="radio-row" id="gkModeRow">
+          <div class="radio-opt" data-mode="single">Same keeper all game</div>
+          <div class="radio-opt selected" data-mode="rotate">Rotate by period</div>
+        </div>
+        <div id="gkPickers"></div>
+      </section>
+
+      <div class="config-card">
+        <div class="config-header" id="configHeader">
+          <div><h2>Rotation settings</h2><div class="config-summary" id="configSummary"></div></div>
+          <div class="config-cog" id="configCog">⚙</div>
+        </div>
+        <div class="config-body" id="configBody">
+          <div class="config-row">
+            <div class="config-label"><span>Substitution style</span><span class="val" id="fairnessLabel">Balanced</span></div>
+            <input type="range" id="fairnessSlider" min="0" max="1" step="0.1" value="0.5">
+            <div class="config-ends"><span>Fewer subs</span><span>Maximum fairness</span></div>
+          </div>
+          <div class="config-row">
+            <div class="config-label"><span>Position vs. fairness</span><span class="val" id="strictnessLabel">Balanced</span></div>
+            <input type="range" id="strictnessSlider" min="0" max="1" step="0.1" value="0.3">
+            <div class="config-ends"><span>Chase fair minutes</span><span>Stick to best position</span></div>
+          </div>
+          <div class="config-row">
+            <div class="config-label"><span>Minimum time on before a sub</span><span class="val" id="minShiftLabel">8'</span></div>
+            <input type="range" id="minShiftSlider" min="2" max="15" step="1" value="8">
+            <div class="config-ends"><span>2' (very frequent)</span><span>15' (rare)</span></div>
+            <div class="config-note">Even at "maximum fairness," no player is subbed off before this many minutes on the pitch.</div>
+          </div>
+          <div class="config-row">
+            <div class="check-row" style="margin-bottom:4px;"><input type="checkbox" id="gkCountsCheckbox"><label for="gkCountsCheckbox">Count goalkeeper time toward fairness</label></div>
+            <div class="config-note">Off (default): only outfield minutes are balanced — time in goal doesn't count against a player's fair share, and doesn't let them "owe" less outfield time either. On: total pitch time (GK included) is balanced instead, the way earlier versions of this worked.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="warn-box" id="setupError" style="display:none;"></div>
+      <button class="btn btn-primary" id="generateBtn">Generate match plan</button>
+    </div>
+  </div>
+
+
+  <!-- PLAN SCREEN -->
+  <div class="screen" id="screen-plan">
+    <div class="plan-topbar">
+      <span class="plan-back" id="planBackBtn">‹ Back</span>
+      <p class="subline" id="planSubline"></p>
+    </div>
+    <div class="plan-subtabs" id="planSubtabs">
+      <div class="plan-subtab active" data-subtab="live">Live</div>
+      <div class="plan-subtab" data-subtab="details">Details</div>
+    </div>
+    <div class="banner" id="regenBanner"></div>
+
+    <!-- PRIMARY LIVE VIEW: just the pitch, bench, clock and next rotation -->
+    <div id="planViewLive">
+      <div class="score-row" id="scoreRow" style="display:none;">
+        <span class="score-team">Us</span><span class="score-val" id="scoreUs">0</span>
+        <span class="score-sep">–</span>
+        <span class="score-val" id="scoreThem">0</span><span class="score-team">Opp</span>
+        <span class="score-add" id="addGoalBtn">+ Goal</span>
+      </div>
+
+      <!-- PREVIEW MODE (before kick-off): scrub through the plan -->
+      <div id="previewControls">
+        <div class="clock-row">
+          <button class="play-btn" id="playBtn" aria-label="Play">▶</button>
+          <div class="clock"><span id="clockMin">0</span><small>:00</small></div>
+          <input type="range" id="scrub" min="0" max="50" value="0" step="1" aria-label="Match minute">
+        </div>
+        <div class="half-marks" id="halfMarks"></div>
+        <button class="btn btn-primary" id="startMatchBtn" style="margin-bottom:16px;">▶ Start match</button>
+      </div>
+
+      <!-- LIVE MODE (after kick-off): real clock, actual-time confirmations -->
+      <div id="liveControls" style="display:none;">
+        <div class="clock-row">
+          <button class="play-btn" id="livePauseBtn" aria-label="Pause">❚❚</button>
+          <div class="clock"><span id="liveClockMin">0</span><small id="liveClockSec">:00</small></div>
+          <div style="flex:1; text-align:right;">
+            <span class="preset-chip" id="liveMakeChangeBtn" style="cursor:pointer;">Make change</span>
+            <span class="preset-chip" id="livePlayerUnavailableBtn" style="cursor:pointer;">Unavailable</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="halfTimePanel" style="display:none;"></div>
+      <div id="liveActionPanel"></div>
+      <div class="next-sub" id="nextSub"></div>
+      <div id="liveMiscPanel"></div>
+
+      <div class="pitch-wrap">
+        <svg class="pitch-svg" viewBox="0 0 300 480" id="pitchSvg">
+          <rect x="0" y="0" width="300" height="480" fill="url(#stripes)"/>
+          <defs><pattern id="stripes" width="300" height="60" patternUnits="userSpaceOnUse">
+            <rect width="300" height="30" fill="#215A3B"/><rect y="30" width="300" height="30" fill="#1F4A33"/>
+          </pattern></defs>
+          <rect x="12" y="12" width="276" height="456" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <line x1="12" y1="246" x2="288" y2="246" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <circle cx="150" cy="246" r="36" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <rect x="80" y="12" width="140" height="48" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <rect x="80" y="420" width="140" height="48" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <g id="tokens"></g>
+        </svg>
+      </div>
+      <p class="edit-hint" id="editHint"></p>
+      <div id="startPickerHolder"></div>
+
+      <section><h2>Bench</h2><div class="bench-row" id="benchRow"></div></section>
+    </div>
+
+    <!-- DETAILS VIEW: timeline, forecast, formation, period marks -->
+    <div id="planViewDetails" style="display:none;">
+      <div class="half-marks" id="detailHalfMarks" style="margin-top:0;"></div>
+      <p class="edit-hint" id="earlyFinishLink" style="cursor:pointer; text-decoration:underline; display:none;">End match now</p>
+      <div class="config-note" style="display:flex; justify-content:space-between; align-items:center; margin:10px 0;">
+        <span id="currentShapeLabel"></span>
+        <span id="changeFormationLink" style="text-decoration:underline; cursor:pointer; color:var(--turf-1); font-weight:600;">Change formation</span>
+      </div>
+      <div id="formationChangePanel" style="display:none;"></div>
+      <section><h2>Rotation timeline — tap a name to override</h2><div class="timeline" id="timeline"></div></section>
+      <section>
+        <h2>Forecast playing time</h2>
+        <div class="fair-legend">
+          <span><i class="outfield"></i>Outfield</span><span><i class="gk"></i>Goalkeeper</span>
+          <span><i class="target"></i>Target</span><span><i class="tick"></i>Played so far</span>
+        </div>
+        <div id="fairness"></div>
+      </section>
+      <p class="note">Squad and match settings are saved on this device. Manual edits recalculate everything after the change only.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================= MODAL HELPERS =================
+   window.confirm()/alert() are unreliable inside the sandboxed iframe an
+   artifact runs in — they can silently no-op (return falsy without ever
+   showing a dialog), which is exactly why "Remove from squad" appeared to
+   do nothing: the guard `if (!confirm(...)) return;` was firing every
+   time. These render an in-page dialog instead, matching the existing
+   picker/panel visual language. */
+function showAlert(message) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-card"><div class="modal-msg"></div><div class="modal-btn-row"><button class="btn btn-primary" id="modalOk">OK</button></div></div>`;
+  overlay.querySelector('.modal-msg').textContent = message;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#modalOk').addEventListener('click', () => overlay.remove());
+}
+function showConfirm(message, onConfirm, confirmLabel) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-card"><div class="modal-msg"></div><div class="modal-btn-row">
+    <button class="btn btn-ghost" id="modalCancel">Cancel</button>
+    <button class="btn btn-primary" id="modalConfirm">${confirmLabel || 'Confirm'}</button>
+  </div></div>`;
+  overlay.querySelector('.modal-msg').textContent = message;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#modalCancel').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#modalConfirm').addEventListener('click', () => { overlay.remove(); onConfirm(); });
+}
+
+/* ================= PERSISTENCE ================= */
+const STORAGE_KEY = 'rf_squad_v1';
+const DEFAULT_SQUAD = [
+  {id:'Harry',   number:1,  positions:{DEF:2, MID:2, ATT:1}, gk:true},
+  {id:'Archie',  number:12, positions:{DEF:2, MID:2, ATT:1}, gk:true},
+  {id:'Jack',    number:4,  positions:{DEF:2, MID:2, ATT:1}, gk:false},
+  {id:'Alfie',   number:7,  positions:{DEF:2, MID:2, ATT:1}, gk:false},
+  {id:'Charlie', number:9,  positions:{DEF:2, MID:2, ATT:1}, gk:false},
+  {id:'Oliver',  number:8,  positions:{DEF:2, MID:2, ATT:1}, gk:false},
+  {id:'George',  number:10, positions:{DEF:2, MID:2, ATT:1}, gk:false},
+  {id:'Leo',     number:5,  positions:{DEF:2, MID:2, ATT:1}, gk:false},
+  {id:'Noah',    number:6,  positions:{DEF:2, MID:2, ATT:1}, gk:false},
+  {id:'Theo',    number:11, positions:{DEF:2, MID:2, ATT:1}, gk:false},
+];
+
+function loadSquad() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { console.warn('Could not read saved squad, using defaults', e); }
+  return DEFAULT_SQUAD.map(p => ({...p}));
+}
+function saveSquad() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(squad)); }
+  catch (e) { console.warn('Could not save squad', e); }
+}
+
+let squad = loadSquad();
+
+/* ================= MATCH FORMAT (dynamic — any format, not hardcoded) ================= */
+let SLOTS = [], slotsById = {};
+let DURATION = 50, PLAYERS_ON_PITCH = 7, PERIODS = 2, HAS_GK = true, PERIOD_BOUNDS = [0, 25, 50];
+const TIER_NAMES = {0:'Do not use', 1:'Can play', 2:'Comfortable', 3:'Preferred'};
+
+// Lays out whatever shape the coach chooses — including every outfield
+// player in one group, e.g. all-defence. No balancing is enforced here;
+// that choice belongs entirely to the coach, made explicit in Setup step 1.
+function buildFormation(counts, hasGoalkeeper) {
+  const groupOrder = ['DEF', 'MID', 'ATT'];
+  const slots = [];
+  if (hasGoalkeeper) slots.push({id: 'GK', label: 'GK', group: 'GK', x: 150, y: 432});
+
+  const presentRows = groupOrder.filter(g => counts[g] > 0); // bottom-to-top: DEF, MID, ATT
+  const yTop = 65, yBottom = 375;
+  presentRows.forEach((group, rowIndex) => {
+    const y = presentRows.length === 1 ? (yTop + yBottom) / 2
+      : yBottom - (yBottom - yTop) * (rowIndex / (presentRows.length - 1));
+    const n = counts[group];
+    for (let i = 0; i < n; i++) {
+      const x = n === 1 ? 150 : 35 + (265 - 35) * (i / (n - 1));
+      slots.push({id: `${group}${i + 1}`, label: group, group, x, y});
+    }
+  });
+  return slots;
+}
+
+// Sensible starting suggestion only — the coach can freely override every number.
+function suggestBalancedCounts(outfieldCount) {
+  const counts = {DEF: 0, MID: 0, ATT: 0};
+  const order = ['DEF', 'MID', 'ATT'];
+  for (let i = 0; i < outfieldCount; i++) counts[order[i % 3]]++;
+  return counts;
+}
+
+function periodBoundaries(duration, periods) {
+  const bounds = [0];
+  for (let i = 1; i <= periods; i++) bounds.push(Math.round(duration * i / periods));
+  bounds[bounds.length - 1] = duration; // guarantee it ends exactly on full time
+  return bounds;
+}
+
+function applyMatchFormat(playersOnPitch, hasGoalkeeper, duration, periods, shapeCounts) {
+  PLAYERS_ON_PITCH = playersOnPitch;
+  HAS_GK = hasGoalkeeper;
+  DURATION = duration;
+  PERIODS = periods;
+  PERIOD_BOUNDS = periodBoundaries(duration, periods);
+  SLOTS = buildFormation(shapeCounts, hasGoalkeeper);
+  slotsById = Object.fromEntries(SLOTS.map(s => [s.id, s]));
+}
+applyMatchFormat(7, true, 50, 2, {DEF: 2, MID: 3, ATT: 1}); // sensible default until the coach confirms a match
+let confirmedShape = {DEF: 2, MID: 3, ATT: 1}; // set for real when the coach confirms format (used to rebuild state on reload)
+
+/* ================= SQUAD SCREEN ================= */
+function tagsFor(p) {
+  const parts = [`DEF ${TIER_NAMES[p.positions.DEF]}`, `MID ${TIER_NAMES[p.positions.MID]}`, `ATT ${TIER_NAMES[p.positions.ATT]}`];
+  return parts.join(' · ');
+}
+
+function renderSquadList() {
+  document.getElementById('squadCountMeta').textContent = `${squad.length} in squad`;
+  const list = document.getElementById('squadList');
+  list.innerHTML = '';
+  squad.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'player-card';
+    row.innerHTML = `<span class="num">${p.number || ''}</span>
+      <div style="flex:1; margin-left:8px;">
+        <div class="name">${p.id}${p.gk ? '<span class="gk-pill">GK</span>' : ''}</div>
+        <div class="tags">${tagsFor(p)}</div>
+      </div>`;
+    row.addEventListener('click', () => openPlayerForm(p.id));
+    list.appendChild(row);
+  });
+}
+
+let editingPlayerId = null;
+function openPlayerForm(id) {
+  editingPlayerId = id;
+  const p = id ? squad.find(x => x.id === id) : null;
+  document.getElementById('pf-name').value = p ? p.id : '';
+  document.getElementById('pf-number').value = p && p.number ? p.number : '';
+  document.getElementById('pf-def').value = p ? p.positions.DEF : 2;
+  document.getElementById('pf-mid').value = p ? p.positions.MID : 2;
+  document.getElementById('pf-att').value = p ? p.positions.ATT : 1;
+  document.getElementById('pf-gk').checked = p ? p.gk : false;
+  document.getElementById('pf-delete').style.display = p ? 'block' : 'none';
+  showScreen('playerForm');
+}
+
+document.getElementById('addPlayerBtn').addEventListener('click', () => openPlayerForm(null));
+document.getElementById('pf-cancel').addEventListener('click', () => showScreen('squad'));
+document.getElementById('pf-save').addEventListener('click', () => {
+  const name = document.getElementById('pf-name').value.trim();
+  if (!name) { showAlert('Enter a name.'); return; }
+  const newPlayer = {
+    id: name,
+    number: parseInt(document.getElementById('pf-number').value, 10) || null,
+    positions: {
+      DEF: parseInt(document.getElementById('pf-def').value, 10),
+      MID: parseInt(document.getElementById('pf-mid').value, 10),
+      ATT: parseInt(document.getElementById('pf-att').value, 10),
+    },
+    gk: document.getElementById('pf-gk').checked,
+  };
+  if (editingPlayerId) {
+    const idx = squad.findIndex(x => x.id === editingPlayerId);
+    squad[idx] = newPlayer;
+  } else {
+    if (squad.some(x => x.id === newPlayer.id)) { showAlert('A player with this name already exists.'); return; }
+    squad.push(newPlayer);
+  }
+  saveSquad();
+  renderSquadList();
+  showScreen('squad');
+});
+document.getElementById('pf-delete').addEventListener('click', () => {
+  showConfirm(`Remove ${editingPlayerId} from the squad?`, () => {
+    squad = squad.filter(x => x.id !== editingPlayerId);
+    saveSquad();
+    renderSquadList();
+    showScreen('squad');
+  }, 'Remove');
+});
+
+/* ================= NAV ================= */
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tabName = (name === 'playerForm') ? 'squad' : name;
+  const tabEl = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (tabEl) tabEl.classList.add('active');
+  // The Plan screen has its own compact back button + Live/Details sub-tabs,
+  // so the top scoreboard and Squad/New Match/Match Plan bar just eat space
+  // there without adding anything - hide them while it's active.
+  const onPlan = name === 'plan';
+  document.querySelector('.scoreboard').style.display = onPlan ? 'none' : 'flex';
+  document.querySelector('.tabs').style.display = onPlan ? 'none' : 'flex';
+}
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    if (tab.classList.contains('disabled')) return;
+    if (tab.dataset.tab === 'setup') {
+      document.getElementById('setupStepPlan').style.display = 'none';
+      document.getElementById('setupStepFormat').style.display = 'block';
+    }
+    showScreen(tab.dataset.tab);
+  });
+});
+
+/* ================= SETUP SCREEN — STEP 1: MATCH FORMAT ================= */
+function outfieldCount() {
+  const n = parseInt(document.getElementById('fmt-players').value, 10) || 0;
+  const hasGk = document.getElementById('fmt-gk').checked;
+  return Math.max(0, hasGk ? n - 1 : n);
+}
+function refillShapeSuggestion() {
+  const c = suggestBalancedCounts(outfieldCount());
+  document.getElementById('fmt-def').value = c.DEF;
+  document.getElementById('fmt-mid').value = c.MID;
+  document.getElementById('fmt-att').value = c.ATT;
+  updateShapeTotal();
+}
+function updateShapeTotal() {
+  const oc = outfieldCount();
+  const d = parseInt(document.getElementById('fmt-def').value, 10) || 0;
+  const m = parseInt(document.getElementById('fmt-mid').value, 10) || 0;
+  const a = parseInt(document.getElementById('fmt-att').value, 10) || 0;
+  const sum = d + m + a;
+  const el = document.getElementById('shapeTotal');
+  el.textContent = `${sum} of ${oc} outfield players placed${sum !== oc ? ' — adjust to match' : ' ✓'}`;
+  el.style.color = sum !== oc ? 'var(--coral)' : 'var(--ink-soft)';
+}
+function updatePeriodPreview() {
+  const dur = parseInt(document.getElementById('fmt-duration').value, 10) || 0;
+  const per = Math.max(1, parseInt(document.getElementById('fmt-periods').value, 10) || 1);
+  const bounds = periodBoundaries(dur, per);
+  const lens = [];
+  for (let i = 0; i < bounds.length - 1; i++) lens.push(bounds[i + 1] - bounds[i]);
+  document.getElementById('periodPreview').textContent = `${per} period${per > 1 ? 's' : ''} of ${lens.map(l => l + "'").join(', ')} (${dur}' total)`;
+}
+function syncPresetActiveState() {
+  const val = document.getElementById('fmt-players').value;
+  let matched = false;
+  document.querySelectorAll('.preset-chip').forEach(c => {
+    const on = c.dataset.preset === val;
+    c.classList.toggle('active', on);
+    if (on) matched = true;
+  });
+  if (!matched) document.querySelector('.preset-chip[data-preset="custom"]').classList.add('active');
+}
+
+document.getElementById('presetRow').addEventListener('click', e => {
+  const chip = e.target.closest('.preset-chip');
+  if (!chip) return;
+  if (chip.dataset.preset !== 'custom') document.getElementById('fmt-players').value = chip.dataset.preset;
+  syncPresetActiveState();
+  refillShapeSuggestion();
+});
+document.getElementById('fmt-players').addEventListener('input', () => { syncPresetActiveState(); refillShapeSuggestion(); });
+document.getElementById('fmt-gk').addEventListener('change', refillShapeSuggestion);
+document.getElementById('fmt-duration').addEventListener('input', updatePeriodPreview);
+document.getElementById('fmt-periods').addEventListener('input', updatePeriodPreview);
+['fmt-def', 'fmt-mid', 'fmt-att'].forEach(id => document.getElementById(id).addEventListener('input', updateShapeTotal));
+
+document.getElementById('confirmFormatBtn').addEventListener('click', () => {
+  const players = parseInt(document.getElementById('fmt-players').value, 10);
+  const duration = parseInt(document.getElementById('fmt-duration').value, 10);
+  const periods = parseInt(document.getElementById('fmt-periods').value, 10);
+  const hasGk = document.getElementById('fmt-gk').checked;
+  const shape = {
+    DEF: parseInt(document.getElementById('fmt-def').value, 10) || 0,
+    MID: parseInt(document.getElementById('fmt-mid').value, 10) || 0,
+    ATT: parseInt(document.getElementById('fmt-att').value, 10) || 0,
+  };
+  const oc = hasGk ? players - 1 : players;
+  const errEl = document.getElementById('formatError');
+  let error = null;
+  if (!players || players < 2) error = 'Enter at least 2 players per side.';
+  else if (!duration || duration < 1) error = 'Enter a match duration.';
+  else if (!periods || periods < 1) error = 'Enter at least 1 period.';
+  else if (shape.DEF + shape.MID + shape.ATT !== oc) error = `Formation shape must add up to ${oc} outfield players (currently ${shape.DEF + shape.MID + shape.ATT}).`;
+  if (error) { errEl.style.display = 'block'; errEl.textContent = error; return; }
+  errEl.style.display = 'none';
+
+  confirmedShape = {...shape}; // remembered so a reload mid-match can rebuild the same formation
+  applyMatchFormat(players, hasGk, duration, periods, shape);
+  gkKeepers = new Array(PERIODS).fill(null);
+  gkMode = PERIODS > 1 ? 'rotate' : 'single';
+
+  const shapeDesc = ['DEF', 'MID', 'ATT'].filter(g => shape[g] > 0).map(g => `${shape[g]} ${g}`).join('-');
+  document.getElementById('formatSummaryLine').textContent =
+    `${players}v${players}${hasGk ? '' : ' (no GK)'} · ${duration}' · ${periods} period${periods > 1 ? 's' : ''} · ${shapeDesc || 'no outfield players?!'}`;
+
+  document.getElementById('setupStepFormat').style.display = 'none';
+  document.getElementById('setupStepPlan').style.display = 'block';
+  renderSetupScreen();
+});
+document.getElementById('changeFormatLink').addEventListener('click', () => {
+  document.getElementById('setupStepPlan').style.display = 'none';
+  document.getElementById('setupStepFormat').style.display = 'block';
+});
+refillShapeSuggestion();
+updatePeriodPreview();
+
+/* ================= SETUP SCREEN — STEP 2: TEAM & GK PLANNING ================= */
+let availableIds = new Set();
+let gkMode = 'rotate';
+let gkKeepers = []; // one chosen keeper id per period (rotate mode uses all; single mode uses only index 0)
+
+function renderSetupScreen() {
+  if (availableIds.size === 0) squad.forEach(p => availableIds.add(p.id)); // default: everyone available
+
+  document.getElementById('availHeading').textContent = `Available for this match (${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH})`;
+
+  const list = document.getElementById('availList');
+  list.innerHTML = '';
+  squad.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'avail-row';
+    row.innerHTML = `<input type="checkbox" id="avail-${p.id}" ${availableIds.has(p.id) ? 'checked' : ''}>
+      <span class="name">${p.id}${p.gk ? '<span class="gk-pill">GK</span>' : ''}</span>`;
+    row.querySelector('input').addEventListener('change', e => {
+      if (e.target.checked) availableIds.add(p.id); else availableIds.delete(p.id);
+      renderSetupScreen();
+    });
+    list.appendChild(row);
+  });
+
+  const countEl = document.getElementById('availCount');
+  const n = availableIds.size;
+  countEl.textContent = `${n} available · need at least ${PLAYERS_ON_PITCH}`;
+  countEl.classList.toggle('warn', n < PLAYERS_ON_PITCH);
+
+  renderGkSection();
+  validateSetup();
+}
+
+function availableGkEligible() {
+  return squad.filter(p => p.gk && availableIds.has(p.id));
+}
+
+function renderGkSection() {
+  const gkSectionEl = document.getElementById('gkSection');
+  if (!HAS_GK) { gkSectionEl.style.display = 'none'; validateSetup(); return; }
+  gkSectionEl.style.display = 'block';
+
+  const eligible = availableGkEligible();
+  const warnEl = document.getElementById('gkWarning');
+  const modeRow = document.getElementById('gkModeRow');
+  const pickersEl = document.getElementById('gkPickers');
+  warnEl.innerHTML = ''; pickersEl.innerHTML = '';
+
+  if (eligible.length === 0) {
+    warnEl.innerHTML = `<div class="warn-box">No available player is marked goalkeeper-eligible. Mark at least one player as GK-eligible in the Squad tab, or select one as available.</div>`;
+    modeRow.style.display = 'none';
+    return;
+  }
+  modeRow.style.display = 'flex';
+  if (PERIODS === 1 || eligible.length === 1) gkMode = 'single';
+
+  if (!gkKeepers.length || gkKeepers.length !== PERIODS) gkKeepers = new Array(PERIODS).fill(null);
+  for (let i = 0; i < PERIODS; i++) {
+    if (!eligible.some(p => p.id === gkKeepers[i])) gkKeepers[i] = eligible[i % eligible.length].id;
+  }
+
+  modeRow.querySelectorAll('.radio-opt').forEach(opt => {
+    opt.classList.toggle('selected', opt.dataset.mode === gkMode);
+    opt.classList.toggle('disabled', (eligible.length < 2 || PERIODS < 2) && opt.dataset.mode === 'rotate');
+  });
+
+  function selectHtml(selectedId) {
+    return eligible.map(p => `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.id}</option>`).join('');
+  }
+
+  if (gkMode === 'single') {
+    pickersEl.innerHTML = `<div class="field"><label>Goalkeeper (whole match)</label><select id="gk-single">${selectHtml(gkKeepers[0])}</select></div>`;
+    document.getElementById('gk-single').addEventListener('change', e => { gkKeepers = new Array(PERIODS).fill(e.target.value); validateSetup(); });
+  } else {
+    pickersEl.innerHTML = PERIOD_BOUNDS.slice(0, -1).map((start, i) =>
+      `<div class="field"><label>Period ${i + 1} (${start}'–${PERIOD_BOUNDS[i + 1]}')</label><select id="gk-period-${i}">${selectHtml(gkKeepers[i])}</select></div>`
+    ).join('');
+    PERIOD_BOUNDS.slice(0, -1).forEach((_, i) => {
+      document.getElementById(`gk-period-${i}`).addEventListener('change', e => { gkKeepers[i] = e.target.value; validateSetup(); });
+    });
+  }
+}
+
+document.getElementById('gkModeRow').addEventListener('click', e => {
+  const opt = e.target.closest('.radio-opt');
+  if (!opt || opt.classList.contains('disabled')) return;
+  gkMode = opt.dataset.mode;
+  renderGkSection();
+  validateSetup();
+});
+
+function validateSetup() {
+  const errEl = document.getElementById('setupError');
+  const genBtn = document.getElementById('generateBtn');
+  const n = availableIds.size;
+  let error = null;
+  if (n < PLAYERS_ON_PITCH) error = `Need at least ${PLAYERS_ON_PITCH} available players (currently ${n}).`;
+  else if (HAS_GK && availableGkEligible().length === 0) error = `No available goalkeeper-eligible player.`;
+  else {
+    const avail = squad.filter(p => availableIds.has(p.id));
+    for (const group of ['DEF', 'MID', 'ATT']) {
+      const needed = SLOTS.filter(s => s.group === group).length;
+      if (needed === 0) continue;
+      const have = avail.filter(p => (p.positions[group] ?? 0) >= 1).length;
+      if (have < needed) { error = `Not enough available players who can play ${group} (need ${needed}, have ${have}).`; break; }
+    }
+  }
+  errEl.style.display = error ? 'block' : 'none';
+  errEl.textContent = error || '';
+  genBtn.disabled = !!error;
+}
+
+/* ================= ROTATION SETTINGS (shared with Plan screen) ================= */
+// gkCountsForFairness defaults to false: outfield time only is balanced, so a
+// player who does a stint in goal doesn't count that as part of their fair
+// share (and doesn't get less outfield time as a result). Coaches who want
+// total pitch time (GK included) balanced instead can flip this on.
+let cfg = {fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, gkCountsForFairness: false};
+const fairnessSlider = document.getElementById('fairnessSlider');
+const strictnessSlider = document.getElementById('strictnessSlider');
+const minShiftSlider = document.getElementById('minShiftSlider');
+const gkCountsCheckbox = document.getElementById('gkCountsCheckbox');
+function labelFor(val, lo, mid, hi) { return val <= 0.3 ? lo : (val >= 0.7 ? hi : mid); }
+function updateConfigSummary() {
+  const fLabel = labelFor(cfg.fairnessPriority, 'Fewer subs', 'Balanced', 'Maximum fairness');
+  const sLabel = labelFor(cfg.positionStrictness, 'Chase fairness', 'Balanced', 'Stick to position');
+  document.getElementById('fairnessLabel').textContent = fLabel;
+  document.getElementById('strictnessLabel').textContent = sLabel;
+  document.getElementById('minShiftLabel').textContent = cfg.minShiftLength + "'";
+  document.getElementById('configSummary').textContent = `${fLabel} · ${sLabel} · min ${cfg.minShiftLength}' on pitch · GK time ${cfg.gkCountsForFairness ? 'counts' : "doesn't count"}`;
+}
+function onConfigInput() {
+  cfg = {
+    fairnessPriority: parseFloat(fairnessSlider.value),
+    positionStrictness: parseFloat(strictnessSlider.value),
+    minShiftLength: parseInt(minShiftSlider.value, 10),
+    gkCountsForFairness: gkCountsCheckbox.checked,
+  };
+  updateConfigSummary();
+  // Locked events (substitution overrides + formation changes) now persist
+  // across settings changes - only the algorithm's own suggestions get
+  // recomputed with the new settings, same as before, but nothing the coach
+  // explicitly decided gets silently thrown away anymore.
+  if (PLAYERS.length) computeTargets(); // the fair target itself shifts if the GK toggle changed
+  if (PLAN) { regeneratePlan(); openPicker = null; render(currentT); }
+}
+fairnessSlider.addEventListener('input', onConfigInput);
+strictnessSlider.addEventListener('input', onConfigInput);
+minShiftSlider.addEventListener('input', onConfigInput);
+gkCountsCheckbox.addEventListener('change', onConfigInput);
+document.getElementById('configHeader').addEventListener('click', () => {
+  const open = document.getElementById('configBody').classList.toggle('open');
+  document.getElementById('configCog').classList.toggle('open', open);
+});
+updateConfigSummary();
+
+/* ================= SIMULATION ENGINE ================= */
+let PLAYERS = [];          // active match squad (subset of `squad`)
+let playersById = {};
+let GK_SEGMENTS = [];
+let TARGET = 0, TARGETS = {};
+let startingLineup = {};
+
+function buildStartingLineup(availablePlayers, gkSegments) {
+  const lineup = {};
+  const used = new Set();
+  if (HAS_GK) {
+    const gkSlot = SLOTS.find(s => s.group === 'GK');
+    lineup[gkSlot.id] = gkSegments[0].player;
+    used.add(gkSegments[0].player);
+  }
+
+  for (const slot of SLOTS) {
+    if (slot.group === 'GK') continue;
+    const candidates = availablePlayers.filter(p => !used.has(p.id) && (p.positions[slot.group] ?? 0) >= 1);
+    if (!candidates.length) throw new Error(`No available player left for ${slot.label} (${slot.group}).`);
+    candidates.sort((a,b) => (b.positions[slot.group] ?? 0) - (a.positions[slot.group] ?? 0));
+    lineup[slot.id] = candidates[0].id;
+    used.add(candidates[0].id);
+  }
+  return lineup;
+}
+
+function buildState(lineup) {
+  const onPitch = {...lineup};
+  const onPitchIds = new Set(Object.values(onPitch));
+  return {
+    onPitch,
+    activeSlots: SLOTS,          // can change mid-match via a formation-change locked event
+    minutesPlayed: Object.fromEntries(PLAYERS.map(p => [p.id, 0])),
+    outfieldMinutesPlayed: Object.fromEntries(PLAYERS.map(p => [p.id, 0])), // excludes time in the GK slot
+    lastSubIn: Object.fromEntries(Object.values(onPitch).map(pid => [pid, 0])),
+    benchSet: new Set(PLAYERS.map(p => p.id).filter(id => !onPitchIds.has(id))),
+    rotations: [],
+  };
+}
+// The basis fairness decisions are made on: total pitch time, or outfield-only
+// (the coach's choice via cfg.gkCountsForFairness).
+function fairnessBasis(state) { return cfg.gkCountsForFairness ? state.minutesPlayed : state.outfieldMinutesPlayed; }
+
+// Handles a scheduled goalkeeper change at any period boundary, not just half-time.
+function applyPeriodGKChange(state, t) {
+  if (!HAS_GK) return;
+  const seg = GK_SEGMENTS.find(s => s.from === t);
+  if (!seg) return;
+  const gkSlot = state.activeSlots.find(s => s.group === 'GK');
+  const outgoingGK = state.onPitch[gkSlot.id];
+  if (outgoingGK === seg.player) return;
+
+  let incomingSlotId = null;
+  for (const [sid, pid] of Object.entries(state.onPitch)) {
+    if (pid === seg.player && sid !== gkSlot.id) { incomingSlotId = sid; break; }
+  }
+  if (incomingSlotId) {
+    const vacated = state.activeSlots.find(s => s.id === incomingSlotId);
+    state.onPitch[gkSlot.id] = seg.player; state.lastSubIn[seg.player] = t;
+    state.rotations.push({time:t, slot:gkSlot.id, off:outgoingGK, on:seg.player, reason:'scheduled GK rotation'});
+    const outgoingVal = playersById[outgoingGK].positions[vacated.group] ?? 0;
+    if (outgoingVal > 0) {
+      state.onPitch[incomingSlotId] = outgoingGK; state.lastSubIn[outgoingGK] = t;
+      state.rotations.push({time:t, slot:incomingSlotId, off:seg.player, on:outgoingGK, reason:'keeper moves outfield after GK swap'});
+    } else {
+      state.benchSet.add(outgoingGK);
+      const cands = [...state.benchSet].map(id => playersById[id])
+        .filter(p => (p.positions[vacated.group] ?? 0) > 0)
+        .filter(p => unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]);
+      if (cands.length) {
+        const basis = fairnessBasis(state);
+        cands.sort((a,b) => basis[a.id] - basis[b.id]);
+        const rep = cands[0];
+        state.benchSet.delete(rep.id);
+        state.onPitch[incomingSlotId] = rep.id; state.lastSubIn[rep.id] = t;
+        state.rotations.push({time:t, slot:incomingSlotId, off:seg.player, on:rep.id, reason:'backfill after GK swap'});
+      }
+    }
+  } else {
+    state.benchSet.delete(seg.player); state.benchSet.add(outgoingGK);
+    state.onPitch[gkSlot.id] = seg.player; state.lastSubIn[seg.player] = t;
+    state.rotations.push({time:t, slot:gkSlot.id, off:outgoingGK, on:seg.player, reason:'scheduled GK rotation'});
+  }
+}
+
+// Applies a coach-triggered formation change: same on-pitch players, remapped
+// into a new set of slots. Nobody comes off or on — this never touches
+// playing-time fairness, only which position group each player currently fills.
+// The rotation algorithm always plans against whichever formation is active;
+// it never suggests formation changes itself.
+function applyFormationChange(state, t, ev) {
+  state.activeSlots = ev.slots;
+  state.onPitch = {...ev.remap};
+  // lastSubIn is keyed by player id, not slot id, so it's untouched here -
+  // correct, since nobody left the pitch, so the minimum-shift clock for
+  // each player should keep running from whenever they actually came on.
+  state.rotations.push({time: t, type: 'formation', slots: ev.slots, remap: {...ev.remap}, reason: 'formation change'});
+}
+
+function runFairnessPass(state, t, skipSlots) {
+  const threshold = (1 - cfg.fairnessPriority) * 0.4 * TARGET;
+  const minTier = cfg.positionStrictness < 0.5 ? 1 : 2;
+  const basis = fairnessBasis(state);
+  for (const slot of state.activeSlots) {
+    if (slot.group === 'GK' || skipSlots.has(slot.id)) continue;
+    const curPid = state.onPitch[slot.id];
+    if (t - state.lastSubIn[curPid] < cfg.minShiftLength) continue;
+    const eligible = [...state.benchSet].map(id => playersById[id])
+      .filter(p => (p.positions[slot.group] ?? 0) >= minTier)
+      .filter(p => unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]);
+    if (!eligible.length) continue;
+    eligible.sort((a,b) => basis[a.id] - basis[b.id]);
+    const cand = eligible[0];
+    const curDeficit = TARGETS[curPid] - basis[curPid];
+    const candDeficit = TARGETS[cand.id] - basis[cand.id];
+    if (candDeficit - curDeficit > threshold) {
+      state.benchSet.delete(cand.id); state.benchSet.add(curPid);
+      state.onPitch[slot.id] = cand.id; state.lastSubIn[cand.id] = t;
+      state.rotations.push({time:t, slot:slot.id, off:curPid, on:cand.id, reason:'playing-time fairness'});
+    }
+  }
+}
+
+// Replays the ENTIRE ordered history of coach decisions (substitution
+// overrides, formation changes, skips, and unavailability) from kick-off
+// every time. This fixes a real bug: previously only the single most-recent
+// edit was applied, so a second manual edit silently erased the first. Now
+// every locked event persists across edits, and the algorithm fills in
+// everything around them.
+function simulate(lineup, lockedEvents) {
+  const events = [...lockedEvents].sort((a,b) => a.time - b.time);
+  const state = buildState(lineup);
+  for (let t = 1; t <= DURATION; t++) {
+    for (const [slotId, pid] of Object.entries(state.onPitch)) {
+      state.minutesPlayed[pid] += 1;
+      if (!(HAS_GK && slotId === 'GK')) state.outfieldMinutesPlayed[pid] += 1;
+    }
+    if (t === DURATION) break;
+    applyPeriodGKChange(state, t);
+
+    const dueNow = events.filter(e => e.time === t);
+    const skipSlots = new Set();
+    for (const ev of dueNow) {
+      if (ev.type === 'formation') {
+        applyFormationChange(state, t, ev);
+      } else if (ev.type === 'skip') {
+        // Coach declined this suggested swap for now. Reset the current
+        // occupant's clock so the fairness pass doesn't immediately
+        // re-suggest the exact same swap again one minute later - but it
+        // will genuinely reconsider once min_shift_length has passed again.
+        const curPid = state.onPitch[ev.slot];
+        state.lastSubIn[curPid] = t;
+        state.rotations.push({time:t, type:'skip', slot:ev.slot, reason:'coach skipped'});
+        skipSlots.add(ev.slot);
+      } else if (ev.type === 'unavailable') {
+        // Informational marker only - the actual exclusion is enforced via
+        // unavailableFrom, consulted by every eligibility check above.
+        state.rotations.push({time:t, type:'unavailable', player: ev.player, reason:'marked unavailable'});
+      } else { // substitution override
+        const curPid = state.onPitch[ev.slot];
+        if (curPid !== ev.on) {
+          state.benchSet.delete(ev.on); state.benchSet.add(curPid);
+          state.onPitch[ev.slot] = ev.on; state.lastSubIn[ev.on] = t;
+          state.rotations.push({time:t, slot:ev.slot, off:curPid, on:ev.on, reason:ev.reason || 'coach override', edited:true});
+        }
+        skipSlots.add(ev.slot); // don't let the fairness pass immediately re-touch what the coach just set
+      }
+    }
+    runFairnessPass(state, t, skipSlots);
+  }
+  return state;
+}
+
+let PLAN = null;
+let lockedEvents = []; // persistent history of coach decisions this match: subs, formation changes, skips, unavailability
+let unavailableFrom = {}; // playerId -> minute they became unavailable (time-scoped, not retroactive)
+function regeneratePlan() {
+  const state = simulate(startingLineup, lockedEvents);
+  PLAN = {rotations: state.rotations, projectedMinutes: state.minutesPlayed};
+}
+
+// Reconstructs exact match state at any minute by replaying PLAN.rotations
+// from kick-off. Naturally handles formation changes (slot ids differ across
+// eras) in a way a fixed per-slot lookup table couldn't.
+function computeStateAt(t) {
+  let activeSlots = SLOTS;
+  let onPitch = {...startingLineup};
+  const minutesPlayed = Object.fromEntries(PLAYERS.map(p => [p.id, 0]));
+  const gkMinutes = Object.fromEntries(PLAYERS.map(p => [p.id, 0]));
+  let lastTime = 0;
+  const events = [...PLAN.rotations].sort((a,b) => a.time - b.time);
+
+  function accumulate(upTo) {
+    const elapsed = upTo - lastTime;
+    if (elapsed <= 0) return;
+    for (const [slotId, pid] of Object.entries(onPitch)) {
+      minutesPlayed[pid] += elapsed;
+      if (HAS_GK && slotId === 'GK') gkMinutes[pid] += elapsed;
+    }
+    lastTime = upTo;
+  }
+
+  for (const ev of events) {
+    if (ev.time > t) break;
+    accumulate(ev.time);
+    if (ev.type === 'formation') { activeSlots = ev.slots; onPitch = {...ev.remap}; }
+    else if (ev.type === 'skip' || ev.type === 'unavailable') { /* no onPitch change - informational only */ }
+    else onPitch[ev.slot] = ev.on;
+  }
+  accumulate(t);
+  return {onPitch, activeSlots, minutesPlayed, gkMinutes};
+}
+function initials(name) { return name.slice(0,2).toUpperCase(); }
+
+
+// The "fair share" each player is aiming for. When GK time counts toward
+// fairness, that's simply total pitch-minutes split evenly. When it doesn't
+// (the default), the target is outfield-slot-minutes split evenly instead -
+// GK minutes then sit on top of that target rather than eating into it.
+function computeTargets() {
+  const outfieldSlots = HAS_GK ? PLAYERS_ON_PITCH - 1 : PLAYERS_ON_PITCH;
+  const slotsForTarget = cfg.gkCountsForFairness ? PLAYERS_ON_PITCH : outfieldSlots;
+  TARGET = (slotsForTarget * DURATION) / PLAYERS.length;
+  TARGETS = Object.fromEntries(PLAYERS.map(p => [p.id, TARGET]));
+}
+
+// Extracted so both the Generate button and a mid-match reload restore can build the same GK schedule.
+function computeGkSegments() {
+  if (!HAS_GK) return [];
+  return PERIOD_BOUNDS.slice(0, -1).map((start, i) => ({
+    player: gkMode === 'single' ? gkKeepers[0] : gkKeepers[i],
+    from: start, to: PERIOD_BOUNDS[i + 1],
+  }));
+}
+
+/* ---- GENERATE button: build match state from squad + setup choices ---- */
+document.getElementById('generateBtn').addEventListener('click', () => {
+  clearLiveMatchState(); // starting a fresh plan invalidates any previously saved in-progress match
+  const avail = squad.filter(p => availableIds.has(p.id));
+  PLAYERS = avail;
+  playersById = Object.fromEntries(PLAYERS.map(p => [p.id, p]));
+  computeTargets();
+
+  GK_SEGMENTS = computeGkSegments();
+
+  try {
+    startingLineup = buildStartingLineup(PLAYERS, GK_SEGMENTS);
+  } catch (e) {
+    document.getElementById('setupError').style.display = 'block';
+    document.getElementById('setupError').textContent = e.message;
+    return;
+  }
+
+  lockedEvents = []; unavailableFrom = {}; // fresh match - clear any previous match's coach decisions
+  liveMode = false; halfTimeActive = false; matchFinished = false;
+  clearInterval(liveTicker); matchStartTs = null; pausedAccumMs = 0; pauseStartedAt = null;
+  document.getElementById('previewControls').style.display = 'block';
+  document.getElementById('liveControls').style.display = 'none';
+  document.getElementById('earlyFinishLink').style.display = 'none';
+  document.getElementById('nextSub').style.display = 'flex';
+  document.getElementById('halfTimePanel').style.display = 'none';
+  document.getElementById('halfTimePanel').innerHTML = '';
+  document.getElementById('liveActionPanel').innerHTML = '';
+  document.getElementById('liveMiscPanel').innerHTML = '';
+  score = {us: 0, them: 0}; goalEvents = [];
+  document.getElementById('scoreRow').style.display = 'none';
+  setPlanSubTab('live');
+  regeneratePlan();
+  document.getElementById('regenBanner').classList.remove('show');
+  document.getElementById('planTab').classList.remove('disabled');
+
+  document.getElementById('scrub').max = DURATION;
+  const shapeDesc = SLOTS.filter(s => s.group !== 'GK').length
+    ? ['DEF','MID','ATT'].map(g => SLOTS.filter(s => s.group === g).length).filter(n => n > 0).join('-')
+    : '';
+  document.getElementById('planSubline').textContent =
+    `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}${HAS_GK ? '' : ' (no GK)'} · ${DURATION} min · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`;
+  document.getElementById('halfMarks').innerHTML = PERIOD_BOUNDS.map((b, i) => {
+    if (i === 0) return '<span>KO</span>';
+    if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
+    return `<span>P${i + 1} ${b}'</span>`;
+  }).join('');
+
+  currentT = 0; openPicker = null;
+  render(0);
+  showScreen('plan');
+});
+
+/* ================= PLAN SCREEN RENDERING (pitch / timeline / fairness) ================= */
+let currentT = 0;
+let openPicker = null;
+
+function render(t) {
+  currentT = t;
+  document.getElementById('clockMin').textContent = t;
+  document.getElementById('scrub').value = t;
+  document.getElementById('editHint').textContent = liveMode
+    ? "Tap a player on the pitch for an unplanned change"
+    : (t === 0 ? "At kick-off (0') — tap a player to change the starting line-up" : "Tap a substitution below to override who comes on");
+
+  const now = computeStateAt(t);
+  const forecast = computeStateAt(DURATION); // for GK-minutes split in the forecast bars
+  const onPitch = now.onPitch;
+  const onPitchSet = new Set(Object.values(onPitch));
+
+  const tokensG = document.getElementById('tokens');
+  tokensG.innerHTML = '';
+  for (const slot of now.activeSlots) {
+    const pid = onPitch[slot.id];
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class', t === 0 ? 'token-hit' : '');
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx', slot.x); circle.setAttribute('cy', slot.y);
+    circle.setAttribute('r', 22); circle.setAttribute('fill', '#F4F1E6');
+    circle.setAttribute('stroke', '#E3A23C'); circle.setAttribute('stroke-width', '2');
+    const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+    label.setAttribute('x', slot.x); label.setAttribute('y', slot.y + 4);
+    label.setAttribute('class', 'token-name'); label.textContent = initials(pid);
+    const posLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+    posLabel.setAttribute('x', slot.x); posLabel.setAttribute('y', slot.y - 28);
+    posLabel.setAttribute('class', 'token-label'); posLabel.textContent = slot.label;
+    g.appendChild(circle); g.appendChild(label); g.appendChild(posLabel);
+    if (t === 0 && !liveMode) g.addEventListener('click', () => togglePicker({kind:'start', slotId: slot.id, time: 0}));
+    if (liveMode && !halfTimeActive && !matchFinished && slot.group !== 'GK') g.addEventListener('click', () => openLiveChangePicker(slot.id));
+    tokensG.appendChild(g);
+  }
+
+  const benchRow = document.getElementById('benchRow');
+  benchRow.innerHTML = '';
+  for (const p of PLAYERS) if (!onPitchSet.has(p.id)) {
+    const el = document.createElement('div'); el.className = 'bench-card'; el.textContent = p.id;
+    benchRow.appendChild(el);
+  }
+
+  const upcoming = PLAN.rotations.filter(r => r.time >= t && !r.type).sort((a,b) => a.time - b.time)[0];
+  const nextSubEl = document.getElementById('nextSub');
+  if (upcoming) {
+    const mins = upcoming.time - t;
+    nextSubEl.classList.remove('done');
+    nextSubEl.innerHTML = `<span class="tag">${mins === 0 ? 'NOW' : 'in ' + mins + "'"}</span> <span><strong>${upcoming.on}</strong> ON &nbsp;·&nbsp; <strong>${upcoming.off}</strong> OFF <span style="color:var(--ink-soft)">(${upcoming.slot})</span></span>`;
+  } else {
+    nextSubEl.classList.add('done');
+    nextSubEl.innerHTML = `<span class="tag">FT</span> <span>No further changes planned</span>`;
+  }
+
+  document.getElementById('currentShapeLabel').textContent =
+    'Current: ' + ['DEF','MID','ATT'].map(g => now.activeSlots.filter(s => s.group === g).length).filter(n => n > 0).join('-') + (HAS_GK ? ' + GK' : '');
+
+  renderTimeline(t, upcoming);
+
+  // The "played so far" tick should line up with whatever basis the target
+  // line represents - outfield-only unless the coach opted GK time in.
+  const soFar = cfg.gkCountsForFairness ? now.minutesPlayed
+    : Object.fromEntries(PLAYERS.map(p => [p.id, now.minutesPlayed[p.id] - now.gkMinutes[p.id]]));
+  const gkMins = forecast.gkMinutes;
+  const scale = DURATION;
+  const fairEl = document.getElementById('fairness');
+  fairEl.innerHTML = '';
+  for (const p of PLAYERS) {
+    const total = PLAN.projectedMinutes[p.id];
+    const gk = Math.min(gkMins[p.id] || 0, total);
+    const outfield = total - gk;
+    const gkPct = (gk / scale) * 100, outfieldPct = (outfield / scale) * 100;
+    const targetPct = Math.min(100, (TARGETS[p.id] / scale) * 100);
+    const soFarPct = Math.min(100, (soFar[p.id] / scale) * 100);
+    const row = document.createElement('div'); row.className = 'fair-row';
+    // Outfield first (from 0%), GK time after it - so the target/progress
+    // markers (which measure outfield-only time by default) line up right at
+    // the boundary between the two segments, making the comparison readable.
+    const outfieldBar = outfield > 0 ? `<div class="fair-bar-fill" style="left:0%; width:${outfieldPct}%; ${gk > 0 ? 'border-radius:8px 0 0 8px;' : 'border-radius:8px;'}"></div>` : '';
+    const gkBar = gk > 0 ? `<div class="fair-bar-fill gk" style="left:${outfieldPct}%; width:${gkPct}%; ${outfield > 0 ? 'border-radius:0 8px 8px 0;' : 'border-radius:8px;'}"></div>` : '';
+    row.innerHTML = `<span class="fair-name">${p.id}</span><div class="fair-bar-track">${outfieldBar}${gkBar}<div class="fair-target-line" style="left:${targetPct}%"></div><div class="fair-progress-tick" style="left:${soFarPct}%"></div></div><span class="fair-mins">${Math.round(total)}' ${gk > 0 ? `(${Math.round(gk)} GK)` : ''}</span>`;
+    fairEl.appendChild(row);
+  }
+}
+
+function renderTimeline(t, upcoming) {
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = '';
+  const grouped = {};
+  for (const r of PLAN.rotations) (grouped[r.time] = grouped[r.time] || []).push(r);
+  Object.keys(grouped).map(Number).sort((a,b) => a-b).forEach(time => {
+    const div = document.createElement('div');
+    const status = time < t ? 'past' : (time === (upcoming ? upcoming.time : -1) ? 'next' : 'future');
+    div.className = `tl-event ${status}`;
+    let inner = `<span class="tl-time">${time}'</span>`;
+    grouped[time].forEach(r => {
+      if (r.type === 'formation') {
+        const shapeDesc = ['DEF','MID','ATT'].map(g => r.slots.filter(s => s.group === g).length).filter(n => n > 0).join('-');
+        inner += `<div class="tl-swap" style="color:var(--ink-soft);">⟲ Formation changed (${shapeDesc}${HAS_GK ? ' + GK' : ''})</div>`;
+        return;
+      }
+      if (r.type === 'skip') {
+        inner += `<div class="tl-swap" style="color:var(--ink-soft);">⏭ Sub at ${r.slot} skipped</div>`;
+        return;
+      }
+      if (r.type === 'unavailable') {
+        inner += `<div class="tl-swap" style="color:var(--coral);">⚠ ${r.player} marked unavailable</div>`;
+        return;
+      }
+      const isPast = time < t;
+      const badge = r.edited ? '<span class="edited-badge">edited</span>' : '';
+      inner += `<div class="tl-swap"><span class="on ${isPast ? 'locked-past' : ''}" data-time="${time}" data-slot="${r.slot}">↑ ${r.on}</span>${badge} · <span class="off">↓ ${r.off}</span> <span style="color:var(--ink-soft)">(${r.slot})</span></div>`;
+    });
+    div.innerHTML = inner;
+    tl.appendChild(div);
+    if (openPicker && openPicker.kind === 'event' && openPicker.time === time) {
+      const slotForPicker = grouped[time].find(r => r.slot === openPicker.slotId);
+      if (slotForPicker) tl.appendChild(buildPicker(openPicker.slotId, time));
+    }
+  });
+  tl.querySelectorAll('.on:not(.locked-past)').forEach(el => {
+    el.addEventListener('click', () => togglePicker({kind:'event', slotId: el.dataset.slot, time: parseInt(el.dataset.time, 10)}));
+  });
+}
+
+function buildFormationRemap(currentOnPitch, newSlots) {
+  const remap = {};
+  const used = new Set();
+  if (HAS_GK) {
+    const gkSlot = newSlots.find(s => s.group === 'GK');
+    const currentGkPid = currentOnPitch['GK'];
+    remap[gkSlot.id] = currentGkPid;
+    used.add(currentGkPid);
+  }
+  const remainingIds = Object.values(currentOnPitch).filter(pid => !used.has(pid));
+  for (const slot of newSlots) {
+    if (slot.group === 'GK') continue;
+    const candidates = remainingIds.filter(pid => !used.has(pid)).map(pid => playersById[pid])
+      .filter(p => (p.positions[slot.group] ?? 0) >= 1);
+    let chosen;
+    if (candidates.length) {
+      candidates.sort((a,b) => (b.positions[slot.group] ?? 0) - (a.positions[slot.group] ?? 0));
+      chosen = candidates[0];
+    } else {
+      // Nobody currently on the pitch is even "Can play" there - still assign someone
+      // rather than leaving the slot empty, but this is worth the coach's attention.
+      chosen = playersById[remainingIds.find(pid => !used.has(pid))];
+    }
+    remap[slot.id] = chosen.id;
+    used.add(chosen.id);
+  }
+  return remap;
+}
+
+document.getElementById('changeFormationLink').addEventListener('click', () => {
+  const panel = document.getElementById('formationChangePanel');
+  const isOpen = panel.style.display === 'block';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (isOpen) return;
+
+  const nowState = computeStateAt(currentT);
+  const curCounts = {DEF: 0, MID: 0, ATT: 0};
+  nowState.activeSlots.forEach(s => { if (curCounts[s.group] !== undefined) curCounts[s.group]++; });
+  const outfield = curCounts.DEF + curCounts.MID + curCounts.ATT;
+
+  panel.innerHTML = `
+    <div class="form-card">
+      <div class="config-note" style="margin-bottom:8px;">Same players stay on — this only reshuffles who plays where. Numbers must total ${outfield}.</div>
+      <div class="pos-row">
+        <div class="field"><label>Defence</label><input type="number" id="fc-def" min="0" value="${curCounts.DEF}"></div>
+        <div class="field"><label>Midfield</label><input type="number" id="fc-mid" min="0" value="${curCounts.MID}"></div>
+        <div class="field"><label>Attack</label><input type="number" id="fc-att" min="0" value="${curCounts.ATT}"></div>
+      </div>
+      <div class="config-note" id="fc-total"></div>
+      <div class="warn-box" id="fc-error" style="display:none;"></div>
+      <button class="btn btn-primary" id="fc-apply">Apply from ${currentT}'</button>
+    </div>`;
+
+  function updateTotal() {
+    const d = parseInt(document.getElementById('fc-def').value,10)||0;
+    const m = parseInt(document.getElementById('fc-mid').value,10)||0;
+    const a = parseInt(document.getElementById('fc-att').value,10)||0;
+    const el = document.getElementById('fc-total');
+    el.textContent = `${d+m+a} of ${outfield} outfield players placed`;
+    el.style.color = (d+m+a) !== outfield ? 'var(--coral)' : 'var(--ink-soft)';
+  }
+  ['fc-def','fc-mid','fc-att'].forEach(id => document.getElementById(id).addEventListener('input', updateTotal));
+  updateTotal();
+
+  document.getElementById('fc-apply').addEventListener('click', () => {
+    const d = parseInt(document.getElementById('fc-def').value,10)||0;
+    const m = parseInt(document.getElementById('fc-mid').value,10)||0;
+    const a = parseInt(document.getElementById('fc-att').value,10)||0;
+    if (d+m+a !== outfield) {
+      const err = document.getElementById('fc-error');
+      err.style.display = 'block';
+      err.textContent = `Must total ${outfield} outfield players (currently ${d+m+a}).`;
+      return;
+    }
+    const newSlots = buildFormation({DEF:d, MID:m, ATT:a}, HAS_GK);
+    const remap = buildFormationRemap(nowState.onPitch, newSlots);
+    lockedEvents.push({time: currentT, type: 'formation', slots: newSlots, remap});
+    regeneratePlan();
+    panel.style.display = 'none';
+    render(currentT);
+  });
+});
+
+function togglePicker(target) {
+  if (openPicker && openPicker.kind === target.kind && openPicker.slotId === target.slotId && openPicker.time === target.time) openPicker = null;
+  else openPicker = target;
+  render(currentT);
+  if (openPicker && openPicker.kind === 'start') renderStartPicker(); else { const h = document.getElementById('startPickerHolder'); if (h) h.innerHTML = ''; }
+}
+function renderStartPicker() {
+  const holder = document.getElementById('startPickerHolder');
+  holder.innerHTML = '';
+  if (openPicker && openPicker.kind === 'start') holder.appendChild(buildPicker(openPicker.slotId, 0));
+}
+function buildPicker(slotId, time) {
+  const slot = computeStateAt(time).activeSlots.find(s => s.id === slotId);
+  const currentOccupant = openPicker.kind === 'start' ? startingLineup[slotId] : PLAN.rotations.find(r => r.slot === slotId && r.time === time)?.on;
+  const occupiedIds = new Set(Object.values(computeStateAt(time).onPitch));
+  const candidates = PLAYERS.filter(p => p.id !== currentOccupant && !occupiedIds.has(p.id));
+  const wrap = document.createElement('div'); wrap.className = 'picker';
+  const title = document.createElement('div'); title.className = 'picker-title'; title.textContent = `Replace ${currentOccupant} at ${slot.label} with:`;
+  wrap.appendChild(title);
+  candidates.forEach(p => {
+    const tier = p.positions[slot.group] ?? 0;
+    const row = document.createElement('div'); row.className = 'picker-opt';
+    row.innerHTML = `<span>${p.id}</span><span class="tier ${tier <= 1 ? 'warn' : ''}">${TIER_NAMES[tier]}</span>`;
+    row.addEventListener('click', () => {
+      if (openPicker.kind === 'start') { startingLineup = {...startingLineup, [slotId]: p.id}; }
+      else lockedEvents.push({time, type: 'sub', slot: slotId, on: p.id});
+      regeneratePlan();
+      openPicker = null;
+      const holder = document.getElementById('startPickerHolder'); if (holder) holder.innerHTML = '';
+      render(currentT);
+    });
+    wrap.appendChild(row);
+  });
+  const cancel = document.createElement('div'); cancel.className = 'picker-cancel'; cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', () => { openPicker = null; render(currentT); const holder = document.getElementById('startPickerHolder'); if (holder) holder.innerHTML=''; });
+  wrap.appendChild(cancel);
+  return wrap;
+}
+
+let playing = false, playTimer = null;
+const playBtn = document.getElementById('playBtn');
+const scrub = document.getElementById('scrub');
+function setPlaying(state) {
+  playing = state;
+  playBtn.textContent = playing ? '❚❚' : '▶';
+  if (playing) playTimer = setInterval(() => { let t = parseInt(scrub.value, 10) + 1; if (t > DURATION) { t = DURATION; setPlaying(false); } render(t); }, 260);
+  else clearInterval(playTimer);
+}
+playBtn.addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', e => { setPlaying(false); openPicker = null; render(parseInt(e.target.value, 10)); });
+
+/* ================= MATCH MODE (live, real-clock execution) ================= */
+let liveMode = false;
+let matchStartTs = null, pausedAccumMs = 0, pauseStartedAt = null;
+let liveTicker = null;
+let snoozeKey = null, snoozeUntilMinute = null;
+let currentPeriodIdx = 0;
+let halfTimeActive = false, matchFinished = false;
+let pendingHalfTimeBoundaryIdx = null; // which period boundary triggered the current half-time pause (disambiguates a mid-halftime reload)
+let score = {us: 0, them: 0};
+let goalEvents = []; // {time, scorer: playerId | 'OPP' | 'OG' | 'UNKNOWN', forUs}
+
+/* ================= SCORE TRACKING ================= */
+function updateScoreDisplay() {
+  document.getElementById('scoreUs').textContent = score.us;
+  document.getElementById('scoreThem').textContent = score.them;
+}
+function recordGoal(scorer, mins) {
+  const forUs = scorer !== 'OPP' && scorer !== 'OG';
+  if (forUs) score.us++; else score.them++;
+  goalEvents.push({time: mins, scorer, forUs});
+  updateScoreDisplay();
+  saveLiveMatchState();
+}
+function undoLastGoal() {
+  const last = goalEvents.pop();
+  if (!last) return;
+  if (last.forUs) score.us = Math.max(0, score.us - 1); else score.them = Math.max(0, score.them - 1);
+  updateScoreDisplay();
+  saveLiveMatchState();
+}
+function lastGoalDescription() {
+  const last = goalEvents[goalEvents.length - 1];
+  if (!last) return '';
+  if (last.scorer === 'OPP') return 'Opponent';
+  if (last.scorer === 'OG') return 'own goal';
+  if (last.scorer === 'UNKNOWN') return 'unsure';
+  return last.scorer;
+}
+function openGoalPicker() {
+  const mins = liveElapsedMinute();
+  const panel = document.getElementById('liveMiscPanel');
+  const undoRow = goalEvents.length ? `<div class="picker-opt" data-action="undo"><span>Undo last goal (${lastGoalDescription()})</span></div>` : '';
+  // Step 1: for us or against us - a goal against needs no further detail
+  // and is logged in one tap, per how coaches actually track this live.
+  panel.innerHTML = `<div class="picker"><div class="picker-title">Goal at ${mins}'</div>` + undoRow +
+    `<div class="picker-opt" data-action="for"><span>Goal for us</span></div>` +
+    `<div class="picker-opt" data-action="against"><span>Goal against us</span></div>` +
+    `<div class="picker-cancel" id="goalCancel">Cancel</div></div>`;
+  panel.querySelector('[data-action="for"]').addEventListener('click', () => openGoalScorerPicker(mins));
+  panel.querySelector('[data-action="against"]').addEventListener('click', () => { recordGoal('OPP', mins); panel.innerHTML = ''; });
+  const undoEl = panel.querySelector('[data-action="undo"]');
+  if (undoEl) undoEl.addEventListener('click', () => { undoLastGoal(); panel.innerHTML = ''; });
+  document.getElementById('goalCancel').addEventListener('click', () => { panel.innerHTML = ''; });
+}
+function openGoalScorerPicker(mins) {
+  const panel = document.getElementById('liveMiscPanel');
+  panel.innerHTML = `<div class="picker"><div class="picker-title">Who scored (${mins}')?</div>` +
+    PLAYERS.map(p => `<div class="picker-opt" data-scorer="${p.id}"><span>${p.id}</span></div>`).join('') +
+    `<div class="picker-opt" data-scorer="UNKNOWN"><span>Unsure who</span></div>` +
+    `<div class="picker-cancel" id="goalCancel">Cancel</div></div>`;
+  panel.querySelectorAll('.picker-opt').forEach(el => {
+    el.addEventListener('click', () => { recordGoal(el.dataset.scorer, mins); panel.innerHTML = ''; });
+  });
+  document.getElementById('goalCancel').addEventListener('click', () => { panel.innerHTML = ''; });
+}
+document.getElementById('addGoalBtn').addEventListener('click', openGoalPicker);
+
+/* ================= PLAN SCREEN: BACK BUTTON & LIVE/DETAILS SUB-TABS ================= */
+function setPlanSubTab(tab) {
+  document.querySelectorAll('.plan-subtab').forEach(el => el.classList.toggle('active', el.dataset.subtab === tab));
+  document.getElementById('planViewLive').style.display = tab === 'live' ? 'block' : 'none';
+  document.getElementById('planViewDetails').style.display = tab === 'details' ? 'block' : 'none';
+}
+document.getElementById('planSubtabs').addEventListener('click', e => {
+  const el = e.target.closest('.plan-subtab');
+  if (el) setPlanSubTab(el.dataset.subtab);
+});
+document.getElementById('planBackBtn').addEventListener('click', () => showScreen('squad'));
+
+/* ---- LIVE MATCH PERSISTENCE -----------------------------------------
+   Squad data is already saved to localStorage, but everything about an
+   in-progress match (the clock, the coach's DONE/DELAY/SKIP decisions,
+   which formation is active, half-time state) previously lived only in
+   JS memory. On a phone, backgrounding the tab for 50-90 minutes risks
+   the browser reclaiming it, which would lose the whole match. This
+   snapshots everything needed to fully reconstruct live state and
+   restores it on load, matching PRD Section 63 / Scenario H. ------- */
+const MATCH_STATE_KEY = 'rf_live_match_v1';
+
+function saveLiveMatchState() {
+  if (!liveMode) return;
+  try {
+    const snapshot = {
+      v: 1,
+      // match format, needed to rebuild SLOTS/PERIOD_BOUNDS via applyMatchFormat
+      playersOnPitch: PLAYERS_ON_PITCH, hasGk: HAS_GK, duration: DURATION, periods: PERIODS, shape: confirmedShape,
+      // squad + GK plan
+      players: PLAYERS.map(p => ({...p})), // full snapshot, independent of later squad edits
+      gkMode, gkKeepers: [...gkKeepers],
+      // rotation settings
+      cfg: {...cfg},
+      // engine state
+      startingLineup: {...startingLineup},
+      lockedEvents: JSON.parse(JSON.stringify(lockedEvents)),
+      unavailableFrom: {...unavailableFrom},
+      // live clock / progress
+      matchStartTs, pausedAccumMs, pauseStartedAt,
+      currentPeriodIdx, halfTimeActive, matchFinished, pendingHalfTimeBoundaryIdx,
+      snoozeKey, snoozeUntilMinute,
+      // score
+      score: {...score}, goalEvents: JSON.parse(JSON.stringify(goalEvents)),
+    };
+    localStorage.setItem(MATCH_STATE_KEY, JSON.stringify(snapshot));
+  } catch (e) { console.warn('Could not save live match state', e); }
+}
+function loadLiveMatchState() {
+  try {
+    const raw = localStorage.getItem(MATCH_STATE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { console.warn('Could not read saved live match state', e); }
+  return null;
+}
+function clearLiveMatchState() {
+  try { localStorage.removeItem(MATCH_STATE_KEY); } catch (e) { /* ignore */ }
+}
+
+function restoreLiveMatch(saved) {
+  confirmedShape = saved.shape;
+  applyMatchFormat(saved.playersOnPitch, saved.hasGk, saved.duration, saved.periods, saved.shape);
+
+  gkMode = saved.gkMode; gkKeepers = [...saved.gkKeepers];
+  cfg = {gkCountsForFairness: false, ...saved.cfg}; // default for snapshots saved before this setting existed
+  fairnessSlider.value = cfg.fairnessPriority;
+  strictnessSlider.value = cfg.positionStrictness;
+  minShiftSlider.value = cfg.minShiftLength;
+  gkCountsCheckbox.checked = cfg.gkCountsForFairness;
+  updateConfigSummary();
+
+  PLAYERS = saved.players.map(p => ({...p}));
+  availableIds = new Set(PLAYERS.map(p => p.id));
+  playersById = Object.fromEntries(PLAYERS.map(p => [p.id, p]));
+  computeTargets();
+  GK_SEGMENTS = computeGkSegments();
+
+  startingLineup = {...saved.startingLineup};
+  lockedEvents = saved.lockedEvents;
+  unavailableFrom = {...saved.unavailableFrom};
+  regeneratePlan();
+
+  matchStartTs = saved.matchStartTs; pausedAccumMs = saved.pausedAccumMs; pauseStartedAt = saved.pauseStartedAt;
+  currentPeriodIdx = saved.currentPeriodIdx; matchFinished = saved.matchFinished;
+  pendingHalfTimeBoundaryIdx = saved.pendingHalfTimeBoundaryIdx;
+  snoozeKey = saved.snoozeKey; snoozeUntilMinute = saved.snoozeUntilMinute;
+  liveMode = true;
+
+  document.getElementById('previewControls').style.display = 'none';
+  document.getElementById('liveControls').style.display = 'block';
+  document.getElementById('earlyFinishLink').style.display = 'block';
+  document.getElementById('nextSub').style.display = 'none';
+  document.getElementById('detailHalfMarks').innerHTML = PERIOD_BOUNDS.map((b,i) => {
+    if (i === 0) return '<span>KO</span>';
+    if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
+    return `<span>P${i+1} ${b}'</span>`;
+  }).join('');
+  document.getElementById('scrub').max = DURATION;
+  document.getElementById('planTab').classList.remove('disabled');
+  document.getElementById('livePauseBtn').textContent = pauseStartedAt ? '▶' : '❚❚';
+
+  score = saved.score ? {...saved.score} : {us: 0, them: 0};
+  goalEvents = saved.goalEvents ? JSON.parse(JSON.stringify(saved.goalEvents)) : [];
+  document.getElementById('scoreRow').style.display = 'flex';
+  updateScoreDisplay();
+
+  document.getElementById('regenBanner').classList.remove('show');
+  currentT = liveElapsedMinute(); openPicker = null;
+  setPlanSubTab('live');
+
+  if (saved.halfTimeActive) {
+    // enterHalfTime rebuilds the half-time card from scratch off PLAN, which we've
+    // just regenerated - pauseStartedAt is already restored above, so it won't be
+    // overwritten with a fresh Date.now().
+    enterHalfTime(saved.pendingHalfTimeBoundaryIdx);
+  } else {
+    clearInterval(liveTicker);
+    liveTicker = setInterval(liveTick, 1000);
+    liveTick();
+  }
+  showScreen('plan');
+}
+
+function liveElapsedMs() {
+  if (!matchStartTs) return 0;
+  const pausedMs = pausedAccumMs + (pauseStartedAt ? (Date.now() - pauseStartedAt) : 0);
+  return Math.max(0, Date.now() - matchStartTs - pausedMs);
+}
+function liveElapsedMinute() { return Math.min(DURATION, Math.floor(liveElapsedMs() / 60000)); }
+
+function startMatch() {
+  lockedEvents = []; unavailableFrom = {};
+  matchStartTs = Date.now(); pausedAccumMs = 0; pauseStartedAt = null;
+  currentPeriodIdx = 0; halfTimeActive = false; matchFinished = false;
+  liveMode = true;
+  setPlaying(false);
+  document.getElementById('previewControls').style.display = 'none';
+  document.getElementById('liveControls').style.display = 'block';
+  document.getElementById('earlyFinishLink').style.display = 'block';
+  document.getElementById('nextSub').style.display = 'none';
+  document.getElementById('detailHalfMarks').innerHTML = PERIOD_BOUNDS.map((b,i) => {
+    if (i === 0) return '<span>KO</span>';
+    if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
+    return `<span>P${i+1} ${b}'</span>`;
+  }).join('');
+  score = {us: 0, them: 0}; goalEvents = [];
+  document.getElementById('scoreRow').style.display = 'flex';
+  updateScoreDisplay();
+  setPlanSubTab('live');
+  regeneratePlan();
+  clearInterval(liveTicker);
+  liveTicker = setInterval(liveTick, 1000);
+  liveTick();
+  saveLiveMatchState();
+}
+document.getElementById('startMatchBtn').addEventListener('click', startMatch);
+document.getElementById('earlyFinishLink').addEventListener('click', requestEarlyFinish);
+
+document.getElementById('livePauseBtn').addEventListener('click', () => {
+  if (pauseStartedAt) {
+    pausedAccumMs += Date.now() - pauseStartedAt;
+    pauseStartedAt = null;
+    document.getElementById('livePauseBtn').textContent = '❚❚';
+  } else {
+    pauseStartedAt = Date.now();
+    document.getElementById('livePauseBtn').textContent = '▶';
+  }
+  saveLiveMatchState();
+});
+
+function liveTick() {
+  if (!liveMode || halfTimeActive || matchFinished) return;
+  const mins = liveElapsedMinute();
+  const secs = Math.floor(liveElapsedMs() / 1000) % 60;
+  document.getElementById('liveClockMin').textContent = mins;
+  document.getElementById('liveClockSec').textContent = ':' + String(secs).padStart(2, '0');
+
+  const nextBoundaryIdx = currentPeriodIdx + 1;
+  if (nextBoundaryIdx < PERIOD_BOUNDS.length - 1 && mins >= PERIOD_BOUNDS[nextBoundaryIdx]) {
+    enterHalfTime(nextBoundaryIdx); return;
+  }
+  if (mins >= DURATION) { enterHalfTime(PERIOD_BOUNDS.length - 1); return; }
+
+  renderLiveActionPanel(mins);
+  currentT = mins;
+  render(mins);
+}
+
+function renderLiveActionPanel(mins) {
+  const panel = document.getElementById('liveActionPanel');
+  const dueEvent = PLAN.rotations.filter(r => !r.type && r.time <= mins).sort((a,b) => a.time - b.time)[0];
+  const soon = !dueEvent ? PLAN.rotations.filter(r => !r.type && r.time > mins).sort((a,b)=>a.time-b.time)[0] : null;
+
+  if (dueEvent) {
+    const key = dueEvent.time + '|' + dueEvent.slot;
+    if (snoozeKey === key && mins < snoozeUntilMinute) {
+      panel.innerHTML = `<div class="action-panel" style="border-color:var(--card-line);"><div class="headline" style="font-size:13px;">Snoozed — will ask again at ${snoozeUntilMinute}' (${dueEvent.on} ON / ${dueEvent.off} OFF, ${dueEvent.slot})</div></div>`;
+      return;
+    }
+    const overdue = mins - dueEvent.time;
+    panel.innerHTML = `
+      <div class="action-panel">
+        <div class="headline">${overdue > 0 ? `Due ${overdue}' ago` : 'Due now'}: <strong>${dueEvent.on}</strong> ON · <strong>${dueEvent.off}</strong> OFF <span style="color:var(--ink-soft); font-weight:400;">(${dueEvent.slot})</span></div>
+        <div class="action-btn-row">
+          <button class="action-btn done" id="actDone">DONE</button>
+          <button class="action-btn delay" id="actDelay">DELAY</button>
+          <button class="action-btn skip" id="actSkip">SKIP</button>
+        </div>
+        <div class="delay-opts" id="delayOpts" style="display:none;">
+          <span class="preset-chip" data-mins="1">+1'</span>
+          <span class="preset-chip" data-mins="2">+2'</span>
+          <span class="preset-chip" data-mins="5">+5'</span>
+        </div>
+      </div>`;
+    document.getElementById('actDone').addEventListener('click', () => {
+      lockedEvents.push({time: mins, type: 'sub', slot: dueEvent.slot, on: dueEvent.on, reason: overdue > 0 ? 'confirmed (actual time)' : 'coach override'});
+      snoozeKey = null;
+      regeneratePlan(); render(mins); saveLiveMatchState();
+    });
+    document.getElementById('actSkip').addEventListener('click', () => {
+      lockedEvents.push({time: mins, type: 'skip', slot: dueEvent.slot});
+      snoozeKey = null;
+      regeneratePlan(); render(mins); saveLiveMatchState();
+    });
+    document.getElementById('actDelay').addEventListener('click', () => {
+      document.getElementById('delayOpts').style.display = 'flex';
+    });
+    panel.querySelectorAll('#delayOpts .preset-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        snoozeKey = key;
+        snoozeUntilMinute = mins + parseInt(chip.dataset.mins, 10);
+        render(mins);
+        saveLiveMatchState();
+      });
+    });
+  } else if (soon && soon.time - mins <= 2) {
+    panel.innerHTML = `<div class="action-panel" style="border-color:var(--card-line);"><div class="headline" style="font-size:13px;">Coming up in ${soon.time - mins}' — <strong>${soon.on}</strong> ON / <strong>${soon.off}</strong> OFF (${soon.slot})</div></div>`;
+  } else {
+    panel.innerHTML = '';
+  }
+}
+
+function openLiveChangePicker(slotId) {
+  const mins = liveElapsedMinute();
+  const state = computeStateAt(mins);
+  const slot = state.activeSlots.find(s => s.id === slotId);
+  const currentPid = state.onPitch[slotId];
+  const occupiedIds = new Set(Object.values(state.onPitch));
+  const candidates = PLAYERS.filter(p => p.id !== currentPid && !occupiedIds.has(p.id) && (unavailableFrom[p.id] === undefined || mins < unavailableFrom[p.id]));
+  const panel = document.getElementById('liveMiscPanel');
+  panel.innerHTML = `<div class="picker"><div class="picker-title">Replace ${currentPid} (${slot.label}) with:</div>` +
+    candidates.map(p => {
+      const tier = p.positions[slot.group] ?? 0;
+      return `<div class="picker-opt" data-on="${p.id}"><span>${p.id}</span><span class="tier ${tier <= 1 ? 'warn' : ''}">${TIER_NAMES[tier]}</span></div>`;
+    }).join('') + `<div class="picker-cancel" id="lcCancel">Cancel</div></div>`;
+  panel.querySelectorAll('.picker-opt').forEach(el => {
+    el.addEventListener('click', () => {
+      lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: el.dataset.on, reason: 'unplanned change'});
+      regeneratePlan();
+      panel.innerHTML = '';
+      render(mins);
+      saveLiveMatchState();
+    });
+  });
+  document.getElementById('lcCancel').addEventListener('click', () => { panel.innerHTML = ''; });
+}
+
+document.getElementById('liveMakeChangeBtn').addEventListener('click', () => {
+  const mins = liveElapsedMinute();
+  const state = computeStateAt(mins);
+  const panel = document.getElementById('liveMiscPanel');
+  panel.innerHTML = `<div class="picker"><div class="picker-title">Which slot to change?</div>` +
+    state.activeSlots.filter(s => s.group !== 'GK').map(s => `<div class="picker-opt" data-slot="${s.id}"><span>${s.label}</span><span>${state.onPitch[s.id]}</span></div>`).join('') +
+    `<div class="picker-cancel" id="mcCancel">Cancel</div></div>`;
+  panel.querySelectorAll('.picker-opt').forEach(el => el.addEventListener('click', () => openLiveChangePicker(el.dataset.slot)));
+  document.getElementById('mcCancel').addEventListener('click', () => { panel.innerHTML = ''; });
+});
+
+document.getElementById('livePlayerUnavailableBtn').addEventListener('click', () => {
+  const mins = liveElapsedMinute();
+  const state = computeStateAt(mins);
+  const onPitchSet = new Set(Object.values(state.onPitch));
+  const panel = document.getElementById('liveMiscPanel');
+  const eligiblePlayers = PLAYERS.filter(p => unavailableFrom[p.id] === undefined);
+  panel.innerHTML = `<div class="picker"><div class="picker-title">Who is unavailable from now?</div>` +
+    eligiblePlayers.map(p => `<div class="picker-opt" data-pid="${p.id}"><span>${p.id}${onPitchSet.has(p.id) ? ' (on pitch)' : ''}</span></div>`).join('') +
+    `<div class="picker-cancel" id="puCancel">Cancel</div></div>`;
+  panel.querySelectorAll('.picker-opt').forEach(el => {
+    el.addEventListener('click', () => {
+      const pid = el.dataset.pid;
+      showConfirm(`Mark ${pid} unavailable for the rest of the match?`, () => {
+        unavailableFrom[pid] = mins;
+        lockedEvents.push({time: mins, type: 'unavailable', player: pid});
+        if (onPitchSet.has(pid)) {
+          const slotId = Object.entries(state.onPitch).find(([sid, p2]) => p2 === pid)[0];
+          const slot = state.activeSlots.find(s => s.id === slotId);
+          const candidates = PLAYERS.filter(p2 => p2.id !== pid && !onPitchSet.has(p2.id) && unavailableFrom[p2.id] === undefined && (p2.positions[slot.group] ?? 0) >= 1);
+          if (candidates.length) {
+            candidates.sort((a,b) => (b.positions[slot.group] ?? 0) - (a.positions[slot.group] ?? 0));
+            lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: candidates[0].id, reason: 'unavailable replacement'});
+          } else {
+            showAlert(`No eligible replacement for ${pid}'s slot (${slot.label}) - the plan will continue short in that position until someone becomes available.`);
+          }
+        }
+        regeneratePlan();
+        panel.innerHTML = '';
+        render(mins);
+        saveLiveMatchState();
+      }, 'Mark unavailable');
+    });
+  });
+  document.getElementById('puCancel').addEventListener('click', () => { panel.innerHTML = ''; });
+});
+
+function enterHalfTime(periodIdx) {
+  pauseStartedAt = pauseStartedAt || Date.now();
+  halfTimeActive = true;
+  pendingHalfTimeBoundaryIdx = periodIdx;
+  clearInterval(liveTicker);
+  saveLiveMatchState();
+  const isFullTime = periodIdx >= PERIOD_BOUNDS.length - 1;
+  const boundaryMinute = PERIOD_BOUNDS[periodIdx];
+  const state = computeStateAt(boundaryMinute);
+  const panel = document.getElementById('halfTimePanel');
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="halftime-card">
+      <h2>${isFullTime ? 'FULL TIME' : 'PERIOD ' + periodIdx + ' COMPLETE'}</h2>
+      <div class="big">${boundaryMinute}'</div>
+      <div class="halftime-mins">${PLAYERS.map(p => `<div><span>${p.id}</span><span>${state.minutesPlayed[p.id]}'</span></div>`).join('')}</div>
+      ${isFullTime
+        ? `<button class="btn btn-primary" id="finishMatchBtn" style="background:var(--amber); color:var(--amber-ink);">Finish match</button>`
+        : `<button class="btn btn-primary" id="startNextPeriodBtn" style="background:var(--amber); color:var(--amber-ink);">Start period ${periodIdx + 1}</button>`}
+    </div>`;
+  if (!isFullTime) {
+    document.getElementById('startNextPeriodBtn').addEventListener('click', () => {
+      currentPeriodIdx = periodIdx;
+      halfTimeActive = false;
+      pendingHalfTimeBoundaryIdx = null;
+      panel.style.display = 'none'; panel.innerHTML = '';
+      matchStartTs = Date.now() - boundaryMinute * 60000;
+      pausedAccumMs = 0; pauseStartedAt = null;
+      clearInterval(liveTicker);
+      liveTicker = setInterval(liveTick, 1000);
+      liveTick();
+      saveLiveMatchState();
+    });
+  } else {
+    document.getElementById('finishMatchBtn').addEventListener('click', () => finishMatch(boundaryMinute));
+  }
+}
+
+function computeLongestBenchSpell(atMinute) {
+  const onPitchIntervals = Object.fromEntries(PLAYERS.map(p => [p.id, []]));
+  let onPitch = {...startingLineup};
+  const curStart = Object.fromEntries(PLAYERS.map(p => [p.id, Object.values(onPitch).includes(p.id) ? 0 : null]));
+  const events = [...PLAN.rotations].filter(e => e.time <= atMinute).sort((a,b) => a.time - b.time);
+  function closeInterval(pid, endTime) {
+    if (curStart[pid] !== null) { onPitchIntervals[pid].push({start: curStart[pid], end: endTime}); curStart[pid] = null; }
+  }
+  for (const ev of events) {
+    if (ev.type === 'formation') { onPitch = {...ev.remap}; continue; }
+    if (ev.type === 'skip' || ev.type === 'unavailable') continue;
+    closeInterval(ev.off, ev.time);
+    curStart[ev.on] = ev.time;
+    onPitch[ev.slot] = ev.on;
+  }
+  PLAYERS.forEach(p => { if (curStart[p.id] !== null) onPitchIntervals[p.id].push({start: curStart[p.id], end: atMinute}); });
+  const longest = {};
+  PLAYERS.forEach(p => {
+    const intervals = onPitchIntervals[p.id].sort((a,b) => a.start - b.start);
+    let max = 0, cursor = 0;
+    for (const iv of intervals) { max = Math.max(max, iv.start - cursor); cursor = iv.end; }
+    max = Math.max(max, atMinute - cursor);
+    longest[p.id] = max;
+  });
+  return longest;
+}
+
+function requestEarlyFinish() {
+  const mins = liveElapsedMinute();
+  showConfirm(`End match at ${mins}'? This calculates final actual minutes now.`, () => {
+    pauseStartedAt = pauseStartedAt || Date.now();
+    matchFinished = true;
+    clearInterval(liveTicker);
+    document.getElementById('halfTimePanel').style.display = 'none';
+    finishMatch(mins);
+  }, 'End match');
+}
+
+function finishMatch(atMinute) {
+  matchFinished = true;
+  clearLiveMatchState(); // match is over - nothing left to restore
+  const proRated = atMinute < DURATION;
+  const state = computeStateAt(atMinute);
+  const longestBench = computeLongestBenchSpell(atMinute);
+  const subCount = PLAN.rotations.filter(r => !r.type && r.time <= atMinute).length;
+  const rows = PLAYERS.map(p => {
+    const target = Math.round(TARGETS[p.id] * (atMinute / DURATION));
+    const actual = state.minutesPlayed[p.id];
+    const gkMins = state.gkMinutes[p.id] || 0;
+    // Diff is measured on whatever basis the target represents - outfield-only
+    // unless the coach opted GK time in, so a keeper's stint in goal doesn't
+    // show up as a false "overplayed" reading.
+    const diffBasis = cfg.gkCountsForFairness ? actual : actual - gkMins;
+    const diff = diffBasis - target;
+    return `<tr><td>${p.id}</td><td>${target}'</td><td>${actual}'${gkMins > 0 ? ` <span style="color:var(--ink-soft);">(${gkMins} GK)</span>` : ''}</td><td class="${diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : ''}">${diff > 0 ? '+' : ''}${diff}</td><td>${longestBench[p.id]}'</td></tr>`;
+  }).join('');
+  const scorerNames = { OPP: 'Opponent goal', OG: 'Own goal', UNKNOWN: 'Unsure who' };
+  const scorerLines = goalEvents.length
+    ? goalEvents.map(g => `<div>${g.time}' — ${g.forUs ? '⚽' : '⚑'} ${scorerNames[g.scorer] || g.scorer}${g.forUs ? '' : ' (opponent)'}</div>`).join('')
+    : '';
+  const panel = document.getElementById('halfTimePanel');
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div class="halftime-card">
+      <h2>FULL TIME${proRated ? ' (ended early)' : ''}</h2>
+      <div class="big">${atMinute}'</div>
+      <div class="big" style="font-size:26px; margin-top:2px;">${score.us} – ${score.them}</div>
+    </div>
+    ${scorerLines ? `<div class="config-note" style="margin-bottom:12px;">${scorerLines}</div>` : ''}
+    <table class="summary-table">
+      <tr><th>Player</th><th>Target${proRated ? '*' : ''}</th><th>Actual</th><th>Diff</th><th>Longest bench</th></tr>
+      ${rows}
+    </table>
+    ${proRated ? `<p class="config-note">*Target pro-rated to ${atMinute}' since the match ended early.</p>` : ''}
+    <p class="config-note">${subCount} substitution${subCount === 1 ? '' : 's'} made.</p>`;
+}
+
+/* ================= INIT ================= */
+renderSquadList();
+
+// If the page was reloaded (or the browser killed a backgrounded tab) while a
+// match was in progress, resume straight back into it with the correct
+// elapsed time, rather than losing it.
+(function tryRestoreLiveMatch() {
+  const saved = loadLiveMatchState();
+  if (saved && saved.v === 1) {
+    try { restoreLiveMatch(saved); }
+    catch (e) { console.warn('Could not restore in-progress match, starting fresh', e); clearLiveMatchState(); }
+  }
+})();
+</script>
+</body>
+</html>
