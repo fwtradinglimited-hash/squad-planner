@@ -265,19 +265,10 @@
     <div id="setupStepFormat">
       <section>
         <h2>Step 1 · Match format</h2>
-        <div class="preset-row" id="presetRow">
-          <div class="preset-chip" data-preset="3">3v3</div>
-          <div class="preset-chip" data-preset="5">5v5</div>
-          <div class="preset-chip" data-preset="6">6v6</div>
-          <div class="preset-chip active" data-preset="7">7v7</div>
-          <div class="preset-chip" data-preset="9">9v9</div>
-          <div class="preset-chip" data-preset="11">11v11</div>
-          <div class="preset-chip" data-preset="custom">Custom</div>
-        </div>
         <div class="pos-row">
-          <div class="field"><label>Players per side</label><input type="number" id="fmt-players" min="2" max="11" value="7"></div>
-          <div class="field"><label>Duration (min)</label><input type="number" id="fmt-duration" min="10" max="120" value="50"></div>
-          <div class="field"><label>Periods</label><input type="number" id="fmt-periods" min="1" max="8" value="2"></div>
+          <div class="field"><label>Players per side</label><select id="fmt-players"></select></div>
+          <div class="field"><label>Duration (min)</label><select id="fmt-duration"></select></div>
+          <div class="field"><label>Periods</label><select id="fmt-periods"></select></div>
         </div>
         <div class="config-note" id="periodPreview"></div>
         <div class="check-row" style="margin-top:10px;"><input type="checkbox" id="fmt-gk" checked><label for="fmt-gk">This format uses a goalkeeper</label></div>
@@ -285,11 +276,12 @@
 
       <section>
         <h2>Formation shape</h2>
-        <div class="config-note" style="margin-bottom:8px;">Split your outfield players across defence, midfield and attack however you like — including all in one line if that's what you want to try. Numbers just need to add up to your outfield total.</div>
-        <div class="pos-row">
-          <div class="field"><label>Defence</label><input type="number" id="fmt-def" min="0" value="2"></div>
-          <div class="field"><label>Midfield</label><input type="number" id="fmt-mid" min="0" value="3"></div>
-          <div class="field"><label>Attack</label><input type="number" id="fmt-att" min="0" value="1"></div>
+        <div class="config-note" style="margin-bottom:8px;">Pick a formation, or choose Custom to set defence/midfield/attack numbers yourself.</div>
+        <div class="field"><label>Formation</label><select id="fmt-formation"></select></div>
+        <div class="pos-row" id="customFormationRow" style="display:none;">
+          <div class="field"><label>Defence</label><select id="fmt-def"></select></div>
+          <div class="field"><label>Midfield</label><select id="fmt-mid"></select></div>
+          <div class="field"><label>Attack</label><select id="fmt-att"></select></div>
         </div>
         <div class="config-note" id="shapeTotal"></div>
       </section>
@@ -662,13 +654,68 @@ function outfieldCount() {
   const hasGk = document.getElementById('fmt-gk').checked;
   return Math.max(0, hasGk ? n - 1 : n);
 }
-function refillShapeSuggestion() {
-  const c = suggestBalancedCounts(outfieldCount());
-  document.getElementById('fmt-def').value = c.DEF;
-  document.getElementById('fmt-mid').value = c.MID;
-  document.getElementById('fmt-att').value = c.ATT;
+
+function populateSelectOptions(id, values, labelFn) {
+  document.getElementById(id).innerHTML = values.map(v => `<option value="${v}">${labelFn ? labelFn(v) : v}</option>`).join('');
+}
+
+// All DEF-MID-ATT compositions of `oc` outfield players with at least one player in
+// each position, enumerated DEF ascending then MID ascending — e.g. for oc=4 this
+// gives 1-1-2, 1-2-1, 2-1-1, matching how a coach would naturally list them.
+function formationCombos(oc) {
+  const combos = [];
+  if (oc < 3) return combos; // can't place >=1 player in all three positions
+  for (let d = 1; d <= oc - 2; d++) {
+    for (let m = 1; m <= oc - d - 1; m++) {
+      combos.push({DEF: d, MID: m, ATT: oc - d - m});
+    }
+  }
+  return combos;
+}
+function formationLabel(c) { return `${c.DEF}-${c.MID}-${c.ATT}`; }
+
+function populateCustomPositionSelects(oc) {
+  const opts = Array.from({length: oc + 1}, (_, i) => i); // 0..oc per position
+  populateSelectOptions('fmt-def', opts);
+  populateSelectOptions('fmt-mid', opts);
+  populateSelectOptions('fmt-att', opts);
+}
+
+// Rebuilds the Formation dropdown for the current outfield count, selecting the
+// combo matching `preferred` if one of the presets matches it, else falling back
+// to the Custom entry (and the three per-position dropdowns) with that value shown.
+function rebuildFormationSelect(oc, preferred) {
+  const combos = formationCombos(oc);
+  const sel = document.getElementById('fmt-formation');
+  sel.innerHTML = combos.map(c => `<option value="${formationLabel(c)}">${formationLabel(c)}</option>`).join('')
+    + `<option value="custom">Custom</option>`;
+  populateCustomPositionSelects(oc);
+
+  const match = preferred && combos.find(c => c.DEF === preferred.DEF && c.MID === preferred.MID && c.ATT === preferred.ATT);
+  const customRow = document.getElementById('customFormationRow');
+  if (match) {
+    sel.value = formationLabel(match);
+    customRow.style.display = 'none';
+    document.getElementById('fmt-def').value = match.DEF;
+    document.getElementById('fmt-mid').value = match.MID;
+    document.getElementById('fmt-att').value = match.ATT;
+  } else {
+    sel.value = 'custom';
+    customRow.style.display = 'flex';
+    if (preferred) {
+      document.getElementById('fmt-def').value = Math.min(preferred.DEF, oc);
+      document.getElementById('fmt-mid').value = Math.min(preferred.MID, oc);
+      document.getElementById('fmt-att').value = Math.min(preferred.ATT, oc);
+    }
+  }
   updateShapeTotal();
 }
+
+function refillShapeSuggestion() {
+  const oc = outfieldCount();
+  rebuildFormationSelect(oc, suggestBalancedCounts(oc));
+}
+
 function updateShapeTotal() {
   const oc = outfieldCount();
   const d = parseInt(document.getElementById('fmt-def').value, 10) || 0;
@@ -687,29 +734,34 @@ function updatePeriodPreview() {
   for (let i = 0; i < bounds.length - 1; i++) lens.push(bounds[i + 1] - bounds[i]);
   document.getElementById('periodPreview').textContent = `${per} period${per > 1 ? 's' : ''} of ${lens.map(l => l + "'").join(', ')} (${dur}' total)`;
 }
-function syncPresetActiveState() {
-  const val = document.getElementById('fmt-players').value;
-  let matched = false;
-  document.querySelectorAll('.preset-chip').forEach(c => {
-    const on = c.dataset.preset === val;
-    c.classList.toggle('active', on);
-    if (on) matched = true;
-  });
-  if (!matched) document.querySelector('.preset-chip[data-preset="custom"]').classList.add('active');
-}
 
-document.getElementById('presetRow').addEventListener('click', e => {
-  const chip = e.target.closest('.preset-chip');
-  if (!chip) return;
-  if (chip.dataset.preset !== 'custom') document.getElementById('fmt-players').value = chip.dataset.preset;
-  syncPresetActiveState();
-  refillShapeSuggestion();
+document.getElementById('fmt-formation').addEventListener('change', () => {
+  const val = document.getElementById('fmt-formation').value;
+  const customRow = document.getElementById('customFormationRow');
+  if (val === 'custom') {
+    customRow.style.display = 'flex';
+  } else {
+    customRow.style.display = 'none';
+    const [d, m, a] = val.split('-').map(Number);
+    document.getElementById('fmt-def').value = d;
+    document.getElementById('fmt-mid').value = m;
+    document.getElementById('fmt-att').value = a;
+  }
+  updateShapeTotal();
 });
-document.getElementById('fmt-players').addEventListener('input', () => { syncPresetActiveState(); refillShapeSuggestion(); });
+document.getElementById('fmt-players').addEventListener('change', refillShapeSuggestion);
 document.getElementById('fmt-gk').addEventListener('change', refillShapeSuggestion);
-document.getElementById('fmt-duration').addEventListener('input', updatePeriodPreview);
-document.getElementById('fmt-periods').addEventListener('input', updatePeriodPreview);
-['fmt-def', 'fmt-mid', 'fmt-att'].forEach(id => document.getElementById(id).addEventListener('input', updateShapeTotal));
+document.getElementById('fmt-duration').addEventListener('change', updatePeriodPreview);
+document.getElementById('fmt-periods').addEventListener('change', updatePeriodPreview);
+['fmt-def', 'fmt-mid', 'fmt-att'].forEach(id => document.getElementById(id).addEventListener('change', updateShapeTotal));
+
+// Initial population of the players / duration / periods dropdowns (logical, bounded ranges).
+populateSelectOptions('fmt-players', Array.from({length: 9}, (_, i) => i + 3));       // 3..11
+populateSelectOptions('fmt-duration', Array.from({length: 17}, (_, i) => (i + 2) * 5)); // 10..90, step 5
+populateSelectOptions('fmt-periods', Array.from({length: 9}, (_, i) => i + 1));        // 1..9
+document.getElementById('fmt-players').value = 7;
+document.getElementById('fmt-duration').value = 50;
+document.getElementById('fmt-periods').value = 2;
 
 document.getElementById('confirmFormatBtn').addEventListener('click', () => {
   const players = parseInt(document.getElementById('fmt-players').value, 10);
