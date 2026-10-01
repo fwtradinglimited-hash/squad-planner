@@ -111,19 +111,21 @@
   input[type="range"]::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--amber); border: 3px solid var(--turf-1); cursor: pointer; }
   .half-marks { display: flex; justify-content: space-between; font-size: 11px; color: var(--chalk-dim); margin: 4px 2px 16px; }
 
-  .next-sub { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+  .next-sub { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
   .next-sub .tag { font-family: "Oswald", sans-serif; font-size: 11px; background: var(--amber); color: var(--amber-ink); padding: 3px 8px; border-radius: 6px; flex-shrink: 0; }
   .next-sub.done .tag { background: var(--chalk-dim); color: var(--ink); }
+  .next-sub.due { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
 
-  .pitch-wrap { background: linear-gradient(180deg, var(--turf-2), var(--turf-1)); border-radius: 18px; padding: 10px; margin-bottom: 8px; box-shadow: inset 0 0 0 1px rgba(244,241,230,0.08); }
-  .pitch-svg { width: 100%; height: auto; display: block; }
+  .pitch-wrap { background: linear-gradient(180deg, var(--turf-2), var(--turf-1)); border-radius: 18px; padding: 10px; margin-bottom: 8px; box-shadow: inset 0 0 0 1px rgba(244,241,230,0.08); flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .pitch-svg { width: 100%; height: 100%; display: block; }
   .token-name { font-family: "Oswald", sans-serif; font-size: 13px; fill: var(--turf-1); font-weight: 600; text-anchor: middle; }
   .token-label { font-size: 8px; fill: var(--chalk); text-anchor: middle; letter-spacing: 0.5px; }
   .token-hit { cursor: pointer; }
   .edit-hint { font-size: 11.5px; color: var(--ink-soft); text-align: center; margin: 0 0 18px; }
 
+  .bench-section { flex: 0 0 auto; margin-bottom: 0; }
   .bench-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
-  .bench-card { background: var(--bench-card); border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; flex-shrink: 0; border: 1px solid var(--card-line); }
+  .bench-card { background: var(--bench-card); border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; flex-shrink: 0; border: 1px solid var(--card-line); cursor: pointer; }
 
   .timeline { border-left: 2px solid var(--card-line); padding-left: 14px; }
   .tl-event { position: relative; padding-bottom: 14px; font-size: 13px; }
@@ -168,22 +170,42 @@
   .banner.show { display: block; }
   .note { font-size: 12px; color: var(--ink-soft); border-top: 1px dashed var(--card-line); padding-top: 12px; margin-top: 4px; }
 
-  .plan-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  /* Match Mode screen fills the viewport and lays out as a flex column so the
+     Live tab (pitch + bench + clock) fits without scrolling; Details scrolls
+     internally if its content runs long. */
+  #screen-plan.active {
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    max-width: 460px; margin: 0 auto;
+    padding: calc(14px + env(safe-area-inset-top,0px)) 16px calc(12px + env(safe-area-inset-bottom,0px));
+    background: var(--shell-bg); z-index: 5;
+  }
+  .plan-topbar { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .plan-back { font-family: "Oswald", sans-serif; font-weight: 500; font-size: 14px; color: var(--turf-1); cursor: pointer; flex-shrink: 0; }
   :root[data-theme="dark"] .plan-back, :root:not([data-theme="light"]) .plan-back { color: #6FD98F; }
-  .plan-topbar .subline { font-size: 13px; color: var(--ink-soft); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .subline { font-size: 13px; color: var(--ink-soft); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plan-topbar .plan-subtabs { flex: 1; margin-bottom: 0; }
   .plan-subtabs { display: flex; gap: 6px; background: var(--bench-card); border-radius: 10px; padding: 3px; margin-bottom: 12px; }
   .plan-subtab { flex: 1; text-align: center; padding: 7px 4px; border-radius: 8px; font-family: "Oswald", sans-serif; font-size: 12.5px; font-weight: 500; cursor: pointer; color: var(--ink-soft); }
   .plan-subtab.active { background: var(--turf-1); color: var(--chalk); }
 
-  .score-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; font-family: "Oswald", sans-serif; }
-  .score-row .score-team { font-size: 11px; color: var(--ink-soft); letter-spacing: 0.3px; }
-  .score-row .score-val { font-size: 22px; font-weight: 600; min-width: 20px; text-align: center; }
-  .score-row .score-sep { font-size: 16px; color: var(--ink-soft); }
-  .score-row .score-add { margin-left: 8px; font-size: 12px; font-weight: 500; background: var(--bench-card); padding: 5px 10px; border-radius: 8px; cursor: pointer; color: var(--ink); }
+  #regenBanner { flex: 0 0 auto; }
+  /* Direct children default to flex:0 1 auto (no grow), which is what every row here
+     wants except the pitch, which opts into growing via its own .pitch-wrap rule. */
+  #planViewLive { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+  #planViewDetails { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+  .live-status-row { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-family: "Oswald", sans-serif; }
+  .live-status-row .play-btn { width: 40px; height: 40px; font-size: 14px; }
+  .live-status-row .clock { font-size: 24px; min-width: 64px; }
+  .live-status-row .clock small { font-size: 12px; }
+  .live-status-row .live-score { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 20px; font-weight: 600; }
+  .live-status-row .score-sep { color: var(--ink-soft); font-size: 15px; }
+  .live-status-row .score-add { font-size: 12px; font-weight: 500; background: var(--bench-card); padding: 7px 12px; border-radius: 8px; cursor: pointer; color: var(--ink); flex-shrink: 0; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(18,36,26,0.55); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
-  .modal-card { background: var(--card); border-radius: 14px; padding: 18px; max-width: 320px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
+  .modal-card { background: var(--card); border-radius: 14px; padding: 18px; max-width: 320px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.35); max-height: 80vh; overflow-y: auto; }
+  .modal-card.modal-wide { max-width: 420px; }
   .modal-msg { font-size: 14px; margin-bottom: 16px; line-height: 1.45; white-space: pre-line; }
   .modal-btn-row { display: flex; gap: 8px; }
   .modal-btn-row .btn { margin-top: 0; }
@@ -349,23 +371,26 @@
   <div class="screen" id="screen-plan">
     <div class="plan-topbar">
       <span class="plan-back" id="planBackBtn">‹ Back</span>
-      <p class="subline" id="planSubline"></p>
+      <div class="plan-subtabs" id="planSubtabs">
+        <div class="plan-subtab active" data-subtab="live">Live</div>
+        <div class="plan-subtab" data-subtab="details">Details</div>
+      </div>
     </div>
-    <div class="plan-subtabs" id="planSubtabs">
-      <div class="plan-subtab active" data-subtab="live">Live</div>
-      <div class="plan-subtab" data-subtab="details">Details</div>
+
+    <!-- LIVE STATUS ROW: pause, clock, score, +Goal - all in one line, live mode only -->
+    <div class="live-status-row" id="liveStatusRow" style="display:none;">
+      <button class="play-btn" id="livePauseBtn" aria-label="Pause">❚❚</button>
+      <div class="clock"><span id="liveClockMin">0</span><small id="liveClockSec">:00</small></div>
+      <div class="live-score">
+        <span class="score-val" id="scoreUs">0</span><span class="score-sep">–</span><span class="score-val" id="scoreThem">0</span>
+      </div>
+      <span class="score-add" id="addGoalBtn">+ Goal</span>
     </div>
+
     <div class="banner" id="regenBanner"></div>
 
     <!-- PRIMARY LIVE VIEW: just the pitch, bench, clock and next rotation -->
     <div id="planViewLive">
-      <div class="score-row" id="scoreRow" style="display:none;">
-        <span class="score-team">Us</span><span class="score-val" id="scoreUs">0</span>
-        <span class="score-sep">–</span>
-        <span class="score-val" id="scoreThem">0</span><span class="score-team">Opp</span>
-        <span class="score-add" id="addGoalBtn">+ Goal</span>
-      </div>
-
       <!-- PREVIEW MODE (before kick-off): scrub through the plan -->
       <div id="previewControls">
         <div class="clock-row">
@@ -374,28 +399,17 @@
           <input type="range" id="scrub" min="0" max="50" value="0" step="1" aria-label="Match minute">
         </div>
         <div class="half-marks" id="halfMarks"></div>
-        <button class="btn btn-primary" id="startMatchBtn" style="margin-bottom:16px;">▶ Start match</button>
-      </div>
-
-      <!-- LIVE MODE (after kick-off): real clock, actual-time confirmations -->
-      <div id="liveControls" style="display:none;">
-        <div class="clock-row">
-          <button class="play-btn" id="livePauseBtn" aria-label="Pause">❚❚</button>
-          <div class="clock"><span id="liveClockMin">0</span><small id="liveClockSec">:00</small></div>
-          <div style="flex:1; text-align:right;">
-            <span class="preset-chip" id="liveMakeChangeBtn" style="cursor:pointer;">Make change</span>
-            <span class="preset-chip" id="livePlayerUnavailableBtn" style="cursor:pointer;">Unavailable</span>
-          </div>
-        </div>
+        <button class="btn btn-primary" id="startMatchBtn" style="margin-bottom:10px;">▶ Start match</button>
       </div>
 
       <div id="halfTimePanel" style="display:none;"></div>
-      <div id="liveActionPanel"></div>
+
+      <!-- Compact "upcoming rotation" pill - tap to open the Substitutions popup -->
       <div class="next-sub" id="nextSub"></div>
-      <div id="liveMiscPanel"></div>
+      <div class="next-sub" id="subsPill" style="cursor:pointer; display:none;"></div>
 
       <div class="pitch-wrap">
-        <svg class="pitch-svg" viewBox="0 0 300 480" id="pitchSvg">
+        <svg class="pitch-svg" viewBox="0 0 300 480" id="pitchSvg" preserveAspectRatio="xMidYMid meet">
           <rect x="0" y="0" width="300" height="480" fill="url(#stripes)"/>
           <defs><pattern id="stripes" width="300" height="60" patternUnits="userSpaceOnUse">
             <rect width="300" height="30" fill="#215A3B"/><rect y="30" width="300" height="30" fill="#1F4A33"/>
@@ -408,30 +422,46 @@
           <g id="tokens"></g>
         </svg>
       </div>
-      <p class="edit-hint" id="editHint"></p>
+      <p class="edit-hint" id="editHint" style="display:none;"></p>
       <div id="startPickerHolder"></div>
 
-      <section><h2>Bench</h2><div class="bench-row" id="benchRow"></div></section>
+      <section class="bench-section"><h2>Bench</h2><div class="bench-row" id="benchRow"></div></section>
     </div>
 
-    <!-- DETAILS VIEW: timeline, forecast, formation, period marks -->
+    <!-- DETAILS VIEW: format summary, substitutions / forecast / formation sub-tabs -->
     <div id="planViewDetails" style="display:none;">
+      <p class="subline" id="detailsFormatLine" style="margin:0 0 8px;"></p>
       <div class="half-marks" id="detailHalfMarks" style="margin-top:0;"></div>
-      <p class="edit-hint" id="earlyFinishLink" style="cursor:pointer; text-decoration:underline; display:none;">End match now</p>
-      <div class="config-note" style="display:flex; justify-content:space-between; align-items:center; margin:10px 0;">
-        <span id="currentShapeLabel"></span>
-        <span id="changeFormationLink" style="text-decoration:underline; cursor:pointer; color:var(--turf-1); font-weight:600;">Change formation</span>
+      <div class="plan-subtabs" id="detailsSubtabs" style="margin-top:12px;">
+        <div class="plan-subtab active" data-dtab="subs">Substitutions</div>
+        <div class="plan-subtab" data-dtab="forecast">Forecast</div>
+        <div class="plan-subtab" data-dtab="formation">Formation</div>
       </div>
-      <div id="formationChangePanel" style="display:none;"></div>
-      <section><h2>Rotation timeline — tap a name to override</h2><div class="timeline" id="timeline"></div></section>
-      <section>
-        <h2>Forecast playing time</h2>
-        <div class="fair-legend">
-          <span><i class="outfield"></i>Outfield</span><span><i class="gk"></i>Goalkeeper</span>
-          <span><i class="target"></i>Target</span><span><i class="tick"></i>Played so far</span>
+
+      <div id="detailsViewSubs" style="margin-top:14px;">
+        <section><h2>Rotation timeline — tap a name to override</h2><div class="timeline" id="timeline"></div></section>
+      </div>
+
+      <div id="detailsViewForecast" style="display:none; margin-top:14px;">
+        <section>
+          <h2>Forecast playing time</h2>
+          <div class="fair-legend">
+            <span><i class="outfield"></i>Outfield</span><span><i class="gk"></i>Goalkeeper</span>
+            <span><i class="target"></i>Target</span><span><i class="tick"></i>Played so far</span>
+          </div>
+          <div id="fairness"></div>
+        </section>
+      </div>
+
+      <div id="detailsViewFormation" style="display:none; margin-top:14px;">
+        <div class="config-note" style="display:flex; justify-content:space-between; align-items:center; margin:0 0 10px;">
+          <span id="currentShapeLabel"></span>
+          <span id="changeFormationLink" style="text-decoration:underline; cursor:pointer; color:var(--turf-1); font-weight:600;">Change formation</span>
         </div>
-        <div id="fairness"></div>
-      </section>
+        <div id="formationChangePanel" style="display:none;"></div>
+      </div>
+
+      <p class="edit-hint" id="earlyFinishLink" style="cursor:pointer; text-decoration:underline; display:none; margin-top:16px;">End match now</p>
       <p class="note">Squad and match settings are saved on this device. Manual edits recalculate everything after the change only.</p>
     </div>
   </div>
@@ -465,6 +495,19 @@ function showConfirm(message, onConfirm, confirmLabel) {
   document.body.appendChild(overlay);
   overlay.querySelector('#modalCancel').addEventListener('click', () => overlay.remove());
   overlay.querySelector('#modalConfirm').addEventListener('click', () => { overlay.remove(); onConfirm(); });
+}
+
+// Generic popup-over-the-pitch helper: anything that used to render inline below
+// the pitch (sub pickers, the goal picker, the player action menu) now opens as
+// a modal instead, so the coach never has to scroll to find it. Tapping outside
+// the card dismisses it, same as a native sheet.
+function openModal(innerHtml, opts) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-card${opts && opts.wide ? ' modal-wide' : ''}">${innerHtml}</div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  return overlay;
 }
 
 /* ================= PERSISTENCE ================= */
@@ -511,12 +554,15 @@ function buildFormation(counts, hasGoalkeeper) {
 
   const presentRows = groupOrder.filter(g => counts[g] > 0); // bottom-to-top: DEF, MID, ATT
   const yTop = 65, yBottom = 375;
+  const centerX = 150, maxRowWidth = 230, idealGap = 58; // keeps 2-3 player rows centred and close together
+  // instead of two widely-apart players, rather than stretched to the full pitch width.
   presentRows.forEach((group, rowIndex) => {
     const y = presentRows.length === 1 ? (yTop + yBottom) / 2
       : yBottom - (yBottom - yTop) * (rowIndex / (presentRows.length - 1));
     const n = counts[group];
+    const rowWidth = n > 1 ? Math.min(maxRowWidth, idealGap * (n - 1)) : 0;
     for (let i = 0; i < n; i++) {
-      const x = n === 1 ? 150 : 35 + (265 - 35) * (i / (n - 1));
+      const x = n === 1 ? centerX : centerX - rowWidth / 2 + rowWidth * (i / (n - 1));
       slots.push({id: `${group}${i + 1}`, label: group, group, x, y});
     }
   });
@@ -1217,15 +1263,14 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   liveMode = false; halfTimeActive = false; matchFinished = false;
   clearInterval(liveTicker); matchStartTs = null; pausedAccumMs = 0; pauseStartedAt = null;
   document.getElementById('previewControls').style.display = 'block';
-  document.getElementById('liveControls').style.display = 'none';
+  document.getElementById('liveStatusRow').style.display = 'none';
   document.getElementById('earlyFinishLink').style.display = 'none';
   document.getElementById('nextSub').style.display = 'flex';
+  document.getElementById('subsPill').style.display = 'none';
   document.getElementById('halfTimePanel').style.display = 'none';
   document.getElementById('halfTimePanel').innerHTML = '';
-  document.getElementById('liveActionPanel').innerHTML = '';
-  document.getElementById('liveMiscPanel').innerHTML = '';
+  lastAutoPoppedKey = null;
   score = {us: 0, them: 0}; goalEvents = [];
-  document.getElementById('scoreRow').style.display = 'none';
   setPlanSubTab('live');
   regeneratePlan();
   document.getElementById('regenBanner').classList.remove('show');
@@ -1235,7 +1280,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   const shapeDesc = SLOTS.filter(s => s.group !== 'GK').length
     ? ['DEF','MID','ATT'].map(g => SLOTS.filter(s => s.group === g).length).filter(n => n > 0).join('-')
     : '';
-  document.getElementById('planSubline').textContent =
+  document.getElementById('detailsFormatLine').textContent =
     `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}${HAS_GK ? '' : ' (no GK)'} · ${DURATION} min · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`;
   document.getElementById('halfMarks').innerHTML = PERIOD_BOUNDS.map((b, i) => {
     if (i === 0) return '<span>KO</span>';
@@ -1283,7 +1328,7 @@ function render(t) {
     posLabel.setAttribute('class', 'token-label'); posLabel.textContent = slot.label;
     g.appendChild(circle); g.appendChild(label); g.appendChild(posLabel);
     if (t === 0 && !liveMode) g.addEventListener('click', () => togglePicker({kind:'start', slotId: slot.id, time: 0}));
-    if (liveMode && !halfTimeActive && !matchFinished && slot.group !== 'GK') g.addEventListener('click', () => openLiveChangePicker(slot.id));
+    if (liveMode && !halfTimeActive && !matchFinished) g.addEventListener('click', () => openPlayerActionMenu(pid, slot.id));
     tokensG.appendChild(g);
   }
 
@@ -1291,6 +1336,7 @@ function render(t) {
   benchRow.innerHTML = '';
   for (const p of PLAYERS) if (!onPitchSet.has(p.id)) {
     const el = document.createElement('div'); el.className = 'bench-card'; el.textContent = p.id;
+    if (liveMode && !halfTimeActive && !matchFinished) el.addEventListener('click', () => openPlayerActionMenu(p.id, null));
     benchRow.appendChild(el);
   }
 
@@ -1550,37 +1596,37 @@ function lastGoalDescription() {
 }
 function openGoalPicker() {
   const mins = liveElapsedMinute();
-  const panel = document.getElementById('liveMiscPanel');
   const undoRow = goalEvents.length ? `<div class="picker-opt" data-action="undo"><span>Undo last goal (${lastGoalDescription()})</span></div>` : '';
   // Step 1: for us or against us - a goal against needs no further detail
   // and is logged in one tap, per how coaches actually track this live.
-  panel.innerHTML = `<div class="picker"><div class="picker-title">Goal at ${mins}'</div>` + undoRow +
-    `<div class="picker-opt" data-action="for"><span>Goal for us</span></div>` +
-    `<div class="picker-opt" data-action="against"><span>Goal against us</span></div>` +
-    `<div class="picker-cancel" id="goalCancel">Cancel</div></div>`;
-  panel.querySelector('[data-action="for"]').addEventListener('click', () => openGoalScorerPicker(mins));
-  panel.querySelector('[data-action="against"]').addEventListener('click', () => { recordGoal('OPP', mins); panel.innerHTML = ''; });
-  const undoEl = panel.querySelector('[data-action="undo"]');
-  if (undoEl) undoEl.addEventListener('click', () => { undoLastGoal(); panel.innerHTML = ''; });
-  document.getElementById('goalCancel').addEventListener('click', () => { panel.innerHTML = ''; });
+  const overlay = openModal(`
+    <div class="picker-title">Goal at ${mins}'</div>${undoRow}
+    <div class="picker-opt" data-action="for"><span>Goal for us</span></div>
+    <div class="picker-opt" data-action="against"><span>Goal against us</span></div>
+    <div class="picker-cancel" id="goalCancel">Cancel</div>`);
+  overlay.querySelector('[data-action="for"]').addEventListener('click', () => { overlay.remove(); openGoalScorerPicker(mins); });
+  overlay.querySelector('[data-action="against"]').addEventListener('click', () => { recordGoal('OPP', mins); overlay.remove(); });
+  const undoEl = overlay.querySelector('[data-action="undo"]');
+  if (undoEl) undoEl.addEventListener('click', () => { undoLastGoal(); overlay.remove(); });
+  overlay.querySelector('#goalCancel').addEventListener('click', () => overlay.remove());
 }
 function openGoalScorerPicker(mins) {
-  const panel = document.getElementById('liveMiscPanel');
-  panel.innerHTML = `<div class="picker"><div class="picker-title">Who scored (${mins}')?</div>` +
-    PLAYERS.map(p => `<div class="picker-opt" data-scorer="${p.id}"><span>${p.id}</span></div>`).join('') +
-    `<div class="picker-opt" data-scorer="UNKNOWN"><span>Unsure who</span></div>` +
-    `<div class="picker-cancel" id="goalCancel">Cancel</div></div>`;
-  panel.querySelectorAll('.picker-opt').forEach(el => {
-    el.addEventListener('click', () => { recordGoal(el.dataset.scorer, mins); panel.innerHTML = ''; });
+  const overlay = openModal(`
+    <div class="picker-title">Who scored (${mins}')?</div>
+    ${PLAYERS.map(p => `<div class="picker-opt" data-scorer="${p.id}"><span>${p.id}</span></div>`).join('')}
+    <div class="picker-opt" data-scorer="UNKNOWN"><span>Unsure who</span></div>
+    <div class="picker-cancel" id="goalCancel">Cancel</div>`);
+  overlay.querySelectorAll('.picker-opt').forEach(el => {
+    el.addEventListener('click', () => { recordGoal(el.dataset.scorer, mins); overlay.remove(); });
   });
-  document.getElementById('goalCancel').addEventListener('click', () => { panel.innerHTML = ''; });
+  overlay.querySelector('#goalCancel').addEventListener('click', () => overlay.remove());
 }
 document.getElementById('addGoalBtn').addEventListener('click', openGoalPicker);
 
 /* ================= PLAN SCREEN: BACK BUTTON & LIVE/DETAILS SUB-TABS ================= */
 function setPlanSubTab(tab) {
-  document.querySelectorAll('.plan-subtab').forEach(el => el.classList.toggle('active', el.dataset.subtab === tab));
-  document.getElementById('planViewLive').style.display = tab === 'live' ? 'block' : 'none';
+  document.querySelectorAll('#planSubtabs .plan-subtab').forEach(el => el.classList.toggle('active', el.dataset.subtab === tab));
+  document.getElementById('planViewLive').style.display = tab === 'live' ? 'flex' : 'none';
   document.getElementById('planViewDetails').style.display = tab === 'details' ? 'block' : 'none';
 }
 document.getElementById('planSubtabs').addEventListener('click', e => {
@@ -1588,6 +1634,18 @@ document.getElementById('planSubtabs').addEventListener('click', e => {
   if (el) setPlanSubTab(el.dataset.subtab);
 });
 document.getElementById('planBackBtn').addEventListener('click', () => showScreen('squad'));
+
+/* ---- DETAILS TAB: second-row Substitutions / Forecast / Formation sub-tabs ---- */
+function setDetailsSubTab(tab) {
+  document.querySelectorAll('#detailsSubtabs .plan-subtab').forEach(el => el.classList.toggle('active', el.dataset.dtab === tab));
+  document.getElementById('detailsViewSubs').style.display = tab === 'subs' ? 'block' : 'none';
+  document.getElementById('detailsViewForecast').style.display = tab === 'forecast' ? 'block' : 'none';
+  document.getElementById('detailsViewFormation').style.display = tab === 'formation' ? 'block' : 'none';
+}
+document.getElementById('detailsSubtabs').addEventListener('click', e => {
+  const el = e.target.closest('.plan-subtab');
+  if (el) setDetailsSubTab(el.dataset.dtab);
+});
 
 /* ---- LIVE MATCH PERSISTENCE -----------------------------------------
    Squad data is already saved to localStorage, but everything about an
@@ -1666,9 +1724,10 @@ function restoreLiveMatch(saved) {
   liveMode = true;
 
   document.getElementById('previewControls').style.display = 'none';
-  document.getElementById('liveControls').style.display = 'block';
+  document.getElementById('liveStatusRow').style.display = 'flex';
   document.getElementById('earlyFinishLink').style.display = 'block';
   document.getElementById('nextSub').style.display = 'none';
+  lastAutoPoppedKey = null;
   document.getElementById('detailHalfMarks').innerHTML = PERIOD_BOUNDS.map((b,i) => {
     if (i === 0) return '<span>KO</span>';
     if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
@@ -1680,7 +1739,6 @@ function restoreLiveMatch(saved) {
 
   score = saved.score ? {...saved.score} : {us: 0, them: 0};
   goalEvents = saved.goalEvents ? JSON.parse(JSON.stringify(saved.goalEvents)) : [];
-  document.getElementById('scoreRow').style.display = 'flex';
   updateScoreDisplay();
 
   document.getElementById('regenBanner').classList.remove('show');
@@ -1714,16 +1772,16 @@ function startMatch() {
   liveMode = true;
   setPlaying(false);
   document.getElementById('previewControls').style.display = 'none';
-  document.getElementById('liveControls').style.display = 'block';
+  document.getElementById('liveStatusRow').style.display = 'flex';
   document.getElementById('earlyFinishLink').style.display = 'block';
   document.getElementById('nextSub').style.display = 'none';
+  lastAutoPoppedKey = null;
   document.getElementById('detailHalfMarks').innerHTML = PERIOD_BOUNDS.map((b,i) => {
     if (i === 0) return '<span>KO</span>';
     if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
     return `<span>P${i+1} ${b}'</span>`;
   }).join('');
   score = {us: 0, them: 0}; goalEvents = [];
-  document.getElementById('scoreRow').style.display = 'flex';
   updateScoreDisplay();
   setPlanSubTab('live');
   regeneratePlan();
@@ -1760,63 +1818,109 @@ function liveTick() {
   }
   if (mins >= DURATION) { enterHalfTime(PERIOD_BOUNDS.length - 1); return; }
 
-  renderLiveActionPanel(mins);
+  renderSubsPill(mins);
   currentT = mins;
   render(mins);
 }
 
-function renderLiveActionPanel(mins) {
-  const panel = document.getElementById('liveActionPanel');
+// Compact persistent indicator of the next/due rotation, always visible on the
+// primary live screen. Tapping it (or it auto-popping the first time a sub
+// becomes newly due) opens the full Substitutions popup with Do/Delay/Skip.
+let lastAutoPoppedKey = null;
+function renderSubsPill(mins) {
+  const pill = document.getElementById('subsPill');
   const dueEvent = PLAN.rotations.filter(r => !r.type && r.time <= mins).sort((a,b) => a.time - b.time)[0];
-  const soon = !dueEvent ? PLAN.rotations.filter(r => !r.type && r.time > mins).sort((a,b)=>a.time-b.time)[0] : null;
+  const upcoming = !dueEvent ? PLAN.rotations.filter(r => !r.type && r.time > mins).sort((a,b)=>a.time-b.time)[0] : null;
 
+  pill.style.display = 'flex';
   if (dueEvent) {
     const key = dueEvent.time + '|' + dueEvent.slot;
-    if (snoozeKey === key && mins < snoozeUntilMinute) {
-      panel.innerHTML = `<div class="action-panel" style="border-color:var(--card-line);"><div class="headline" style="font-size:13px;">Snoozed — will ask again at ${snoozeUntilMinute}' (${dueEvent.on} ON / ${dueEvent.off} OFF, ${dueEvent.slot})</div></div>`;
-      return;
+    const snoozed = snoozeKey === key && mins < snoozeUntilMinute;
+    pill.classList.toggle('due', !snoozed);
+    pill.classList.remove('done');
+    if (snoozed) {
+      pill.innerHTML = `<span class="tag">SNOOZED</span> <span>Asking again at ${snoozeUntilMinute}'</span>`;
+    } else {
+      const overdue = mins - dueEvent.time;
+      pill.innerHTML = `<span class="tag">${overdue > 0 ? overdue + "' late" : 'NOW'}</span> <span><strong>${dueEvent.on}</strong> ON · <strong>${dueEvent.off}</strong> OFF</span>`;
+      if (lastAutoPoppedKey !== key) { lastAutoPoppedKey = key; openSubsPopup(); }
     }
+  } else if (upcoming) {
+    pill.classList.remove('due', 'done');
+    pill.innerHTML = `<span class="tag">in ${upcoming.time - mins}'</span> <span><strong>${upcoming.on}</strong> ON · <strong>${upcoming.off}</strong> OFF</span>`;
+  } else {
+    pill.classList.remove('due'); pill.classList.add('done');
+    pill.innerHTML = `<span class="tag">FT</span> <span>No further changes planned</span>`;
+  }
+}
+document.getElementById('subsPill').addEventListener('click', openSubsPopup);
+
+// Popup over the pitch: lists every remaining rotation, with Do/Delay/Skip on
+// whichever one is currently due.
+function openSubsPopup() {
+  const mins = liveElapsedMinute();
+  const dueEvent = PLAN.rotations.filter(r => !r.type && r.time <= mins).sort((a,b) => a.time - b.time)[0];
+  const future = PLAN.rotations.filter(r => !r.type && r.time > mins).sort((a,b) => a.time - b.time);
+  const key = dueEvent ? dueEvent.time + '|' + dueEvent.slot : null;
+  const snoozed = !!key && snoozeKey === key && mins < snoozeUntilMinute;
+
+  let dueHtml = '';
+  if (dueEvent && snoozed) {
+    dueHtml = `<div class="action-panel" style="border-color:var(--card-line); margin:0 0 10px;"><div class="headline" style="font-size:13px;">Snoozed — will ask again at ${snoozeUntilMinute}' (${dueEvent.on} ON / ${dueEvent.off} OFF, ${dueEvent.slot})</div></div>`;
+  } else if (dueEvent) {
     const overdue = mins - dueEvent.time;
-    panel.innerHTML = `
-      <div class="action-panel">
+    dueHtml = `
+      <div class="action-panel" style="margin:0 0 10px;">
         <div class="headline">${overdue > 0 ? `Due ${overdue}' ago` : 'Due now'}: <strong>${dueEvent.on}</strong> ON · <strong>${dueEvent.off}</strong> OFF <span style="color:var(--ink-soft); font-weight:400;">(${dueEvent.slot})</span></div>
         <div class="action-btn-row">
-          <button class="action-btn done" id="actDone">DONE</button>
-          <button class="action-btn delay" id="actDelay">DELAY</button>
-          <button class="action-btn skip" id="actSkip">SKIP</button>
+          <button class="action-btn done" id="subsPopupDone">DONE</button>
+          <button class="action-btn delay" id="subsPopupDelay">DELAY</button>
+          <button class="action-btn skip" id="subsPopupSkip">SKIP</button>
         </div>
-        <div class="delay-opts" id="delayOpts" style="display:none;">
+        <div class="delay-opts" id="subsPopupDelayOpts" style="display:none;">
           <span class="preset-chip" data-mins="1">+1'</span>
           <span class="preset-chip" data-mins="2">+2'</span>
           <span class="preset-chip" data-mins="5">+5'</span>
         </div>
       </div>`;
-    document.getElementById('actDone').addEventListener('click', () => {
-      lockedEvents.push({time: mins, type: 'sub', slot: dueEvent.slot, on: dueEvent.on, reason: overdue > 0 ? 'confirmed (actual time)' : 'coach override'});
-      snoozeKey = null;
+  }
+
+  const futureRows = future.map(r => `<div class="picker-opt" style="cursor:default;"><span>in ${r.time - mins}' · <strong>${r.on}</strong> ON / <strong>${r.off}</strong> OFF</span><span style="color:var(--ink-soft);">${r.slot}</span></div>`).join('');
+  const emptyRow = (!dueEvent && !future.length) ? '<div class="picker-opt" style="cursor:default;"><span>No further changes planned</span></div>' : '';
+
+  const overlay = openModal(`
+    <div class="picker-title" style="font-size:13px; margin-bottom:10px;">Substitutions</div>
+    ${dueHtml}${futureRows}${emptyRow}
+    <div class="picker-cancel" id="subsPopupClose">Close</div>
+  `, {wide: true});
+
+  if (dueEvent && !snoozed) {
+    overlay.querySelector('#subsPopupDone').addEventListener('click', () => {
+      lockedEvents.push({time: mins, type: 'sub', slot: dueEvent.slot, on: dueEvent.on, reason: mins - dueEvent.time > 0 ? 'confirmed (actual time)' : 'coach override'});
+      snoozeKey = null; lastAutoPoppedKey = null;
       regeneratePlan(); render(mins); saveLiveMatchState();
+      overlay.remove();
     });
-    document.getElementById('actSkip').addEventListener('click', () => {
+    overlay.querySelector('#subsPopupSkip').addEventListener('click', () => {
       lockedEvents.push({time: mins, type: 'skip', slot: dueEvent.slot});
-      snoozeKey = null;
+      snoozeKey = null; lastAutoPoppedKey = null;
       regeneratePlan(); render(mins); saveLiveMatchState();
+      overlay.remove();
     });
-    document.getElementById('actDelay').addEventListener('click', () => {
-      document.getElementById('delayOpts').style.display = 'flex';
+    overlay.querySelector('#subsPopupDelay').addEventListener('click', () => {
+      overlay.querySelector('#subsPopupDelayOpts').style.display = 'flex';
     });
-    panel.querySelectorAll('#delayOpts .preset-chip').forEach(chip => {
+    overlay.querySelectorAll('#subsPopupDelayOpts .preset-chip').forEach(chip => {
       chip.addEventListener('click', () => {
         snoozeKey = key;
         snoozeUntilMinute = mins + parseInt(chip.dataset.mins, 10);
-        render(mins);
-        saveLiveMatchState();
+        lastAutoPoppedKey = null;
+        render(mins); saveLiveMatchState();
+        overlay.remove();
       });
     });
-  } else if (soon && soon.time - mins <= 2) {
-    panel.innerHTML = `<div class="action-panel" style="border-color:var(--card-line);"><div class="headline" style="font-size:13px;">Coming up in ${soon.time - mins}' — <strong>${soon.on}</strong> ON / <strong>${soon.off}</strong> OFF (${soon.slot})</div></div>`;
-  } else {
-    panel.innerHTML = '';
   }
+  overlay.querySelector('#subsPopupClose').addEventListener('click', () => overlay.remove());
 }
 
 function openLiveChangePicker(slotId) {
@@ -1826,70 +1930,65 @@ function openLiveChangePicker(slotId) {
   const currentPid = state.onPitch[slotId];
   const occupiedIds = new Set(Object.values(state.onPitch));
   const candidates = PLAYERS.filter(p => p.id !== currentPid && !occupiedIds.has(p.id) && (unavailableFrom[p.id] === undefined || mins < unavailableFrom[p.id]));
-  const panel = document.getElementById('liveMiscPanel');
-  panel.innerHTML = `<div class="picker"><div class="picker-title">Replace ${currentPid} (${slot.label}) with:</div>` +
-    candidates.map(p => {
+  const overlay = openModal(`
+    <div class="picker-title">Replace ${currentPid} (${slot.label}) with:</div>
+    ${candidates.map(p => {
       const tier = p.positions[slot.group] ?? 0;
       return `<div class="picker-opt" data-on="${p.id}"><span>${p.id}</span><span class="tier ${tier <= 1 ? 'warn' : ''}">${TIER_NAMES[tier]}</span></div>`;
-    }).join('') + `<div class="picker-cancel" id="lcCancel">Cancel</div></div>`;
-  panel.querySelectorAll('.picker-opt').forEach(el => {
+    }).join('')}
+    <div class="picker-cancel" id="lcCancel">Cancel</div>`);
+  overlay.querySelectorAll('.picker-opt').forEach(el => {
     el.addEventListener('click', () => {
       lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: el.dataset.on, reason: 'unplanned change'});
       regeneratePlan();
-      panel.innerHTML = '';
+      overlay.remove();
       render(mins);
       saveLiveMatchState();
     });
   });
-  document.getElementById('lcCancel').addEventListener('click', () => { panel.innerHTML = ''; });
+  overlay.querySelector('#lcCancel').addEventListener('click', () => overlay.remove());
 }
 
-document.getElementById('liveMakeChangeBtn').addEventListener('click', () => {
+// Tapping any player (on the pitch or bench) during live play opens this small
+// menu instead of dedicated toolbar buttons - Substitute / Mark unavailable /
+// Cancel - with only the options that make sense for that player.
+function openPlayerActionMenu(pid, slotId) {
   const mins = liveElapsedMinute();
-  const state = computeStateAt(mins);
-  const panel = document.getElementById('liveMiscPanel');
-  panel.innerHTML = `<div class="picker"><div class="picker-title">Which slot to change?</div>` +
-    state.activeSlots.filter(s => s.group !== 'GK').map(s => `<div class="picker-opt" data-slot="${s.id}"><span>${s.label}</span><span>${state.onPitch[s.id]}</span></div>`).join('') +
-    `<div class="picker-cancel" id="mcCancel">Cancel</div></div>`;
-  panel.querySelectorAll('.picker-opt').forEach(el => el.addEventListener('click', () => openLiveChangePicker(el.dataset.slot)));
-  document.getElementById('mcCancel').addEventListener('click', () => { panel.innerHTML = ''; });
-});
+  const slot = slotId ? computeStateAt(mins).activeSlots.find(s => s.id === slotId) : null;
+  const rows = [];
+  if (slotId && slot.group !== 'GK') rows.push({label: 'Substitute off', run: () => openLiveChangePicker(slotId)});
+  rows.push({label: 'Mark unavailable', run: () => markPlayerUnavailable(pid)});
+  const overlay = openModal(`
+    <div class="picker-title">${pid}${slot ? ' · ' + slot.label : ' · Bench'}</div>
+    ${rows.map((r,i) => `<div class="picker-opt" data-i="${i}"><span>${r.label}</span></div>`).join('')}
+    <div class="picker-cancel" id="pamCancel">Cancel</div>`);
+  overlay.querySelectorAll('.picker-opt').forEach((el,i) => el.addEventListener('click', () => { overlay.remove(); rows[i].run(); }));
+  overlay.querySelector('#pamCancel').addEventListener('click', () => overlay.remove());
+}
 
-document.getElementById('livePlayerUnavailableBtn').addEventListener('click', () => {
+function markPlayerUnavailable(pid) {
   const mins = liveElapsedMinute();
   const state = computeStateAt(mins);
   const onPitchSet = new Set(Object.values(state.onPitch));
-  const panel = document.getElementById('liveMiscPanel');
-  const eligiblePlayers = PLAYERS.filter(p => unavailableFrom[p.id] === undefined);
-  panel.innerHTML = `<div class="picker"><div class="picker-title">Who is unavailable from now?</div>` +
-    eligiblePlayers.map(p => `<div class="picker-opt" data-pid="${p.id}"><span>${p.id}${onPitchSet.has(p.id) ? ' (on pitch)' : ''}</span></div>`).join('') +
-    `<div class="picker-cancel" id="puCancel">Cancel</div></div>`;
-  panel.querySelectorAll('.picker-opt').forEach(el => {
-    el.addEventListener('click', () => {
-      const pid = el.dataset.pid;
-      showConfirm(`Mark ${pid} unavailable for the rest of the match?`, () => {
-        unavailableFrom[pid] = mins;
-        lockedEvents.push({time: mins, type: 'unavailable', player: pid});
-        if (onPitchSet.has(pid)) {
-          const slotId = Object.entries(state.onPitch).find(([sid, p2]) => p2 === pid)[0];
-          const slot = state.activeSlots.find(s => s.id === slotId);
-          const candidates = PLAYERS.filter(p2 => p2.id !== pid && !onPitchSet.has(p2.id) && unavailableFrom[p2.id] === undefined && (p2.positions[slot.group] ?? 0) >= 1);
-          if (candidates.length) {
-            candidates.sort((a,b) => (b.positions[slot.group] ?? 0) - (a.positions[slot.group] ?? 0));
-            lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: candidates[0].id, reason: 'unavailable replacement'});
-          } else {
-            showAlert(`No eligible replacement for ${pid}'s slot (${slot.label}) - the plan will continue short in that position until someone becomes available.`);
-          }
-        }
-        regeneratePlan();
-        panel.innerHTML = '';
-        render(mins);
-        saveLiveMatchState();
-      }, 'Mark unavailable');
-    });
-  });
-  document.getElementById('puCancel').addEventListener('click', () => { panel.innerHTML = ''; });
-});
+  showConfirm(`Mark ${pid} unavailable for the rest of the match?`, () => {
+    unavailableFrom[pid] = mins;
+    lockedEvents.push({time: mins, type: 'unavailable', player: pid});
+    if (onPitchSet.has(pid)) {
+      const slotId = Object.entries(state.onPitch).find(([sid, p2]) => p2 === pid)[0];
+      const slot = state.activeSlots.find(s => s.id === slotId);
+      const candidates = PLAYERS.filter(p2 => p2.id !== pid && !onPitchSet.has(p2.id) && unavailableFrom[p2.id] === undefined && (p2.positions[slot.group] ?? 0) >= 1);
+      if (candidates.length) {
+        candidates.sort((a,b) => (b.positions[slot.group] ?? 0) - (a.positions[slot.group] ?? 0));
+        lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: candidates[0].id, reason: 'unavailable replacement'});
+      } else {
+        showAlert(`No eligible replacement for ${pid}'s slot (${slot.label}) - the plan will continue short in that position until someone becomes available.`);
+      }
+    }
+    regeneratePlan();
+    render(mins);
+    saveLiveMatchState();
+  }, 'Mark unavailable');
+}
 
 function enterHalfTime(periodIdx) {
   pauseStartedAt = pauseStartedAt || Date.now();
