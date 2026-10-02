@@ -344,15 +344,15 @@
             <div class="config-ends"><span>Fewer subs</span><span>Maximum fairness</span></div>
           </div>
           <div class="config-row">
-            <div class="config-label"><span>Position vs. fairness</span><span class="val" id="strictnessLabel">Balanced</span></div>
-            <input type="range" id="strictnessSlider" min="0" max="1" step="0.1" value="0.3">
-            <div class="config-ends"><span>Chase fair minutes</span><span>Stick to best position</span></div>
+            <div class="config-label"><span>Position vs. fluid</span><span class="val" id="strictnessLabel">Balanced</span></div>
+            <input type="range" id="strictnessSlider" min="0" max="1" step="0.1" value="0.7">
+            <div class="config-ends"><span>Stick to best position</span><span>Fluid rotation</span></div>
           </div>
           <div class="config-row">
             <div class="config-label"><span>Minimum time on before a sub</span><span class="val" id="minShiftLabel">8'</span></div>
             <input type="range" id="minShiftSlider" min="2" max="15" step="1" value="8">
             <div class="config-ends"><span>2' (very frequent)</span><span>15' (rare)</span></div>
-            <div class="config-note">Even at "maximum fairness," no player is subbed off before this many minutes on the pitch.</div>
+            <div class="config-note">Even at "maximum fairness," no player is subbed off before this many minutes on the pitch - and no fairness-driven sub is suggested for anyone in the first few minutes after a new period starts.</div>
           </div>
           <div class="config-row">
             <div class="check-row" style="margin-bottom:4px;"><input type="checkbox" id="gkCountsCheckbox"><label for="gkCountsCheckbox">Count goalkeeper time toward fairness</label></div>
@@ -510,6 +510,14 @@ function showConfirm(message, onConfirm, confirmLabel) {
 // a modal instead, so the coach never has to scroll to find it. Tapping outside
 // the card dismisses it, same as a native sheet.
 function openModal(innerHtml, opts) {
+  // At most one modal is ever open at a time. Without this, the live ticker's
+  // auto-popping Substitutions popup (renderSubsPill -> openSubsPopup) could
+  // stack a fresh overlay on top of one the coach was already looking at -
+  // e.g. tapping DONE and then tapping again a moment later, by which time a
+  // new tick had already opened a second popup underneath/on top of the
+  // first. That looked like "clicking slightly above the popup re-prompts
+  // the same decision", and risked the coach acting twice on the same slot.
+  document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `<div class="modal-card${opts && opts.wide ? ' modal-wide' : ''}">${innerHtml}</div>`;
@@ -985,7 +993,7 @@ const gkCountsCheckbox = document.getElementById('gkCountsCheckbox');
 function labelFor(val, lo, mid, hi) { return val <= 0.3 ? lo : (val >= 0.7 ? hi : mid); }
 function updateConfigSummary() {
   const fLabel = labelFor(cfg.fairnessPriority, 'Fewer subs', 'Balanced', 'Maximum fairness');
-  const sLabel = labelFor(cfg.positionStrictness, 'Chase fairness', 'Balanced', 'Stick to position');
+  const sLabel = labelFor(cfg.positionStrictness, 'Fluid rotation', 'Balanced', 'Stick to position');
   document.getElementById('fairnessLabel').textContent = fLabel;
   document.getElementById('strictnessLabel').textContent = sLabel;
   document.getElementById('minShiftLabel').textContent = cfg.minShiftLength + "'";
@@ -994,7 +1002,11 @@ function updateConfigSummary() {
 function onConfigInput() {
   cfg = {
     fairnessPriority: parseFloat(fairnessSlider.value),
-    positionStrictness: parseFloat(strictnessSlider.value),
+    // The slider is drawn with "Fluid rotation" on the right so its direction
+    // matches the Substitution style slider (fairness on the right in both) -
+    // but positionStrictness itself still means "how strongly position is
+    // enforced", so the raw slider value (fluid-ness) is inverted here.
+    positionStrictness: 1 - parseFloat(strictnessSlider.value),
     minShiftLength: parseInt(minShiftSlider.value, 10),
     gkCountsForFairness: gkCountsCheckbox.checked,
   };
@@ -1116,10 +1128,28 @@ function applyFormationChange(state, t, ev) {
   state.rotations.push({time: t, type: 'formation', slots: ev.slots, remap: {...ev.remap}, reason: 'formation change'});
 }
 
+// The largest period-boundary time at or before `t` - i.e. when the period
+// `t` falls in actually kicked off (0 for the 1st period, the boundary time
+// for any later one).
+function currentPeriodStart(t) {
+  let start = 0;
+  for (const b of PERIOD_BOUNDS) { if (b <= t) start = b; else break; }
+  return start;
+}
+
 function runFairnessPass(state, t, skipSlots) {
   const threshold = (1 - cfg.fairnessPriority) * 0.4 * TARGET;
   const minTier = cfg.positionStrictness < 0.5 ? 1 : 2;
   const basis = fairnessBasis(state);
+  // Give the restarted period a breather: a fresh fairness-driven swap won't
+  // be suggested for ANY slot until min-shift-length minutes have elapsed
+  // since the period itself began, even if the current occupant has
+  // personally been on far longer (e.g. since kick-off). Without this, a
+  // period boundary's scheduled GK rotation could land right next to an
+  // unrelated fairness swap for a totally different slot a minute or two
+  // later, which looks like "subbing someone the moment the period restarts"
+  // even though each individual swap technically respected min-shift-length.
+  if (t - currentPeriodStart(t) < cfg.minShiftLength) return;
   for (const slot of state.activeSlots) {
     if (slot.group === 'GK' || skipSlots.has(slot.id)) continue;
     const curPid = state.onPitch[slot.id];
@@ -1699,9 +1729,12 @@ function openGoalPicker() {
   overlay.querySelector('#goalCancel').addEventListener('click', () => overlay.remove());
 }
 function openGoalScorerPicker(mins) {
+  // Only players actually on the pitch right now can have scored.
+  const onPitchIds = new Set(Object.values(computeStateAt(mins).onPitch));
+  const onPitchPlayers = PLAYERS.filter(p => onPitchIds.has(p.id));
   const overlay = openModal(`
     <div class="picker-title">Who scored (${mins}')?</div>
-    ${PLAYERS.map(p => `<div class="picker-opt" data-scorer="${p.id}"><span>${p.id}</span></div>`).join('')}
+    ${onPitchPlayers.map(p => `<div class="picker-opt" data-scorer="${p.id}"><span>${p.id}</span></div>`).join('')}
     <div class="picker-opt" data-scorer="OG"><span>Own goal (opponent)</span></div>
     <div class="picker-opt" data-scorer="UNKNOWN"><span>Unsure who</span></div>
     <div class="picker-cancel" id="goalCancel">Cancel</div>`);
@@ -1709,6 +1742,7 @@ function openGoalScorerPicker(mins) {
     el.addEventListener('click', () => { recordGoal(el.dataset.scorer, mins); overlay.remove(); });
   });
   overlay.querySelector('#goalCancel').addEventListener('click', () => overlay.remove());
+  return overlay;
 }
 document.getElementById('addGoalBtn').addEventListener('click', openGoalPicker);
 
@@ -1791,7 +1825,7 @@ function restoreLiveMatch(saved) {
   gkMode = saved.gkMode; gkKeepers = [...saved.gkKeepers];
   cfg = {gkCountsForFairness: false, ...saved.cfg}; // default for snapshots saved before this setting existed
   fairnessSlider.value = cfg.fairnessPriority;
-  strictnessSlider.value = cfg.positionStrictness;
+  strictnessSlider.value = 1 - cfg.positionStrictness;
   minShiftSlider.value = cfg.minShiftLength;
   gkCountsCheckbox.checked = cfg.gkCountsForFairness;
   updateConfigSummary();
