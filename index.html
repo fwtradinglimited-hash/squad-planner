@@ -349,10 +349,26 @@
             <div class="config-ends"><span>Stick to best position</span><span>Fluid rotation</span></div>
           </div>
           <div class="config-row">
+            <div class="config-label"><span>Sub timing</span></div>
+            <div class="radio-row" id="subTimingRow">
+              <div class="radio-opt selected" data-timing="anytime">Anytime</div>
+              <div class="radio-opt" data-timing="interval">Fixed interval</div>
+              <div class="radio-opt" data-timing="checkpoints">Period checkpoints</div>
+            </div>
+            <div class="field" id="subIntervalField" style="display:none;">
+              <label>Only consider subs every</label>
+              <select id="subIntervalSelect"></select>
+            </div>
+            <div class="check-row" id="subCheckpointHalfwayRow" style="display:none;">
+              <input type="checkbox" id="checkpointHalfwayCheckbox"><label for="checkpointHalfwayCheckbox">Also halfway through each period</label>
+            </div>
+            <div class="config-note" id="subTimingNote"></div>
+          </div>
+          <div class="config-row">
             <div class="config-label"><span>Minimum time on before a sub</span><span class="val" id="minShiftLabel">8'</span></div>
             <input type="range" id="minShiftSlider" min="2" max="15" step="1" value="8">
             <div class="config-ends"><span>2' (very frequent)</span><span>15' (rare)</span></div>
-            <div class="config-note">Even at "maximum fairness," no player is subbed off before this many minutes on the pitch - and no fairness-driven sub is suggested for anyone in the first few minutes after a new period starts.</div>
+            <div class="config-note">No player is subbed off before this many minutes on the pitch, whatever the Sub timing setting above allows.</div>
           </div>
           <div class="config-row">
             <div class="check-row" style="margin-bottom:4px;"><input type="checkbox" id="gkCountsCheckbox"><label for="gkCountsCheckbox">Count goalkeeper time toward fairness</label></div>
@@ -985,19 +1001,39 @@ function validateSetup() {
 // player who does a stint in goal doesn't count that as part of their fair
 // share (and doesn't get less outfield time as a result). Coaches who want
 // total pitch time (GK included) balanced instead can flip this on.
-let cfg = {fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, gkCountsForFairness: false};
+// subTimingMode: 'anytime' (no restriction beyond minShiftLength itself),
+// 'interval' (only consider subs every subIntervalMinutes, counted
+// continuously from kick-off regardless of period breaks), or 'checkpoints'
+// (only at period boundaries, optionally also halfway through each period).
+let cfg = {fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, gkCountsForFairness: false,
+  subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false};
 const fairnessSlider = document.getElementById('fairnessSlider');
 const strictnessSlider = document.getElementById('strictnessSlider');
 const minShiftSlider = document.getElementById('minShiftSlider');
 const gkCountsCheckbox = document.getElementById('gkCountsCheckbox');
+const subTimingRow = document.getElementById('subTimingRow');
+const subIntervalSelect = document.getElementById('subIntervalSelect');
+const checkpointHalfwayCheckbox = document.getElementById('checkpointHalfwayCheckbox');
+populateSelectOptions('subIntervalSelect', [5, 10, 15, 20, 30], v => `${v} minutes`);
+subIntervalSelect.value = 15;
 function labelFor(val, lo, mid, hi) { return val <= 0.3 ? lo : (val >= 0.7 ? hi : mid); }
+function subTimingSummary() {
+  if (cfg.subTimingMode === 'interval') return `every ${cfg.subIntervalMinutes}'`;
+  if (cfg.subTimingMode === 'checkpoints') return cfg.checkpointHalfway ? 'period checkpoints + halfway' : 'period checkpoints only';
+  return 'anytime';
+}
 function updateConfigSummary() {
   const fLabel = labelFor(cfg.fairnessPriority, 'Fewer subs', 'Balanced', 'Maximum fairness');
   const sLabel = labelFor(cfg.positionStrictness, 'Fluid rotation', 'Balanced', 'Stick to position');
   document.getElementById('fairnessLabel').textContent = fLabel;
   document.getElementById('strictnessLabel').textContent = sLabel;
   document.getElementById('minShiftLabel').textContent = cfg.minShiftLength + "'";
-  document.getElementById('configSummary').textContent = `${fLabel} · ${sLabel} · min ${cfg.minShiftLength}' on pitch · GK time ${cfg.gkCountsForFairness ? 'counts' : "doesn't count"}`;
+  document.getElementById('subTimingNote').textContent = cfg.subTimingMode === 'anytime'
+    ? 'Subs can be suggested for any minute - true max fairness, no timing restriction.'
+    : cfg.subTimingMode === 'interval'
+    ? `Subs are only considered every ${cfg.subIntervalMinutes} minutes from kick-off, regardless of period breaks.`
+    : `Subs are only considered at the start of each period${cfg.checkpointHalfway ? ', and halfway through each period' : ''}.`;
+  document.getElementById('configSummary').textContent = `${fLabel} · ${sLabel} · ${subTimingSummary()} · min ${cfg.minShiftLength}' on pitch · GK time ${cfg.gkCountsForFairness ? 'counts' : "doesn't count"}`;
 }
 function onConfigInput() {
   cfg = {
@@ -1006,9 +1042,14 @@ function onConfigInput() {
     // matches the Substitution style slider (fairness on the right in both) -
     // but positionStrictness itself still means "how strongly position is
     // enforced", so the raw slider value (fluid-ness) is inverted here.
-    positionStrictness: 1 - parseFloat(strictnessSlider.value),
+    // Rounded to 1dp (the slider's own step) since e.g. 1 - 0.7 is
+    // 0.30000000000000004 in floating point, not exactly 0.3.
+    positionStrictness: Math.round((1 - parseFloat(strictnessSlider.value)) * 10) / 10,
     minShiftLength: parseInt(minShiftSlider.value, 10),
     gkCountsForFairness: gkCountsCheckbox.checked,
+    subTimingMode: subTimingRow.querySelector('.radio-opt.selected')?.dataset.timing || 'anytime',
+    subIntervalMinutes: parseInt(subIntervalSelect.value, 10) || 15,
+    checkpointHalfway: checkpointHalfwayCheckbox.checked,
   };
   updateConfigSummary();
   // Locked events (substitution overrides + formation changes) now persist
@@ -1022,6 +1063,17 @@ fairnessSlider.addEventListener('input', onConfigInput);
 strictnessSlider.addEventListener('input', onConfigInput);
 minShiftSlider.addEventListener('input', onConfigInput);
 gkCountsCheckbox.addEventListener('change', onConfigInput);
+subTimingRow.addEventListener('click', e => {
+  const opt = e.target.closest('.radio-opt');
+  if (!opt) return;
+  subTimingRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', o === opt));
+  const mode = opt.dataset.timing;
+  document.getElementById('subIntervalField').style.display = mode === 'interval' ? 'block' : 'none';
+  document.getElementById('subCheckpointHalfwayRow').style.display = mode === 'checkpoints' ? 'flex' : 'none';
+  onConfigInput();
+});
+subIntervalSelect.addEventListener('change', onConfigInput);
+checkpointHalfwayCheckbox.addEventListener('change', onConfigInput);
 document.getElementById('configHeader').addEventListener('click', () => {
   const open = document.getElementById('configBody').classList.toggle('open');
   document.getElementById('configCog').classList.toggle('open', open);
@@ -1131,25 +1183,34 @@ function applyFormationChange(state, t, ev) {
 // The largest period-boundary time at or before `t` - i.e. when the period
 // `t` falls in actually kicked off (0 for the 1st period, the boundary time
 // for any later one).
-function currentPeriodStart(t) {
-  let start = 0;
-  for (const b of PERIOD_BOUNDS) { if (b <= t) start = b; else break; }
-  return start;
+// Every period boundary a new period actually starts at (excludes kick-off
+// and full-time, which aren't sub moments), plus the halfway point of every
+// period when that option is on.
+function subCheckpointTimes() {
+  const times = new Set();
+  for (let i = 1; i < PERIOD_BOUNDS.length - 1; i++) times.add(PERIOD_BOUNDS[i]);
+  if (cfg.checkpointHalfway) {
+    for (let i = 0; i < PERIOD_BOUNDS.length - 1; i++) {
+      times.add(Math.round((PERIOD_BOUNDS[i] + PERIOD_BOUNDS[i + 1]) / 2));
+    }
+  }
+  return times;
+}
+
+// Whether the coach's "Sub timing" setting allows a fairness-driven swap to
+// even be considered at minute t at all (independent of any individual
+// player's own min-shift-length clock, checked separately below).
+function isSubTimingAllowed(t) {
+  if (cfg.subTimingMode === 'interval') return t % cfg.subIntervalMinutes === 0;
+  if (cfg.subTimingMode === 'checkpoints') return subCheckpointTimes().has(t);
+  return true; // 'anytime' (or unset/legacy cfg) - no restriction, true max fairness
 }
 
 function runFairnessPass(state, t, skipSlots) {
   const threshold = (1 - cfg.fairnessPriority) * 0.4 * TARGET;
   const minTier = cfg.positionStrictness < 0.5 ? 1 : 2;
   const basis = fairnessBasis(state);
-  // Give the restarted period a breather: a fresh fairness-driven swap won't
-  // be suggested for ANY slot until min-shift-length minutes have elapsed
-  // since the period itself began, even if the current occupant has
-  // personally been on far longer (e.g. since kick-off). Without this, a
-  // period boundary's scheduled GK rotation could land right next to an
-  // unrelated fairness swap for a totally different slot a minute or two
-  // later, which looks like "subbing someone the moment the period restarts"
-  // even though each individual swap technically respected min-shift-length.
-  if (t - currentPeriodStart(t) < cfg.minShiftLength) return;
+  if (!isSubTimingAllowed(t)) return;
   for (const slot of state.activeSlots) {
     if (slot.group === 'GK' || skipSlots.has(slot.id)) continue;
     const curPid = state.onPitch[slot.id];
@@ -1823,11 +1884,17 @@ function restoreLiveMatch(saved) {
   applyMatchFormat(saved.playersOnPitch, saved.hasGk, saved.duration, saved.periods, saved.shape);
 
   gkMode = saved.gkMode; gkKeepers = [...saved.gkKeepers];
-  cfg = {gkCountsForFairness: false, ...saved.cfg}; // default for snapshots saved before this setting existed
+  // Defaults cover snapshots saved before a given setting existed.
+  cfg = {gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false, ...saved.cfg};
   fairnessSlider.value = cfg.fairnessPriority;
   strictnessSlider.value = 1 - cfg.positionStrictness;
   minShiftSlider.value = cfg.minShiftLength;
   gkCountsCheckbox.checked = cfg.gkCountsForFairness;
+  subTimingRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', o.dataset.timing === cfg.subTimingMode));
+  subIntervalSelect.value = cfg.subIntervalMinutes;
+  checkpointHalfwayCheckbox.checked = cfg.checkpointHalfway;
+  document.getElementById('subIntervalField').style.display = cfg.subTimingMode === 'interval' ? 'block' : 'none';
+  document.getElementById('subCheckpointHalfwayRow').style.display = cfg.subTimingMode === 'checkpoints' ? 'flex' : 'none';
   updateConfigSummary();
 
   PLAYERS = saved.players.map(p => ({...p}));
