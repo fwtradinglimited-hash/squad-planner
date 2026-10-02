@@ -1879,14 +1879,27 @@ function describeDecisionGroup(g) {
   }
   return `${minuteSpan(g)}: kept ${g.curPid} (${curTierName} ${g.group}) on rather than bring on ${fairest.id} (${fairestTierName}), who needs the minutes more.`;
 }
+// What the current occupant and a candidate would each actually forecast
+// to if the candidate came on for them at this slot/time - the same real
+// simulate()-backed numbers the fairness-spread fix picker uses, rather
+// than a qualitative label against the flat match-wide target. "Candidate X
+// is about on his fair share" doesn't tell a coach what either player would
+// actually end up with if they made the swap; this does.
+function decisionSwapForecast(g, candidateId) {
+  const beforeBasis = fairnessBasis(simulate(startingLineup, lockedEvents));
+  const hyp = simulate(startingLineup, [...lockedEvents, {time: g.startTime, type: 'sub', slot: g.slot, on: candidateId, reason: 'override'}]);
+  const afterBasis = fairnessBasis(hyp);
+  return {
+    curBefore: Math.round(beforeBasis[g.curPid]), curAfter: Math.round(afterBasis[g.curPid]),
+    candBefore: Math.round(beforeBasis[candidateId]), candAfter: Math.round(afterBasis[candidateId]),
+  };
+}
 // Short reasoning clause for one candidate, shown in the override picker -
 // the "underlying info" the coach needs to make the call themselves.
-function describeCandidateOption(c, group) {
+function describeCandidateOption(c, group, g) {
   const tierName = TIER_NAMES[c.tier];
-  const minutesPhrase = c.fairnessGain > 1 ? `${Math.round(c.deficit)}' under target - needs the minutes`
-    : c.fairnessGain < -1 ? `${Math.abs(Math.round(c.deficit))}' over target already`
-    : `about on his fair share`;
-  return `${tierName} ${group} · ${minutesPhrase}`;
+  const f = decisionSwapForecast(g, c.id);
+  return `${tierName} ${group} · if swapped: ${c.id} ${f.candBefore}'→${f.candAfter}' · ${g.curPid} ${f.curBefore}'→${f.curAfter}'`;
 }
 
 // A pure fairness shortfall: the final forecast can land meaningfully off
@@ -1921,8 +1934,25 @@ function computeFairnessBasisGroups() {
 function fairnessSpreadNote() {
   if (!PLAN || !PLAYERS.length || !TARGET) return null;
   const {basis, groups: peerGroups} = computeFairnessBasisGroups();
-  const threshold = Math.max(3, TARGET * 0.15);
+  // Lowered from a flat 3' floor: in a small-sided, short match (low
+  // TARGET), even a couple of minutes is a meaningful share of a player's
+  // fair slice, so the floor shouldn't be stricter than the percentage term
+  // once TARGET is small enough for that to matter.
+  const threshold = Math.max(2, TARGET * 0.15);
+  // A peer group can have a real, visible gap between its most- and
+  // least-played member that no single player's deviation from the GROUP
+  // mean is large enough to cross on its own - especially in a small group
+  // (4-5 players), where a handful of players sitting a bit over and a
+  // handful sitting a bit under can each individually duck under the
+  // per-player bar while the group's actual spread (what a coach sees on
+  // the forecast table - a straight 15' vs 20') is still well worth
+  // flagging. Set below a full 2x the per-player threshold (which a
+  // 2-member group would need anyway, by definition, to have either member
+  // cross it) so a wider group's spread doesn't have to be quite that
+  // extreme before it's worth a look.
+  const rangeThreshold = threshold * 1.8;
   const under = [], over = [];
+  const addedUnder = new Set(), addedOver = new Set();
   peerGroups.forEach((groupIds, groupIdx) => {
     if (groupIds.length < 2) return; // nobody to compare a lone player against
     const group = groupIds.map(id => playersById[id]);
@@ -1934,8 +1964,16 @@ function fairnessSpreadNote() {
       // was actually judged against the same peers (GK-duty vs not) -
       // comparing across groups would reintroduce the structural GK-duty
       // skew this whole check exists to ignore.
-      if (dev < -threshold) under.push({id: p.id, dev: -dev, group: groupIdx});
-      else if (dev > threshold) over.push({id: p.id, dev, group: groupIdx});
+      if (dev < -threshold && !addedUnder.has(p.id)) { under.push({id: p.id, dev: -dev, group: groupIdx}); addedUnder.add(p.id); }
+      else if (dev > threshold && !addedOver.has(p.id)) { over.push({id: p.id, dev, group: groupIdx}); addedOver.add(p.id); }
+    }
+    const minVal = Math.min(...group.map(p => basis[p.id]));
+    const maxVal = Math.max(...group.map(p => basis[p.id]));
+    if (maxVal - minVal > rangeThreshold) {
+      for (const p of group) {
+        if (basis[p.id] === minVal && !addedUnder.has(p.id)) { under.push({id: p.id, dev: mean - basis[p.id], group: groupIdx}); addedUnder.add(p.id); }
+        if (basis[p.id] === maxVal && !addedOver.has(p.id)) { over.push({id: p.id, dev: basis[p.id] - mean, group: groupIdx}); addedOver.add(p.id); }
+      }
     }
   });
   if (!under.length && !over.length) return null;
@@ -2192,11 +2230,12 @@ function openPlanHealthSummary() {
 // from the plan-health note instead of from the pitch.
 function openDecisionOverridePicker(g) {
   const curTierName = TIER_NAMES[playersById[g.curPid]?.positions[g.group] ?? 0];
+  const curForecast = Math.round(fairnessBasis(simulate(startingLineup, lockedEvents))[g.curPid]);
   const options = [...g.items[0].candidates].sort((a, b) => b.tier - a.tier || b.fairnessGain - a.fairnessGain);
   const overlay = openModal(`
     <div class="picker-title">${g.group} slot, ${minuteSpan(g)} - who should play?</div>
-    <div class="decision-current">Currently on: <strong>${g.curPid}</strong> (${curTierName})</div>
-    ${options.map(c => `<div class="picker-opt" data-on="${c.id}"><span>${c.id}</span><span class="tier ${c.tier <= 1 ? 'warn' : ''}">${describeCandidateOption(c, g.group)}</span></div>`).join('')}
+    <div class="decision-current">Currently on: <strong>${g.curPid}</strong> (${curTierName}) - forecast ${curForecast}' if left as is</div>
+    ${options.map(c => `<div class="picker-opt" data-on="${c.id}"><span>${c.id}</span><span class="tier ${c.tier <= 1 ? 'warn' : ''}">${describeCandidateOption(c, g.group, g)}</span></div>`).join('')}
     <div class="picker-cancel" id="planHealthBack">Keep as is - back to summary</div>
   `, {wide: true});
   overlay.querySelectorAll('.picker-opt[data-on]').forEach(el => {
