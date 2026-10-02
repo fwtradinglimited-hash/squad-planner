@@ -417,7 +417,6 @@
       <!-- PREVIEW MODE (before kick-off): scrub through the plan -->
       <div id="previewControls">
         <div class="clock-row">
-          <button class="play-btn" id="playBtn" aria-label="Play">▶</button>
           <div class="clock"><span id="clockMin">0</span><small>:00</small></div>
           <input type="range" id="scrub" min="0" max="50" value="0" step="1" aria-label="Match minute">
         </div>
@@ -476,7 +475,7 @@
           </div>
           <div id="fairnessTableWrap">
             <table class="summary-table" id="fairnessTable"></table>
-            <p class="config-note">So far / Target (so far) = minutes actually played vs. their fair share at the CURRENT minute (not the full match) - GK minutes shown in brackets where they don't count toward fairness. Diff = so far minus target so far. Forecast total = projected minutes by full time if the rest of the plan plays out as scheduled.</p>
+            <p class="config-note">So far = minutes actually played up to now (GK time shown in brackets where it doesn't count toward fairness). Diff = how that compares to their fair share AT THIS POINT in the match - positive means ahead, negative means behind. Forecast total = projected minutes by full time if the rest of the plan plays out as scheduled.</p>
           </div>
           <div id="fairnessGraphWrap" style="display:none;">
             <div class="fair-legend">
@@ -1492,7 +1491,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   // Freshly generated - if the algorithm had to trade position fit off
   // against fairness anywhere, put that in front of the coach right away
   // rather than leaving it to be discovered mid-match.
-  if (visiblePlanHealthGroups().length) openPlanHealthSummary();
+  if (hasPlanHealthNotes()) openPlanHealthSummary();
 });
 
 /* ================= PLAN SCREEN RENDERING (pitch / timeline / fairness) ================= */
@@ -1592,10 +1591,10 @@ function render(t) {
     const targetSoFar = Math.round(TARGETS[p.id] * (t / DURATION));
     const soFarBasis = cfg.gkCountsForFairness ? playedSoFar : playedSoFar - gkSoFar;
     const diff = soFarBasis - targetSoFar;
-    tableRows.push(`<tr><td>${p.id}</td><td>${playedSoFar}'${gkSoFar > 0 ? ` <span style="color:var(--ink-soft);">(${gkSoFar} GK)</span>` : ''}</td><td>${targetSoFar}'</td><td class="${diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : ''}">${diff > 0 ? '+' : ''}${diff}</td><td>${Math.round(total)}'${gk > 0 ? ` <span style="color:var(--ink-soft);">(${Math.round(gk)} GK)</span>` : ''}</td></tr>`);
+    tableRows.push(`<tr><td>${p.id}</td><td>${playedSoFar}'${gkSoFar > 0 ? ` <span style="color:var(--ink-soft);">(${gkSoFar} GK)</span>` : ''}</td><td class="${diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : ''}">${diff > 0 ? '+' : ''}${diff}</td><td>${Math.round(total)}'${gk > 0 ? ` <span style="color:var(--ink-soft);">(${Math.round(gk)} GK)</span>` : ''}</td></tr>`);
   }
   document.getElementById('fairnessTable').innerHTML =
-    `<tr><th>Player</th><th>So far</th><th>Target (so far)</th><th>Diff</th><th>Forecast total</th></tr>${tableRows.join('')}`;
+    `<tr><th>Player</th><th>So far</th><th>Diff</th><th>Forecast total</th></tr>${tableRows.join('')}`;
   renderPlanHealthPill();
 }
 
@@ -1809,17 +1808,14 @@ function buildPicker(slotId, time) {
   return wrap;
 }
 
-let playing = false, playTimer = null;
-const playBtn = document.getElementById('playBtn');
+// Pre-match preview is scrub-only now (drag through the plan to inspect it) -
+// there's no reason to animate through it with its own play/pause before
+// kick-off. Play/pause only makes sense once the match is actually running
+// (see livePauseBtn below), e.g. pausing for an injury and resuming.
+let playTimer = null;
 const scrub = document.getElementById('scrub');
-function setPlaying(state) {
-  playing = state;
-  playBtn.textContent = playing ? '❚❚' : '▶';
-  if (playing) playTimer = setInterval(() => { let t = parseInt(scrub.value, 10) + 1; if (t > DURATION) { t = DURATION; setPlaying(false); } render(t); }, 260);
-  else clearInterval(playTimer);
-}
-playBtn.addEventListener('click', () => setPlaying(!playing));
-scrub.addEventListener('input', e => { setPlaying(false); openPicker = null; render(parseInt(e.target.value, 10)); });
+function setPlaying(state) { if (!state) clearInterval(playTimer); } // kept as a harmless no-op hook for startMatch()
+scrub.addEventListener('input', e => { openPicker = null; render(parseInt(e.target.value, 10)); });
 
 /* ================= MATCH MODE (live, real-clock execution) ================= */
 let liveMode = false;
@@ -1893,17 +1889,80 @@ function describeCandidateOption(c, group) {
   return `${tierName} ${group} · ${minutesPhrase}`;
 }
 
+// A pure fairness shortfall: the final forecast can land meaningfully off
+// target for some players even with NO position trade-off anywhere to log -
+// most often because the coach's "Sub timing" setting (checkpoints/interval)
+// or a relatively long "Minimum time before a sub" only allows a handful of
+// rebalancing windows across the whole match, which the fairness pass can't
+// fully make up for in so few chances. That's invisible to the per-slot
+// trade-off log above (there's no position conflict to point at), so it's
+// checked separately here, directly against the final projected minutes.
+function fairnessSpreadNote() {
+  if (!PLAN || !PLAYERS.length || !TARGET) return null;
+  const forecastGk = computeStateAt(DURATION).gkMinutes;
+  const basis = cfg.gkCountsForFairness ? PLAN.projectedMinutes
+    : Object.fromEntries(PLAYERS.map(p => [p.id, PLAN.projectedMinutes[p.id] - (forecastGk[p.id] || 0)]));
+  const threshold = Math.max(3, TARGET * 0.15);
+  // A dedicated keeper (no outfield position above "Do not use" in any group)
+  // is never meant to earn outfield minutes at all, so reading 0 against the
+  // outfield target isn't a fairness gap for them - exclude players who were
+  // never outfield-eligible in the first place.
+  const outfieldEligible = PLAYERS.filter(p => (p.positions.DEF ?? 0) > 0 || (p.positions.MID ?? 0) > 0 || (p.positions.ATT ?? 0) > 0);
+  // Anyone who spends part of the match as goalkeeper has a structurally
+  // smaller outfield-availability window than someone who never does, so
+  // comparing those two kinds of player to each other - or to one flat
+  // match-wide target - always shows a "gap" even in a perfectly fair plan;
+  // that gap is just the normal cost of splitting keeper duty, not something
+  // to flag. Each player is instead compared only against peers who faced
+  // the same constraint: other players who shared GK duty, or other players
+  // who never kept goal at all.
+  const gkDutyIds = HAS_GK ? new Set(GK_SEGMENTS.map(s => s.player)) : new Set();
+  const peerGroups = [
+    outfieldEligible.filter(p => !gkDutyIds.has(p.id)),
+    outfieldEligible.filter(p => gkDutyIds.has(p.id)),
+  ];
+  const under = [], over = [];
+  for (const group of peerGroups) {
+    if (group.length < 2) continue; // nobody to compare a lone player against
+    const mean = group.reduce((sum, p) => sum + basis[p.id], 0) / group.length;
+    for (const p of group) {
+      const dev = basis[p.id] - mean;
+      if (dev < -threshold) under.push({id: p.id, dev: -dev});
+      else if (dev > threshold) over.push({id: p.id, dev});
+    }
+  }
+  if (!under.length && !over.length) return null;
+  under.sort((a, b) => b.dev - a.dev);
+  over.sort((a, b) => b.dev - a.dev);
+  const parts = [];
+  if (under.length) parts.push(under.map(x => `${x.id} (${Math.round(x.dev)}' behind)`).join(', '));
+  if (over.length) parts.push(over.map(x => `${x.id} (+${Math.round(x.dev)}')`).join(', '));
+  let cause = 'The plan may simply need more rebalancing room than it has.';
+  if (cfg.subTimingMode !== 'anytime') {
+    cause = `"Sub timing" is set to ${subTimingSummary()}, which limits how often the plan can rebalance - try loosening it, or adjust these players manually.`;
+  } else if (cfg.minShiftLength > 0.15 * DURATION) {
+    cause = `"Minimum time before a sub" (${cfg.minShiftLength}') may be limiting how often the plan can rebalance - try lowering it, or adjust these players manually.`;
+  }
+  return {text: `Playing time isn't evenly split among players in the same role: ${parts.join(' · ')}. ${cause}`};
+}
+function hasPlanHealthNotes() {
+  return visiblePlanHealthGroups().length > 0 || (!dismissedDecisionKeys.has('fairness-spread') && !!fairnessSpreadNote());
+}
+
 function renderPlanHealthPill() {
   const pill = document.getElementById('planHealthPill');
   if (!pill) return;
   const groups = visiblePlanHealthGroups();
-  if (!groups.length) { pill.style.display = 'none'; return; }
+  const spread = !dismissedDecisionKeys.has('fairness-spread') ? fairnessSpreadNote() : null;
+  const count = groups.length + (spread ? 1 : 0);
+  if (!count) { pill.style.display = 'none'; return; }
   pill.style.display = 'flex';
-  pill.innerHTML = `<span class="tag">${groups.length} NOTE${groups.length > 1 ? 'S' : ''}</span> <span>Position/fairness trade-off${groups.length > 1 ? 's' : ''} in this plan - tap to review</span>`;
+  pill.innerHTML = `<span class="tag">${count} NOTE${count > 1 ? 'S' : ''}</span> <span>Plan health note${count > 1 ? 's' : ''} - tap to review</span>`;
 }
 document.getElementById('planHealthPill').addEventListener('click', openPlanHealthSummary);
 
-// The main plan-health popup: every current, undismissed trade-off, each
+// The main plan-health popup: a fairness-spread note (if the forecast isn't
+// balanced overall) plus every current, undismissed per-slot trade-off, each
 // with its own Override (pick someone else for that slot/time) and Got it
 // (acknowledge and leave the plan as-is) actions. Rebuilt in place so taking
 // an action immediately reflects in the list rather than requiring a reopen.
@@ -1912,8 +1971,18 @@ function openPlanHealthSummary() {
   const card = overlay.querySelector('.modal-card');
   function refresh() {
     const groups = visiblePlanHealthGroups();
+    const spread = !dismissedDecisionKeys.has('fairness-spread') ? fairnessSpreadNote() : null;
+    const spreadRow = spread ? `
+      <div class="decision-row" data-key="fairness-spread">
+        <div class="decision-text">${spread.text}</div>
+        <div class="decision-actions">
+          <span class="decision-link" data-act="adjust">Adjust manually</span>
+          <span class="decision-link secondary" data-act="dismiss">Got it</span>
+        </div>
+      </div>` : '';
     card.innerHTML = `
-      <div class="picker-title">Plan health - position vs. fairness</div>
+      <div class="picker-title">Plan health</div>
+      ${spreadRow}
       ${groups.length ? groups.map(g => `
         <div class="decision-row" data-key="${decisionGroupKey(g)}">
           <div class="decision-text">${describeDecisionGroup(g)}</div>
@@ -1922,14 +1991,22 @@ function openPlanHealthSummary() {
             <span class="decision-link secondary" data-act="dismiss">Got it</span>
           </div>
         </div>
-      `).join('') : `<div class="config-note">No position/fairness trade-offs flagged right now - the plan is hitting both.</div>`}
+      `).join('') : ''}
+      ${!spreadRow && !groups.length ? `<div class="config-note">No trade-offs or fairness gaps flagged right now - the plan is hitting everything.</div>` : ''}
       <div class="picker-cancel" id="planHealthClose">Close</div>
     `;
     card.querySelectorAll('.decision-row').forEach(row => {
       const key = row.dataset.key;
-      const g = groups.find(x => decisionGroupKey(x) === key);
-      row.querySelector('[data-act="dismiss"]').addEventListener('click', () => { dismissedDecisionKeys.add(key); renderPlanHealthPill(); refresh(); });
-      row.querySelector('[data-act="override"]').addEventListener('click', () => openDecisionOverridePicker(g));
+      const dismissLink = row.querySelector('[data-act="dismiss"]');
+      if (dismissLink) dismissLink.addEventListener('click', () => { dismissedDecisionKeys.add(key); renderPlanHealthPill(); refresh(); });
+      const overrideLink = row.querySelector('[data-act="override"]');
+      if (overrideLink) overrideLink.addEventListener('click', () => openDecisionOverridePicker(groups.find(x => decisionGroupKey(x) === key)));
+      const adjustLink = row.querySelector('[data-act="adjust"]');
+      if (adjustLink) adjustLink.addEventListener('click', () => {
+        overlay.remove();
+        setPlanSubTab('details');
+        setDetailsSubTab('subs');
+      });
     });
     card.querySelector('#planHealthClose').addEventListener('click', () => overlay.remove());
   }
