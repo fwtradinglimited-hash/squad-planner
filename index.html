@@ -1146,9 +1146,54 @@ function runFairnessPass(state, t, skipSlots) {
 // edit was applied, so a second manual edit silently erased the first. Now
 // every locked event persists across edits, and the algorithm fills in
 // everything around them.
+// Applies every locked event timestamped exactly at `t` (subs, skips,
+// unavailability, formation changes) to `state`, returning the set of slots
+// that were just explicitly touched by the coach (so the fairness pass
+// doesn't immediately re-touch them). Factored out of simulate()'s per-minute
+// loop so the same logic can also run once for t=0, before that loop starts.
+function applyEventsAt(state, t, events) {
+  const dueNow = events.filter(e => e.time === t);
+  const skipSlots = new Set();
+  for (const ev of dueNow) {
+    if (ev.type === 'formation') {
+      applyFormationChange(state, t, ev);
+    } else if (ev.type === 'skip') {
+      // Coach declined this suggested swap for now. Reset the current
+      // occupant's clock so the fairness pass doesn't immediately
+      // re-suggest the exact same swap again one minute later - but it
+      // will genuinely reconsider once min_shift_length has passed again.
+      const curPid = state.onPitch[ev.slot];
+      state.lastSubIn[curPid] = t;
+      state.rotations.push({time:t, type:'skip', slot:ev.slot, reason:'coach skipped'});
+      skipSlots.add(ev.slot);
+    } else if (ev.type === 'unavailable') {
+      // Informational marker only - the actual exclusion is enforced via
+      // unavailableFrom, consulted by every eligibility check above.
+      state.rotations.push({time:t, type:'unavailable', player: ev.player, reason:'marked unavailable'});
+    } else { // substitution override
+      const curPid = state.onPitch[ev.slot];
+      if (curPid !== ev.on) {
+        state.benchSet.delete(ev.on); state.benchSet.add(curPid);
+        state.onPitch[ev.slot] = ev.on; state.lastSubIn[ev.on] = t;
+        state.rotations.push({time:t, slot:ev.slot, off:curPid, on:ev.on, reason:ev.reason || 'coach override', edited:true});
+      }
+      skipSlots.add(ev.slot); // don't let the fairness pass immediately re-touch what the coach just set
+    }
+  }
+  return skipSlots;
+}
+
 function simulate(lineup, lockedEvents) {
   const events = [...lockedEvents].sort((a,b) => a.time - b.time);
   const state = buildState(lineup);
+
+  // Events locked at the literal kickoff instant (minute 0 - e.g. the coach
+  // makes a sub, marks someone unavailable, or tweaks the formation in the
+  // first 60 seconds of play, before the clock has ticked over to minute 1)
+  // must be applied before the per-minute loop below, which only ever
+  // considers t=1..DURATION and would otherwise silently drop them.
+  applyEventsAt(state, 0, events);
+
   for (let t = 1; t <= DURATION; t++) {
     for (const [slotId, pid] of Object.entries(state.onPitch)) {
       state.minutesPlayed[pid] += 1;
@@ -1157,34 +1202,7 @@ function simulate(lineup, lockedEvents) {
     if (t === DURATION) break;
     applyPeriodGKChange(state, t);
 
-    const dueNow = events.filter(e => e.time === t);
-    const skipSlots = new Set();
-    for (const ev of dueNow) {
-      if (ev.type === 'formation') {
-        applyFormationChange(state, t, ev);
-      } else if (ev.type === 'skip') {
-        // Coach declined this suggested swap for now. Reset the current
-        // occupant's clock so the fairness pass doesn't immediately
-        // re-suggest the exact same swap again one minute later - but it
-        // will genuinely reconsider once min_shift_length has passed again.
-        const curPid = state.onPitch[ev.slot];
-        state.lastSubIn[curPid] = t;
-        state.rotations.push({time:t, type:'skip', slot:ev.slot, reason:'coach skipped'});
-        skipSlots.add(ev.slot);
-      } else if (ev.type === 'unavailable') {
-        // Informational marker only - the actual exclusion is enforced via
-        // unavailableFrom, consulted by every eligibility check above.
-        state.rotations.push({time:t, type:'unavailable', player: ev.player, reason:'marked unavailable'});
-      } else { // substitution override
-        const curPid = state.onPitch[ev.slot];
-        if (curPid !== ev.on) {
-          state.benchSet.delete(ev.on); state.benchSet.add(curPid);
-          state.onPitch[ev.slot] = ev.on; state.lastSubIn[ev.on] = t;
-          state.rotations.push({time:t, slot:ev.slot, off:curPid, on:ev.on, reason:ev.reason || 'coach override', edited:true});
-        }
-        skipSlots.add(ev.slot); // don't let the fairness pass immediately re-touch what the coach just set
-      }
-    }
+    const skipSlots = applyEventsAt(state, t, events);
     runFairnessPass(state, t, skipSlots);
   }
   return state;
@@ -1585,7 +1603,12 @@ function buildPicker(slotId, time) {
     row.innerHTML = `<span>${p.id}</span><span class="tier ${tier <= 1 ? 'warn' : ''}">${TIER_NAMES[tier]}</span>`;
     row.addEventListener('click', () => {
       if (openPicker.kind === 'start') { startingLineup = {...startingLineup, [slotId]: p.id}; }
-      else lockedEvents.push({time, type: 'sub', slot: slotId, on: p.id});
+      else {
+        lockedEvents.push({time, type: 'sub', slot: slotId, on: p.id});
+        // The coach just explicitly actioned this slot/time themselves, so it
+        // must never show up again as a "due" swap waiting for a decision.
+        resolvedKeys.add(rotationKey({time, slot: slotId}));
+      }
       regeneratePlan();
       openPicker = null;
       const holder = document.getElementById('startPickerHolder'); if (holder) holder.innerHTML = '';
@@ -2038,6 +2061,9 @@ function openLiveChangePicker(slotId) {
   overlay.querySelectorAll('.picker-opt').forEach(el => {
     el.addEventListener('click', () => {
       lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: el.dataset.on, reason: 'unplanned change'});
+      // The coach just made this swap themselves - it must never immediately
+      // reappear as a "due" rotation asking them to confirm the same swap.
+      resolvedKeys.add(rotationKey({time: mins, slot: slotId}));
       regeneratePlan();
       overlay.remove();
       render(mins);
@@ -2078,6 +2104,8 @@ function markPlayerUnavailable(pid) {
       if (candidates.length) {
         candidates.sort((a,b) => (b.positions[slot.group] ?? 0) - (a.positions[slot.group] ?? 0));
         lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: candidates[0].id, reason: 'unavailable replacement'});
+        // Already actioned automatically - don't let it show up as "due" too.
+        resolvedKeys.add(rotationKey({time: mins, slot: slotId}));
       } else {
         showAlert(`No eligible replacement for ${pid}'s slot (${slot.label}) - the plan will continue short in that position until someone becomes available.`);
       }
@@ -2094,6 +2122,10 @@ function enterHalfTime(periodIdx) {
   pendingHalfTimeBoundaryIdx = periodIdx;
   clearInterval(liveTicker);
   saveLiveMatchState();
+  // Same reasoning as finishMatch(): the half-time/full-time panel lives on
+  // the Live tab, so jump there now in case the coach was on Details when
+  // the clock hit the boundary.
+  setPlanSubTab('live');
   const isFullTime = periodIdx >= PERIOD_BOUNDS.length - 1;
   const boundaryMinute = PERIOD_BOUNDS[periodIdx];
   const state = computeStateAt(boundaryMinute);
@@ -2167,6 +2199,10 @@ function requestEarlyFinish() {
 function finishMatch(atMinute) {
   matchFinished = true;
   clearLiveMatchState(); // match is over - nothing left to restore
+  // The full-time summary lives on the Live tab (inside #halfTimePanel) - jump
+  // there now so it's actually visible even if the coach ended the match from
+  // the Details tab (where the "End match now" button lives).
+  setPlanSubTab('live');
   const proRated = atMinute < DURATION;
   const state = computeStateAt(atMinute);
   const longestBench = computeLongestBenchSpell(atMinute);
