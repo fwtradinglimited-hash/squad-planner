@@ -470,11 +470,21 @@
       <div id="detailsViewForecast" style="display:none; margin-top:14px;">
         <section>
           <h2>Forecast playing time</h2>
-          <div class="fair-legend">
-            <span><i class="outfield"></i>Outfield</span><span><i class="gk"></i>Goalkeeper</span>
-            <span><i class="target"></i>Target</span><span><i class="tick"></i>Played so far</span>
+          <div class="plan-subtabs" id="forecastViewToggle" style="margin-bottom:10px;">
+            <div class="plan-subtab active" data-fview="table">Table</div>
+            <div class="plan-subtab" data-fview="graph">Graph</div>
           </div>
-          <div id="fairness"></div>
+          <div id="fairnessTableWrap">
+            <table class="summary-table" id="fairnessTable"></table>
+            <p class="config-note">So far / Target (so far) = minutes actually played vs. their fair share at the CURRENT minute (not the full match) - GK minutes shown in brackets where they don't count toward fairness. Diff = so far minus target so far. Forecast total = projected minutes by full time if the rest of the plan plays out as scheduled.</p>
+          </div>
+          <div id="fairnessGraphWrap" style="display:none;">
+            <div class="fair-legend">
+              <span><i class="outfield"></i>Forecast outfield</span><span><i class="gk"></i>Forecast GK</span>
+              <span><i class="target"></i>Full-match target</span><span><i class="tick"></i>Played so far</span>
+            </div>
+            <div id="fairness"></div>
+          </div>
         </section>
       </div>
 
@@ -1556,6 +1566,7 @@ function render(t) {
   const scale = DURATION;
   const fairEl = document.getElementById('fairness');
   fairEl.innerHTML = '';
+  const tableRows = [];
   for (const p of PLAYERS) {
     const total = PLAN.projectedMinutes[p.id];
     const gk = Math.min(gkMins[p.id] || 0, total);
@@ -1571,7 +1582,20 @@ function render(t) {
     const gkBar = gk > 0 ? `<div class="fair-bar-fill gk" style="left:${outfieldPct}%; width:${gkPct}%; ${outfield > 0 ? 'border-radius:0 8px 8px 0;' : 'border-radius:8px;'}"></div>` : '';
     row.innerHTML = `<span class="fair-name">${p.id}</span><div class="fair-bar-track">${outfieldBar}${gkBar}<div class="fair-target-line" style="left:${targetPct}%"></div><div class="fair-progress-tick" style="left:${soFarPct}%"></div></div><span class="fair-mins">${Math.round(total)}' ${gk > 0 ? `(${Math.round(gk)} GK)` : ''}</span>`;
     fairEl.appendChild(row);
+
+    // Exact numbers for the Table view: played-so-far and target-so-far are
+    // both measured at the CURRENT minute (t), not the full match - that's
+    // the comparison that was hard to read off the bar alone. Forecast total
+    // is the same projected end-of-match figure the bar already showed.
+    const playedSoFar = now.minutesPlayed[p.id];
+    const gkSoFar = now.gkMinutes[p.id] || 0;
+    const targetSoFar = Math.round(TARGETS[p.id] * (t / DURATION));
+    const soFarBasis = cfg.gkCountsForFairness ? playedSoFar : playedSoFar - gkSoFar;
+    const diff = soFarBasis - targetSoFar;
+    tableRows.push(`<tr><td>${p.id}</td><td>${playedSoFar}'${gkSoFar > 0 ? ` <span style="color:var(--ink-soft);">(${gkSoFar} GK)</span>` : ''}</td><td>${targetSoFar}'</td><td class="${diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : ''}">${diff > 0 ? '+' : ''}${diff}</td><td>${Math.round(total)}'${gk > 0 ? ` <span style="color:var(--ink-soft);">(${Math.round(gk)} GK)</span>` : ''}</td></tr>`);
   }
+  document.getElementById('fairnessTable').innerHTML =
+    `<tr><th>Player</th><th>So far</th><th>Target (so far)</th><th>Diff</th><th>Forecast total</th></tr>${tableRows.join('')}`;
   renderPlanHealthPill();
 }
 
@@ -2030,6 +2054,19 @@ document.getElementById('detailsSubtabs').addEventListener('click', e => {
   if (el) setDetailsSubTab(el.dataset.dtab);
 });
 
+// ---- Forecast sub-tab: Table (default, exact numbers) vs. Graph (at-a-glance bars) ----
+let forecastView = 'table';
+function setForecastView(view) {
+  forecastView = view;
+  document.querySelectorAll('#forecastViewToggle .plan-subtab').forEach(el => el.classList.toggle('active', el.dataset.fview === view));
+  document.getElementById('fairnessTableWrap').style.display = view === 'table' ? 'block' : 'none';
+  document.getElementById('fairnessGraphWrap').style.display = view === 'graph' ? 'block' : 'none';
+}
+document.getElementById('forecastViewToggle').addEventListener('click', e => {
+  const el = e.target.closest('.plan-subtab');
+  if (el) setForecastView(el.dataset.fview);
+});
+
 /* ---- LIVE MATCH PERSISTENCE -----------------------------------------
    Squad data is already saved to localStorage, but everything about an
    in-progress match (the clock, the coach's DONE/DELAY/SKIP decisions,
@@ -2313,6 +2350,14 @@ function openSubsPopup() {
       ${dueHtml}${futureRows}${emptyRow}
       <div class="picker-cancel" id="subsPopupClose">Close</div>`;
 
+    // After actioning a sub, close the popup altogether if nothing else
+    // needs the coach's attention right now, rather than leaving them to
+    // close it themselves every time. If another sub is due (or was simply
+    // left snoozed), stay open so they can work through the rest in one go.
+    function closeIfNothingLeftDue() {
+      const stillDue = dueRotations(liveElapsedMinute()).filter(r => !isSnoozed(rotationKey(r), liveElapsedMinute()));
+      if (stillDue.length) refresh(); else overlay.remove();
+    }
     card.querySelectorAll('[data-act="done"]').forEach(btn => {
       const r = due[parseInt(btn.dataset.dueI, 10)];
       btn.addEventListener('click', () => {
@@ -2320,7 +2365,7 @@ function openSubsPopup() {
         lockedEvents.push({time: mins, type: 'sub', slot: r.slot, on: r.on, reason: mins - r.time > 0 ? 'confirmed (actual time)' : 'coach override'});
         delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
         regeneratePlan(); render(mins); saveLiveMatchState();
-        refresh();
+        closeIfNothingLeftDue();
       });
     });
     card.querySelectorAll('[data-act="skip"]').forEach(btn => {
@@ -2330,7 +2375,7 @@ function openSubsPopup() {
         lockedEvents.push({time: mins, type: 'skip', slot: r.slot});
         delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
         regeneratePlan(); render(mins); saveLiveMatchState();
-        refresh();
+        closeIfNothingLeftDue();
       });
     });
     card.querySelectorAll('[data-act="delay"]').forEach(btn => {
@@ -2438,18 +2483,17 @@ function enterHalfTime(periodIdx) {
   setPlanSubTab('live');
   const isFullTime = periodIdx >= PERIOD_BOUNDS.length - 1;
   const boundaryMinute = PERIOD_BOUNDS[periodIdx];
-  const state = computeStateAt(boundaryMinute);
   const panel = document.getElementById('halfTimePanel');
   panel.style.display = 'block';
   panel.innerHTML = `
     <div class="halftime-card">
       <h2>${isFullTime ? 'FULL TIME' : 'PERIOD ' + periodIdx + ' COMPLETE'}</h2>
       <div class="big">${boundaryMinute}'</div>
-      <div class="halftime-mins">${PLAYERS.map(p => `<div><span>${p.id}</span><span>${state.minutesPlayed[p.id]}'</span></div>`).join('')}</div>
       ${isFullTime
         ? `<button class="btn btn-primary" id="finishMatchBtn" style="background:var(--amber); color:var(--amber-ink);">Finish match</button>`
         : `<button class="btn btn-primary" id="startNextPeriodBtn" style="background:var(--amber); color:var(--amber-ink);">Start period ${periodIdx + 1}</button>`}
-    </div>`;
+    </div>
+    ${buildSummaryTable(boundaryMinute)}`;
   if (!isFullTime) {
     document.getElementById('startNextPeriodBtn').addEventListener('click', () => {
       currentPeriodIdx = periodIdx;
@@ -2466,6 +2510,34 @@ function enterHalfTime(periodIdx) {
   } else {
     document.getElementById('finishMatchBtn').addEventListener('click', () => finishMatch(boundaryMinute));
   }
+}
+
+// Shared by the period-end ("half-time") panel and the full-time panel, so
+// both show the same breakdown: how each player's actual minutes compare to
+// their (pro-rated, if mid-match) target, split out GK time, how far off
+// that leaves them, and their longest single spell on the bench so far.
+function buildSummaryTable(atMinute) {
+  const proRated = atMinute < DURATION;
+  const state = computeStateAt(atMinute);
+  const longestBench = computeLongestBenchSpell(atMinute);
+  const rows = PLAYERS.map(p => {
+    const target = Math.round(TARGETS[p.id] * (atMinute / DURATION));
+    const actual = state.minutesPlayed[p.id];
+    const gkMins = state.gkMinutes[p.id] || 0;
+    // Diff is measured on whatever basis the target represents - outfield-only
+    // unless the coach opted GK time in, so a keeper's stint in goal doesn't
+    // show up as a false "overplayed" reading.
+    const diffBasis = cfg.gkCountsForFairness ? actual : actual - gkMins;
+    const diff = diffBasis - target;
+    return `<tr><td>${p.id}</td><td>${target}'</td><td>${actual}'${gkMins > 0 ? ` <span style="color:var(--ink-soft);">(${gkMins} GK)</span>` : ''}</td><td class="${diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : ''}">${diff > 0 ? '+' : ''}${diff}</td><td>${longestBench[p.id]}'</td></tr>`;
+  }).join('');
+  return `
+    <table class="summary-table">
+      <tr><th>Player</th><th>Target${proRated ? '*' : ''}</th><th>Actual</th><th>Diff</th><th>Longest bench</th></tr>
+      ${rows}
+    </table>
+    ${proRated ? `<p class="config-note">*Target pro-rated to ${atMinute}' - what each player's fair share works out to at this point in the match, not the full-match target.</p>` : ''}
+    <p class="config-note">Actual = total minutes played so far (GK time shown separately in brackets where it doesn't count toward fairness). Diff = Actual minus Target - positive means ahead of their fair share, negative means behind. Longest bench = their longest single unbroken spell off the pitch so far.</p>`;
 }
 
 function computeLongestBenchSpell(atMinute) {
@@ -2514,20 +2586,7 @@ function finishMatch(atMinute) {
   // the Details tab (where the "End match now" button lives).
   setPlanSubTab('live');
   const proRated = atMinute < DURATION;
-  const state = computeStateAt(atMinute);
-  const longestBench = computeLongestBenchSpell(atMinute);
   const subCount = PLAN.rotations.filter(r => !r.type && r.time <= atMinute).length;
-  const rows = PLAYERS.map(p => {
-    const target = Math.round(TARGETS[p.id] * (atMinute / DURATION));
-    const actual = state.minutesPlayed[p.id];
-    const gkMins = state.gkMinutes[p.id] || 0;
-    // Diff is measured on whatever basis the target represents - outfield-only
-    // unless the coach opted GK time in, so a keeper's stint in goal doesn't
-    // show up as a false "overplayed" reading.
-    const diffBasis = cfg.gkCountsForFairness ? actual : actual - gkMins;
-    const diff = diffBasis - target;
-    return `<tr><td>${p.id}</td><td>${target}'</td><td>${actual}'${gkMins > 0 ? ` <span style="color:var(--ink-soft);">(${gkMins} GK)</span>` : ''}</td><td class="${diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : ''}">${diff > 0 ? '+' : ''}${diff}</td><td>${longestBench[p.id]}'</td></tr>`;
-  }).join('');
   const scorerNames = { OPP: 'Opponent goal', OG: 'Own goal (opponent)', UNKNOWN: 'Unsure who' };
   const scorerLines = goalEvents.length
     ? goalEvents.map(g => `<div>${g.time}' — ${g.forUs ? '⚽' : '⚑'} ${scorerNames[g.scorer] || g.scorer}${(!g.forUs && g.scorer !== 'OPP') ? ' (opponent)' : ''}</div>`).join('')
@@ -2541,11 +2600,7 @@ function finishMatch(atMinute) {
       <div class="big" style="font-size:26px; margin-top:2px;">${score.us} – ${score.them}</div>
     </div>
     ${scorerLines ? `<div class="config-note" style="margin-bottom:12px;">${scorerLines}</div>` : ''}
-    <table class="summary-table">
-      <tr><th>Player</th><th>Target${proRated ? '*' : ''}</th><th>Actual</th><th>Diff</th><th>Longest bench</th></tr>
-      ${rows}
-    </table>
-    ${proRated ? `<p class="config-note">*Target pro-rated to ${atMinute}' since the match ended early.</p>` : ''}
+    ${buildSummaryTable(atMinute)}
     <p class="config-note">${subCount} substitution${subCount === 1 ? '' : 's'} made.</p>`;
 }
 
