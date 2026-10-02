@@ -111,12 +111,12 @@
   input[type="range"]::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--amber); border: 3px solid var(--turf-1); cursor: pointer; }
   .half-marks { display: flex; justify-content: space-between; font-size: 11px; color: var(--chalk-dim); margin: 4px 2px 16px; }
 
-  .next-sub { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+  .next-sub { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; padding: 9px 14px; margin-bottom: 8px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
   .next-sub .tag { font-family: "Oswald", sans-serif; font-size: 11px; background: var(--amber); color: var(--amber-ink); padding: 3px 8px; border-radius: 6px; flex-shrink: 0; }
   .next-sub.done .tag { background: var(--chalk-dim); color: var(--ink); }
   .next-sub.due { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
 
-  .pitch-wrap { background: linear-gradient(180deg, var(--turf-2), var(--turf-1)); border-radius: 18px; padding: 10px; margin-bottom: 8px; box-shadow: inset 0 0 0 1px rgba(244,241,230,0.08); flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .pitch-wrap { background: linear-gradient(180deg, var(--turf-2), var(--turf-1)); border-radius: 18px; padding: 7px; margin-bottom: 6px; box-shadow: inset 0 0 0 1px rgba(244,241,230,0.08); flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .pitch-svg { width: 100%; height: 100%; display: block; }
   .token-name { font-family: "Oswald", sans-serif; font-size: 13px; fill: var(--turf-1); font-weight: 600; text-anchor: middle; }
   .token-label { font-size: 8px; fill: var(--chalk); text-anchor: middle; letter-spacing: 0.5px; }
@@ -180,7 +180,7 @@
     padding: calc(14px + env(safe-area-inset-top,0px)) 16px calc(12px + env(safe-area-inset-bottom,0px));
     background: var(--shell-bg); z-index: 5;
   }
-  .plan-topbar { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .plan-topbar { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .plan-back { font-family: "Oswald", sans-serif; font-weight: 500; font-size: 14px; color: var(--turf-1); cursor: pointer; flex-shrink: 0; }
   :root[data-theme="dark"] .plan-back, :root:not([data-theme="light"]) .plan-back { color: #6FD98F; }
   .subline { font-size: 13px; color: var(--ink-soft); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -195,7 +195,7 @@
   #planViewLive { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
   #planViewDetails { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
-  .live-status-row { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-family: "Oswald", sans-serif; }
+  .live-status-row { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-family: "Oswald", sans-serif; }
   .live-status-row .play-btn { width: 40px; height: 40px; font-size: 14px; }
   .live-status-row .clock { font-size: 24px; min-width: 64px; }
   .live-status-row .clock small { font-size: 12px; }
@@ -409,16 +409,16 @@
       <div class="next-sub" id="subsPill" style="cursor:pointer; display:none;"></div>
 
       <div class="pitch-wrap">
-        <svg class="pitch-svg" viewBox="0 0 300 480" id="pitchSvg" preserveAspectRatio="xMidYMid meet">
-          <rect x="0" y="0" width="300" height="480" fill="url(#stripes)"/>
-          <defs><pattern id="stripes" width="300" height="60" patternUnits="userSpaceOnUse">
-            <rect width="300" height="30" fill="#215A3B"/><rect y="30" width="300" height="30" fill="#1F4A33"/>
+        <svg class="pitch-svg" viewBox="0 0 300 400" id="pitchSvg" preserveAspectRatio="xMidYMid meet">
+          <rect x="0" y="0" width="300" height="400" fill="url(#stripes)"/>
+          <defs><pattern id="stripes" width="300" height="50" patternUnits="userSpaceOnUse">
+            <rect width="300" height="25" fill="#215A3B"/><rect y="25" width="300" height="25" fill="#1F4A33"/>
           </pattern></defs>
-          <rect x="12" y="12" width="276" height="456" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
-          <line x1="12" y1="246" x2="288" y2="246" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
-          <circle cx="150" cy="246" r="36" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
-          <rect x="80" y="12" width="140" height="48" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
-          <rect x="80" y="420" width="140" height="48" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <rect x="10" y="10" width="280" height="380" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <line x1="10" y1="205" x2="290" y2="205" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <circle cx="150" cy="205" r="30" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <rect x="75" y="10" width="150" height="40" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
+          <rect x="75" y="350" width="150" height="40" fill="none" stroke="#F4F1E6" stroke-opacity="0.55" stroke-width="1.5"/>
           <g id="tokens"></g>
         </svg>
       </div>
@@ -454,11 +454,19 @@
       </div>
 
       <div id="detailsViewFormation" style="display:none; margin-top:14px;">
-        <div class="config-note" style="display:flex; justify-content:space-between; align-items:center; margin:0 0 10px;">
-          <span id="currentShapeLabel"></span>
-          <span id="changeFormationLink" style="text-decoration:underline; cursor:pointer; color:var(--turf-1); font-weight:600;">Change formation</span>
+        <div class="config-note" id="currentShapeLabel" style="margin:0 0 10px;"></div>
+        <div class="form-card">
+          <div class="config-note" style="margin-bottom:8px;">Same players stay on — this only reshuffles who plays where.</div>
+          <div class="field"><label>Formation</label><select id="dfc-formation"></select></div>
+          <div class="pos-row" id="dfcCustomRow" style="display:none;">
+            <div class="field"><label>Defence</label><select id="dfc-def"></select></div>
+            <div class="field"><label>Midfield</label><select id="dfc-mid"></select></div>
+            <div class="field"><label>Attack</label><select id="dfc-att"></select></div>
+          </div>
+          <div class="config-note" id="dfc-total"></div>
+          <div class="warn-box" id="dfc-error" style="display:none;"></div>
+          <button class="btn btn-primary" id="dfc-apply">Change formation</button>
         </div>
-        <div id="formationChangePanel" style="display:none;"></div>
       </div>
 
       <p class="edit-hint" id="earlyFinishLink" style="cursor:pointer; text-decoration:underline; display:none; margin-top:16px;">End match now</p>
@@ -550,12 +558,15 @@ const TIER_NAMES = {0:'Do not use', 1:'Can play', 2:'Comfortable', 3:'Preferred'
 function buildFormation(counts, hasGoalkeeper) {
   const groupOrder = ['DEF', 'MID', 'ATT'];
   const slots = [];
-  if (hasGoalkeeper) slots.push({id: 'GK', label: 'GK', group: 'GK', x: 150, y: 432});
+  if (hasGoalkeeper) slots.push({id: 'GK', label: 'GK', group: 'GK', x: 150, y: 362});
 
   const presentRows = groupOrder.filter(g => counts[g] > 0); // bottom-to-top: DEF, MID, ATT
-  const yTop = 65, yBottom = 375;
-  const centerX = 150, maxRowWidth = 230, idealGap = 58; // keeps 2-3 player rows centred and close together
-  // instead of two widely-apart players, rather than stretched to the full pitch width.
+  const yTop = 54, yBottom = 312;
+  // Rows are centred on the pitch and spread across most of its width - wide
+  // enough to look like a real line-up (not two players huddled in the
+  // middle), but capped short of the touchlines so tokens never crowd the
+  // edge, similar to how FPL's pitch UI spaces out a line.
+  const centerX = 150, maxRowWidth = 270, idealGap = 85;
   presentRows.forEach((group, rowIndex) => {
     const y = presentRows.length === 1 ? (yTop + yBottom) / 2
       : yBottom - (yBottom - yTop) * (rowIndex / (presentRows.length - 1));
@@ -1270,6 +1281,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   document.getElementById('halfTimePanel').style.display = 'none';
   document.getElementById('halfTimePanel').innerHTML = '';
   lastAutoPoppedKey = null;
+  resolvedKeys = new Set(); snoozes = {};
   score = {us: 0, them: 0}; goalEvents = [];
   setPlanSubTab('live');
   regeneratePlan();
@@ -1451,58 +1463,101 @@ function buildFormationRemap(currentOnPitch, newSlots) {
   return remap;
 }
 
-document.getElementById('changeFormationLink').addEventListener('click', () => {
-  const panel = document.getElementById('formationChangePanel');
-  const isOpen = panel.style.display === 'block';
-  panel.style.display = isOpen ? 'none' : 'block';
-  if (isOpen) return;
+// Formation details tab: the formation dropdown (+ Custom per-position
+// dropdowns) are always visible, laid out exactly like the New Match setup
+// screen - reusing formationCombos/formationLabel. A separate "Change
+// formation" button applies the pending selection, same two-step pattern as
+// the setup screen's Confirm button.
+let detailsFormationOC = 0;
 
+function populateDetailsPositionSelects(oc) {
+  const opts = Array.from({length: oc + 1}, (_, i) => i); // 0..oc per position
+  populateSelectOptions('dfc-def', opts);
+  populateSelectOptions('dfc-mid', opts);
+  populateSelectOptions('dfc-att', opts);
+}
+
+function updateDetailsShapeTotal() {
+  const d = parseInt(document.getElementById('dfc-def').value, 10) || 0;
+  const m = parseInt(document.getElementById('dfc-mid').value, 10) || 0;
+  const a = parseInt(document.getElementById('dfc-att').value, 10) || 0;
+  const sum = d + m + a;
+  const el = document.getElementById('dfc-total');
+  el.textContent = `${sum} of ${detailsFormationOC} outfield players placed${sum !== detailsFormationOC ? ' — adjust to match' : ' ✓'}`;
+  el.style.color = sum !== detailsFormationOC ? 'var(--coral)' : 'var(--ink-soft)';
+}
+
+function rebuildDetailsFormationSelect(oc, preferred) {
+  const combos = formationCombos(oc);
+  const sel = document.getElementById('dfc-formation');
+  sel.innerHTML = combos.map(c => `<option value="${formationLabel(c)}">${formationLabel(c)}</option>`).join('')
+    + `<option value="custom">Custom</option>`;
+  populateDetailsPositionSelects(oc);
+
+  const match = preferred && combos.find(c => c.DEF === preferred.DEF && c.MID === preferred.MID && c.ATT === preferred.ATT);
+  const customRow = document.getElementById('dfcCustomRow');
+  if (match) {
+    sel.value = formationLabel(match);
+    customRow.style.display = 'none';
+    document.getElementById('dfc-def').value = match.DEF;
+    document.getElementById('dfc-mid').value = match.MID;
+    document.getElementById('dfc-att').value = match.ATT;
+  } else {
+    sel.value = 'custom';
+    customRow.style.display = 'flex';
+    if (preferred) {
+      document.getElementById('dfc-def').value = Math.min(preferred.DEF, oc);
+      document.getElementById('dfc-mid').value = Math.min(preferred.MID, oc);
+      document.getElementById('dfc-att').value = Math.min(preferred.ATT, oc);
+    }
+  }
+  document.getElementById('dfc-error').style.display = 'none';
+  updateDetailsShapeTotal();
+}
+
+// Called whenever the Formation tab is opened, so the dropdowns always
+// reflect the formation currently in play (not stale from an earlier visit).
+function initDetailsFormationPanel() {
   const nowState = computeStateAt(currentT);
   const curCounts = {DEF: 0, MID: 0, ATT: 0};
   nowState.activeSlots.forEach(s => { if (curCounts[s.group] !== undefined) curCounts[s.group]++; });
-  const outfield = curCounts.DEF + curCounts.MID + curCounts.ATT;
+  detailsFormationOC = curCounts.DEF + curCounts.MID + curCounts.ATT;
+  rebuildDetailsFormationSelect(detailsFormationOC, curCounts);
+}
 
-  panel.innerHTML = `
-    <div class="form-card">
-      <div class="config-note" style="margin-bottom:8px;">Same players stay on — this only reshuffles who plays where. Numbers must total ${outfield}.</div>
-      <div class="pos-row">
-        <div class="field"><label>Defence</label><input type="number" id="fc-def" min="0" value="${curCounts.DEF}"></div>
-        <div class="field"><label>Midfield</label><input type="number" id="fc-mid" min="0" value="${curCounts.MID}"></div>
-        <div class="field"><label>Attack</label><input type="number" id="fc-att" min="0" value="${curCounts.ATT}"></div>
-      </div>
-      <div class="config-note" id="fc-total"></div>
-      <div class="warn-box" id="fc-error" style="display:none;"></div>
-      <button class="btn btn-primary" id="fc-apply">Apply from ${currentT}'</button>
-    </div>`;
-
-  function updateTotal() {
-    const d = parseInt(document.getElementById('fc-def').value,10)||0;
-    const m = parseInt(document.getElementById('fc-mid').value,10)||0;
-    const a = parseInt(document.getElementById('fc-att').value,10)||0;
-    const el = document.getElementById('fc-total');
-    el.textContent = `${d+m+a} of ${outfield} outfield players placed`;
-    el.style.color = (d+m+a) !== outfield ? 'var(--coral)' : 'var(--ink-soft)';
+document.getElementById('dfc-formation').addEventListener('change', () => {
+  const val = document.getElementById('dfc-formation').value;
+  const customRow = document.getElementById('dfcCustomRow');
+  if (val === 'custom') {
+    customRow.style.display = 'flex';
+  } else {
+    customRow.style.display = 'none';
+    const [d, m, a] = val.split('-').map(Number);
+    document.getElementById('dfc-def').value = d;
+    document.getElementById('dfc-mid').value = m;
+    document.getElementById('dfc-att').value = a;
   }
-  ['fc-def','fc-mid','fc-att'].forEach(id => document.getElementById(id).addEventListener('input', updateTotal));
-  updateTotal();
+  updateDetailsShapeTotal();
+});
+['dfc-def', 'dfc-mid', 'dfc-att'].forEach(id => document.getElementById(id).addEventListener('change', updateDetailsShapeTotal));
 
-  document.getElementById('fc-apply').addEventListener('click', () => {
-    const d = parseInt(document.getElementById('fc-def').value,10)||0;
-    const m = parseInt(document.getElementById('fc-mid').value,10)||0;
-    const a = parseInt(document.getElementById('fc-att').value,10)||0;
-    if (d+m+a !== outfield) {
-      const err = document.getElementById('fc-error');
-      err.style.display = 'block';
-      err.textContent = `Must total ${outfield} outfield players (currently ${d+m+a}).`;
-      return;
-    }
-    const newSlots = buildFormation({DEF:d, MID:m, ATT:a}, HAS_GK);
-    const remap = buildFormationRemap(nowState.onPitch, newSlots);
-    lockedEvents.push({time: currentT, type: 'formation', slots: newSlots, remap});
-    regeneratePlan();
-    panel.style.display = 'none';
-    render(currentT);
-  });
+document.getElementById('dfc-apply').addEventListener('click', () => {
+  const d = parseInt(document.getElementById('dfc-def').value, 10) || 0;
+  const m = parseInt(document.getElementById('dfc-mid').value, 10) || 0;
+  const a = parseInt(document.getElementById('dfc-att').value, 10) || 0;
+  if (d + m + a !== detailsFormationOC) {
+    const err = document.getElementById('dfc-error');
+    err.style.display = 'block';
+    err.textContent = `Must total ${detailsFormationOC} outfield players (currently ${d + m + a}).`;
+    return;
+  }
+  const nowState = computeStateAt(currentT);
+  const newSlots = buildFormation({DEF: d, MID: m, ATT: a}, HAS_GK);
+  const remap = buildFormationRemap(nowState.onPitch, newSlots);
+  lockedEvents.push({time: currentT, type: 'formation', slots: newSlots, remap});
+  regeneratePlan();
+  render(currentT);
+  initDetailsFormationPanel();
 });
 
 function togglePicker(target) {
@@ -1560,7 +1615,15 @@ scrub.addEventListener('input', e => { setPlaying(false); openPicker = null; ren
 let liveMode = false;
 let matchStartTs = null, pausedAccumMs = 0, pauseStartedAt = null;
 let liveTicker = null;
-let snoozeKey = null, snoozeUntilMinute = null;
+// "time|slot" keys of due subs the coach has explicitly confirmed (DONE) or
+// skipped (SKIP) - once resolved, a rotation never shows as "due" again, even
+// though the fairness algorithm may independently simulate the identical swap
+// at the same point when the whole plan is regenerated from lockedEvents.
+let resolvedKeys = new Set();
+// "time|slot" -> minute to ask again, for DELAY. A plain map (not a single
+// value) so more than one due sub can be delayed independently of the others.
+let snoozes = {};
+function rotationKey(r) { return r.time + '|' + r.slot; }
 let currentPeriodIdx = 0;
 let halfTimeActive = false, matchFinished = false;
 let pendingHalfTimeBoundaryIdx = null; // which period boundary triggered the current half-time pause (disambiguates a mid-halftime reload)
@@ -1573,7 +1636,9 @@ function updateScoreDisplay() {
   document.getElementById('scoreThem').textContent = score.them;
 }
 function recordGoal(scorer, mins) {
-  const forUs = scorer !== 'OPP' && scorer !== 'OG';
+  // OG is only ever reached via the "Goal for us" flow (an opponent's own
+  // goal, crediting us), so it counts for us just like a named scorer.
+  const forUs = scorer !== 'OPP';
   if (forUs) score.us++; else score.them++;
   goalEvents.push({time: mins, scorer, forUs});
   updateScoreDisplay();
@@ -1590,7 +1655,7 @@ function lastGoalDescription() {
   const last = goalEvents[goalEvents.length - 1];
   if (!last) return '';
   if (last.scorer === 'OPP') return 'Opponent';
-  if (last.scorer === 'OG') return 'own goal';
+  if (last.scorer === 'OG') return 'own goal (opponent)';
   if (last.scorer === 'UNKNOWN') return 'unsure';
   return last.scorer;
 }
@@ -1614,6 +1679,7 @@ function openGoalScorerPicker(mins) {
   const overlay = openModal(`
     <div class="picker-title">Who scored (${mins}')?</div>
     ${PLAYERS.map(p => `<div class="picker-opt" data-scorer="${p.id}"><span>${p.id}</span></div>`).join('')}
+    <div class="picker-opt" data-scorer="OG"><span>Own goal (opponent)</span></div>
     <div class="picker-opt" data-scorer="UNKNOWN"><span>Unsure who</span></div>
     <div class="picker-cancel" id="goalCancel">Cancel</div>`);
   overlay.querySelectorAll('.picker-opt').forEach(el => {
@@ -1641,6 +1707,7 @@ function setDetailsSubTab(tab) {
   document.getElementById('detailsViewSubs').style.display = tab === 'subs' ? 'block' : 'none';
   document.getElementById('detailsViewForecast').style.display = tab === 'forecast' ? 'block' : 'none';
   document.getElementById('detailsViewFormation').style.display = tab === 'formation' ? 'block' : 'none';
+  if (tab === 'formation') initDetailsFormationPanel();
 }
 document.getElementById('detailsSubtabs').addEventListener('click', e => {
   const el = e.target.closest('.plan-subtab');
@@ -1676,7 +1743,7 @@ function saveLiveMatchState() {
       // live clock / progress
       matchStartTs, pausedAccumMs, pauseStartedAt,
       currentPeriodIdx, halfTimeActive, matchFinished, pendingHalfTimeBoundaryIdx,
-      snoozeKey, snoozeUntilMinute,
+      resolvedKeys: [...resolvedKeys], snoozes: {...snoozes},
       // score
       score: {...score}, goalEvents: JSON.parse(JSON.stringify(goalEvents)),
     };
@@ -1720,7 +1787,7 @@ function restoreLiveMatch(saved) {
   matchStartTs = saved.matchStartTs; pausedAccumMs = saved.pausedAccumMs; pauseStartedAt = saved.pauseStartedAt;
   currentPeriodIdx = saved.currentPeriodIdx; matchFinished = saved.matchFinished;
   pendingHalfTimeBoundaryIdx = saved.pendingHalfTimeBoundaryIdx;
-  snoozeKey = saved.snoozeKey; snoozeUntilMinute = saved.snoozeUntilMinute;
+  resolvedKeys = new Set(saved.resolvedKeys || []); snoozes = {...(saved.snoozes || {})};
   liveMode = true;
 
   document.getElementById('previewControls').style.display = 'none';
@@ -1776,6 +1843,7 @@ function startMatch() {
   document.getElementById('earlyFinishLink').style.display = 'block';
   document.getElementById('nextSub').style.display = 'none';
   lastAutoPoppedKey = null;
+  resolvedKeys = new Set(); snoozes = {};
   document.getElementById('detailHalfMarks').innerHTML = PERIOD_BOUNDS.map((b,i) => {
     if (i === 0) return '<span>KO</span>';
     if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
@@ -1823,28 +1891,42 @@ function liveTick() {
   render(mins);
 }
 
+// A "due" rotation is any algorithm-planned swap at or before the current
+// minute that the coach hasn't yet explicitly resolved. Resolution is tracked
+// separately via resolvedKeys/snoozes, NOT by whether the swap is still
+// sitting in PLAN.rotations - regenerating the plan from lockedEvents can
+// reproduce the exact same swap at the exact same minute even after it's been
+// confirmed (the fairness algorithm independently re-derives it), so checking
+// PLAN.rotations alone would make a confirmed sub pop right back up as due.
+function dueRotations(mins) {
+  return PLAN.rotations.filter(r => !r.type && r.time <= mins && !resolvedKeys.has(rotationKey(r))).sort((a,b) => a.time - b.time);
+}
+function isSnoozed(key, mins) { return snoozes[key] !== undefined && mins < snoozes[key]; }
+
 // Compact persistent indicator of the next/due rotation, always visible on the
 // primary live screen. Tapping it (or it auto-popping the first time a sub
 // becomes newly due) opens the full Substitutions popup with Do/Delay/Skip.
 let lastAutoPoppedKey = null;
 function renderSubsPill(mins) {
   const pill = document.getElementById('subsPill');
-  const dueEvent = PLAN.rotations.filter(r => !r.type && r.time <= mins).sort((a,b) => a.time - b.time)[0];
-  const upcoming = !dueEvent ? PLAN.rotations.filter(r => !r.type && r.time > mins).sort((a,b)=>a.time-b.time)[0] : null;
+  const due = dueRotations(mins);
+  const actionable = due.filter(r => !isSnoozed(rotationKey(r), mins));
+  const upcoming = due.length ? null : PLAN.rotations.filter(r => !r.type && r.time > mins).sort((a,b)=>a.time-b.time)[0];
 
   pill.style.display = 'flex';
-  if (dueEvent) {
-    const key = dueEvent.time + '|' + dueEvent.slot;
-    const snoozed = snoozeKey === key && mins < snoozeUntilMinute;
-    pill.classList.toggle('due', !snoozed);
-    pill.classList.remove('done');
-    if (snoozed) {
-      pill.innerHTML = `<span class="tag">SNOOZED</span> <span>Asking again at ${snoozeUntilMinute}'</span>`;
-    } else {
-      const overdue = mins - dueEvent.time;
-      pill.innerHTML = `<span class="tag">${overdue > 0 ? overdue + "' late" : 'NOW'}</span> <span><strong>${dueEvent.on}</strong> ON · <strong>${dueEvent.off}</strong> OFF</span>`;
-      if (lastAutoPoppedKey !== key) { lastAutoPoppedKey = key; openSubsPopup(); }
-    }
+  if (actionable.length) {
+    const next = actionable[0];
+    const key = rotationKey(next);
+    pill.classList.add('due'); pill.classList.remove('done');
+    const overdue = mins - next.time;
+    const more = due.length > 1 ? ` (+${due.length - 1} more)` : '';
+    pill.innerHTML = `<span class="tag">${overdue > 0 ? overdue + "' late" : 'NOW'}</span> <span><strong>${next.on}</strong> ON · <strong>${next.off}</strong> OFF${more}</span>`;
+    if (lastAutoPoppedKey !== key) { lastAutoPoppedKey = key; openSubsPopup(); }
+  } else if (due.length) {
+    // every currently-due sub has been delayed - show when the soonest one asks again
+    const soonestUntil = Math.min(...due.map(r => snoozes[rotationKey(r)]));
+    pill.classList.remove('due', 'done');
+    pill.innerHTML = `<span class="tag">SNOOZED</span> <span>Asking again at ${soonestUntil}'</span>`;
   } else if (upcoming) {
     pill.classList.remove('due', 'done');
     pill.innerHTML = `<span class="tag">in ${upcoming.time - mins}'</span> <span><strong>${upcoming.on}</strong> ON · <strong>${upcoming.off}</strong> OFF</span>`;
@@ -1855,72 +1937,88 @@ function renderSubsPill(mins) {
 }
 document.getElementById('subsPill').addEventListener('click', openSubsPopup);
 
-// Popup over the pitch: lists every remaining rotation, with Do/Delay/Skip on
-// whichever one is currently due.
+// Popup over the pitch: lists EVERY currently-due rotation (there can be more
+// than one at once), each with its own Do/Delay/Skip, plus upcoming ones
+// read-only below. Updates itself in place after each action instead of
+// closing, so confirming one due sub immediately surfaces the next.
 function openSubsPopup() {
-  const mins = liveElapsedMinute();
-  const dueEvent = PLAN.rotations.filter(r => !r.type && r.time <= mins).sort((a,b) => a.time - b.time)[0];
-  const future = PLAN.rotations.filter(r => !r.type && r.time > mins).sort((a,b) => a.time - b.time);
-  const key = dueEvent ? dueEvent.time + '|' + dueEvent.slot : null;
-  const snoozed = !!key && snoozeKey === key && mins < snoozeUntilMinute;
+  const overlay = openModal('', {wide: true});
+  const card = overlay.querySelector('.modal-card');
 
-  let dueHtml = '';
-  if (dueEvent && snoozed) {
-    dueHtml = `<div class="action-panel" style="border-color:var(--card-line); margin:0 0 10px;"><div class="headline" style="font-size:13px;">Snoozed — will ask again at ${snoozeUntilMinute}' (${dueEvent.on} ON / ${dueEvent.off} OFF, ${dueEvent.slot})</div></div>`;
-  } else if (dueEvent) {
-    const overdue = mins - dueEvent.time;
-    dueHtml = `
-      <div class="action-panel" style="margin:0 0 10px;">
-        <div class="headline">${overdue > 0 ? `Due ${overdue}' ago` : 'Due now'}: <strong>${dueEvent.on}</strong> ON · <strong>${dueEvent.off}</strong> OFF <span style="color:var(--ink-soft); font-weight:400;">(${dueEvent.slot})</span></div>
-        <div class="action-btn-row">
-          <button class="action-btn done" id="subsPopupDone">DONE</button>
-          <button class="action-btn delay" id="subsPopupDelay">DELAY</button>
-          <button class="action-btn skip" id="subsPopupSkip">SKIP</button>
-        </div>
-        <div class="delay-opts" id="subsPopupDelayOpts" style="display:none;">
-          <span class="preset-chip" data-mins="1">+1'</span>
-          <span class="preset-chip" data-mins="2">+2'</span>
-          <span class="preset-chip" data-mins="5">+5'</span>
-        </div>
-      </div>`;
-  }
+  function refresh() {
+    const mins = liveElapsedMinute();
+    const due = dueRotations(mins);
+    const future = PLAN.rotations.filter(r => !r.type && r.time > mins).sort((a,b) => a.time - b.time);
 
-  const futureRows = future.map(r => `<div class="picker-opt" style="cursor:default;"><span>in ${r.time - mins}' · <strong>${r.on}</strong> ON / <strong>${r.off}</strong> OFF</span><span style="color:var(--ink-soft);">${r.slot}</span></div>`).join('');
-  const emptyRow = (!dueEvent && !future.length) ? '<div class="picker-opt" style="cursor:default;"><span>No further changes planned</span></div>' : '';
+    const dueHtml = due.map((r, i) => {
+      const key = rotationKey(r);
+      if (isSnoozed(key, mins)) {
+        return `<div class="action-panel" style="border-color:var(--card-line); margin:0 0 10px;"><div class="headline" style="font-size:13px;">Snoozed — will ask again at ${snoozes[key]}' (${r.on} ON / ${r.off} OFF, ${r.slot})</div></div>`;
+      }
+      const overdue = mins - r.time;
+      return `
+        <div class="action-panel" style="margin:0 0 10px;">
+          <div class="headline">${overdue > 0 ? `Due ${overdue}' ago` : 'Due now'}: <strong>${r.on}</strong> ON · <strong>${r.off}</strong> OFF <span style="color:var(--ink-soft); font-weight:400;">(${r.slot})</span></div>
+          <div class="action-btn-row">
+            <button class="action-btn done" data-due-i="${i}" data-act="done">DONE</button>
+            <button class="action-btn delay" data-due-i="${i}" data-act="delay">DELAY</button>
+            <button class="action-btn skip" data-due-i="${i}" data-act="skip">SKIP</button>
+          </div>
+          <div class="delay-opts" data-delay-for="${i}" style="display:none;">
+            <span class="preset-chip" data-mins="1">+1'</span>
+            <span class="preset-chip" data-mins="2">+2'</span>
+            <span class="preset-chip" data-mins="5">+5'</span>
+          </div>
+        </div>`;
+    }).join('');
 
-  const overlay = openModal(`
-    <div class="picker-title" style="font-size:13px; margin-bottom:10px;">Substitutions</div>
-    ${dueHtml}${futureRows}${emptyRow}
-    <div class="picker-cancel" id="subsPopupClose">Close</div>
-  `, {wide: true});
+    const futureRows = future.map(r => `<div class="picker-opt" style="cursor:default;"><span>in ${r.time - mins}' · <strong>${r.on}</strong> ON / <strong>${r.off}</strong> OFF</span><span style="color:var(--ink-soft);">${r.slot}</span></div>`).join('');
+    const emptyRow = (!due.length && !future.length) ? '<div class="picker-opt" style="cursor:default;"><span>No further changes planned</span></div>' : '';
 
-  if (dueEvent && !snoozed) {
-    overlay.querySelector('#subsPopupDone').addEventListener('click', () => {
-      lockedEvents.push({time: mins, type: 'sub', slot: dueEvent.slot, on: dueEvent.on, reason: mins - dueEvent.time > 0 ? 'confirmed (actual time)' : 'coach override'});
-      snoozeKey = null; lastAutoPoppedKey = null;
-      regeneratePlan(); render(mins); saveLiveMatchState();
-      overlay.remove();
-    });
-    overlay.querySelector('#subsPopupSkip').addEventListener('click', () => {
-      lockedEvents.push({time: mins, type: 'skip', slot: dueEvent.slot});
-      snoozeKey = null; lastAutoPoppedKey = null;
-      regeneratePlan(); render(mins); saveLiveMatchState();
-      overlay.remove();
-    });
-    overlay.querySelector('#subsPopupDelay').addEventListener('click', () => {
-      overlay.querySelector('#subsPopupDelayOpts').style.display = 'flex';
-    });
-    overlay.querySelectorAll('#subsPopupDelayOpts .preset-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        snoozeKey = key;
-        snoozeUntilMinute = mins + parseInt(chip.dataset.mins, 10);
-        lastAutoPoppedKey = null;
-        render(mins); saveLiveMatchState();
-        overlay.remove();
+    card.innerHTML = `
+      <div class="picker-title" style="font-size:13px; margin-bottom:10px;">Substitutions</div>
+      ${dueHtml}${futureRows}${emptyRow}
+      <div class="picker-cancel" id="subsPopupClose">Close</div>`;
+
+    card.querySelectorAll('[data-act="done"]').forEach(btn => {
+      const r = due[parseInt(btn.dataset.dueI, 10)];
+      btn.addEventListener('click', () => {
+        resolvedKeys.add(rotationKey(r));
+        lockedEvents.push({time: mins, type: 'sub', slot: r.slot, on: r.on, reason: mins - r.time > 0 ? 'confirmed (actual time)' : 'coach override'});
+        delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
+        regeneratePlan(); render(mins); saveLiveMatchState();
+        refresh();
       });
     });
+    card.querySelectorAll('[data-act="skip"]').forEach(btn => {
+      const r = due[parseInt(btn.dataset.dueI, 10)];
+      btn.addEventListener('click', () => {
+        resolvedKeys.add(rotationKey(r));
+        lockedEvents.push({time: mins, type: 'skip', slot: r.slot});
+        delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
+        regeneratePlan(); render(mins); saveLiveMatchState();
+        refresh();
+      });
+    });
+    card.querySelectorAll('[data-act="delay"]').forEach(btn => {
+      const i = btn.dataset.dueI;
+      btn.addEventListener('click', () => {
+        card.querySelector(`[data-delay-for="${i}"]`).style.display = 'flex';
+      });
+    });
+    card.querySelectorAll('.delay-opts .preset-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const i = parseInt(chip.closest('.delay-opts').dataset.delayFor, 10);
+        const r = due[i];
+        snoozes[rotationKey(r)] = mins + parseInt(chip.dataset.mins, 10);
+        lastAutoPoppedKey = null;
+        render(mins); saveLiveMatchState();
+        refresh();
+      });
+    });
+    card.querySelector('#subsPopupClose').addEventListener('click', () => overlay.remove());
   }
-  overlay.querySelector('#subsPopupClose').addEventListener('click', () => overlay.remove());
+  refresh();
 }
 
 function openLiveChangePicker(slotId) {
@@ -2084,9 +2182,9 @@ function finishMatch(atMinute) {
     const diff = diffBasis - target;
     return `<tr><td>${p.id}</td><td>${target}'</td><td>${actual}'${gkMins > 0 ? ` <span style="color:var(--ink-soft);">(${gkMins} GK)</span>` : ''}</td><td class="${diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : ''}">${diff > 0 ? '+' : ''}${diff}</td><td>${longestBench[p.id]}'</td></tr>`;
   }).join('');
-  const scorerNames = { OPP: 'Opponent goal', OG: 'Own goal', UNKNOWN: 'Unsure who' };
+  const scorerNames = { OPP: 'Opponent goal', OG: 'Own goal (opponent)', UNKNOWN: 'Unsure who' };
   const scorerLines = goalEvents.length
-    ? goalEvents.map(g => `<div>${g.time}' — ${g.forUs ? '⚽' : '⚑'} ${scorerNames[g.scorer] || g.scorer}${g.forUs ? '' : ' (opponent)'}</div>`).join('')
+    ? goalEvents.map(g => `<div>${g.time}' — ${g.forUs ? '⚽' : '⚑'} ${scorerNames[g.scorer] || g.scorer}${(!g.forUs && g.scorer !== 'OPP') ? ' (opponent)' : ''}</div>`).join('')
     : '';
   const panel = document.getElementById('halfTimePanel');
   panel.style.display = 'block';
