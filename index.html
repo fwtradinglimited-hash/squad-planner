@@ -148,6 +148,13 @@
   .picker-opt .tier { font-size: 11px; color: var(--ink-soft); }
   .picker-opt .tier.warn { color: var(--coral); }
   .picker-cancel { font-size: 12px; color: var(--ink-soft); text-align: center; padding: 6px; cursor: pointer; }
+  .decision-row { border-bottom: 1px solid var(--card-line); padding: 9px 2px; }
+  .decision-row:last-of-type { border-bottom: none; }
+  .decision-text { font-size: 12.5px; line-height: 1.4; margin-bottom: 5px; }
+  .decision-actions { display: flex; gap: 14px; }
+  .decision-link { font-size: 11.5px; color: var(--turf-1); cursor: pointer; font-weight: 600; }
+  .decision-link.secondary { color: var(--ink-soft); font-weight: 400; }
+  .decision-current { font-size: 12px; color: var(--ink-soft); margin-bottom: 8px; }
 
   .fair-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
   .fair-name { width: 62px; flex-shrink: 0; font-weight: 600; }
@@ -423,6 +430,8 @@
       <!-- Compact "upcoming rotation" pill - tap to open the Substitutions popup -->
       <div class="next-sub" id="nextSub"></div>
       <div class="next-sub" id="subsPill" style="cursor:pointer; display:none;"></div>
+      <!-- Position-vs-fairness trade-off notes - tap to review/override -->
+      <div class="next-sub" id="planHealthPill" style="cursor:pointer; display:none;"></div>
 
       <div class="pitch-wrap">
         <svg class="pitch-svg" viewBox="0 0 300 400" id="pitchSvg" preserveAspectRatio="xMidYMid meet">
@@ -1132,6 +1141,7 @@ function buildState(lineup) {
     lastSubIn: Object.fromEntries(Object.values(onPitch).map(pid => [pid, 0])),
     benchSet: new Set(PLAYERS.map(p => p.id).filter(id => !onPitchIds.has(id))),
     rotations: [],
+    decisions: [], // notable position-vs-fairness trade-offs the algorithm hit, for the plan-health summary
   };
 }
 // The basis fairness decisions are made on: total pitch time, or outfield-only
@@ -1222,25 +1232,67 @@ function isSubTimingAllowed(t) {
 
 function runFairnessPass(state, t, skipSlots) {
   const threshold = (1 - cfg.fairnessPriority) * 0.4 * TARGET;
-  const minTier = cfg.positionStrictness < 0.5 ? 1 : 2;
   const basis = fairnessBasis(state);
   if (!isSubTimingAllowed(t)) return;
   for (const slot of state.activeSlots) {
     if (slot.group === 'GK' || skipSlots.has(slot.id)) continue;
     const curPid = state.onPitch[slot.id];
     if (t - state.lastSubIn[curPid] < cfg.minShiftLength) continue;
-    const eligible = [...state.benchSet].map(id => playersById[id])
-      .filter(p => (p.positions[slot.group] ?? 0) >= minTier)
-      .filter(p => unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]);
-    if (!eligible.length) continue;
-    eligible.sort((a,b) => basis[a.id] - basis[b.id]);
-    const cand = eligible[0];
     const curDeficit = TARGETS[curPid] - basis[curPid];
-    const candDeficit = TARGETS[cand.id] - basis[cand.id];
-    if (candDeficit - curDeficit > threshold) {
-      state.benchSet.delete(cand.id); state.benchSet.add(curPid);
-      state.onPitch[slot.id] = cand.id; state.lastSubIn[cand.id] = t;
-      state.rotations.push({time:t, slot:slot.id, off:curPid, on:cand.id, reason:'playing-time fairness'});
+    // "Do not use" (tier 0) is an absolute exclusion, never just a cost - the
+    // coach said never play this player there, full stop. Everyone else
+    // (Can play/Comfortable/Preferred) is eligible and weighed below.
+    const eligible = [...state.benchSet].map(id => playersById[id])
+      .filter(p => (p.positions[slot.group] ?? 0) >= 1)
+      .filter(p => unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]);
+    if (!eligible.length) {
+      // A genuine shortage: nobody at all can fill this slot right now. Only
+      // worth surfacing once the current player is meaningfully over their
+      // fair share, otherwise this would fire for the most trivial gaps.
+      if (curDeficit < -0.15 * TARGET) {
+        state.decisions.push({time:t, slot:slot.id, group:slot.group, curPid, curDeficit, action:'shortage', chosen:null, candidates:[]});
+      }
+      continue;
+    }
+
+    // Each candidate is scored on fairness gain minus a position-tier
+    // penalty. The penalty is relative to the BEST tier actually available on
+    // the bench right now (not an absolute scale), scaled by how strict the
+    // coach's "Position vs. fluid" slider is and softened a little the more
+    // they've prioritised fairness. When every bench candidate for this slot
+    // is the same tier - the common case - every penalty is zero and this is
+    // identical to a plain fairness-deficit comparison.
+    const bestTierAvailable = Math.max(...eligible.map(p => p.positions[slot.group] ?? 0));
+    const scored = eligible.map(p => {
+      const tier = p.positions[slot.group] ?? 0;
+      const candDeficit = TARGETS[p.id] - basis[p.id];
+      const fairnessGain = candDeficit - curDeficit; // minutes this swap would genuinely close
+      const tierGap = bestTierAvailable - tier;
+      const penalty = tierGap * (TARGET * 0.18) * (0.3 + cfg.positionStrictness) * (1.3 - 0.6 * cfg.fairnessPriority);
+      return {id: p.id, tier, deficit: candDeficit, fairnessGain, netBenefit: fairnessGain - penalty};
+    });
+    scored.sort((a,b) => b.netBenefit - a.netBenefit);
+    const best = scored[0];
+    const willSwap = best.netBenefit > threshold;
+
+    // Notable trade-off: is the fairest overall candidate NOT also the
+    // best-positioned one? Fires whichever way the decision actually goes -
+    // "picked a worse-fit player for fairness" and "kept the better fit and
+    // let fairness drift" both get surfaced, so the coach can see it either way.
+    const idealTierPick = [...scored].filter(s => s.tier === bestTierAvailable).sort((a,b) => b.fairnessGain - a.fairnessGain)[0];
+    const fairestPick = [...scored].sort((a,b) => b.fairnessGain - a.fairnessGain)[0];
+    if (idealTierPick.id !== fairestPick.id) {
+      state.decisions.push({
+        time: t, slot: slot.id, group: slot.group, curPid, curDeficit,
+        action: willSwap ? 'swap' : 'hold',
+        chosen: willSwap ? best.id : null,
+        candidates: scored.map(s => ({id: s.id, tier: s.tier, deficit: s.deficit, fairnessGain: s.fairnessGain})),
+      });
+    }
+    if (willSwap) {
+      state.benchSet.delete(best.id); state.benchSet.add(curPid);
+      state.onPitch[slot.id] = best.id; state.lastSubIn[best.id] = t;
+      state.rotations.push({time:t, slot:slot.id, off:curPid, on:best.id, reason:'playing-time fairness'});
     }
   }
 }
@@ -1318,7 +1370,7 @@ let lockedEvents = []; // persistent history of coach decisions this match: subs
 let unavailableFrom = {}; // playerId -> minute they became unavailable (time-scoped, not retroactive)
 function regeneratePlan() {
   const state = simulate(startingLineup, lockedEvents);
-  PLAN = {rotations: state.rotations, projectedMinutes: state.minutesPlayed};
+  PLAN = {rotations: state.rotations, projectedMinutes: state.minutesPlayed, decisions: state.decisions};
 }
 
 // Reconstructs exact match state at any minute by replaying PLAN.rotations
@@ -1405,6 +1457,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   document.getElementById('halfTimePanel').innerHTML = '';
   lastAutoPoppedKey = null;
   resolvedKeys = new Set(); snoozes = {};
+  dismissedDecisionKeys = new Set();
   score = {us: 0, them: 0}; goalEvents = [];
   setPlanSubTab('live');
   regeneratePlan();
@@ -1426,6 +1479,10 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   currentT = 0; openPicker = null;
   render(0);
   showScreen('plan');
+  // Freshly generated - if the algorithm had to trade position fit off
+  // against fairness anywhere, put that in front of the coach right away
+  // rather than leaving it to be discovered mid-match.
+  if (visiblePlanHealthGroups().length) openPlanHealthSummary();
 });
 
 /* ================= PLAN SCREEN RENDERING (pitch / timeline / fairness) ================= */
@@ -1515,6 +1572,7 @@ function render(t) {
     row.innerHTML = `<span class="fair-name">${p.id}</span><div class="fair-bar-track">${outfieldBar}${gkBar}<div class="fair-target-line" style="left:${targetPct}%"></div><div class="fair-progress-tick" style="left:${soFarPct}%"></div></div><span class="fair-mins">${Math.round(total)}' ${gk > 0 ? `(${Math.round(gk)} GK)` : ''}</span>`;
     fairEl.appendChild(row);
   }
+  renderPlanHealthPill();
 }
 
 function renderTimeline(t, upcoming) {
@@ -1753,6 +1811,132 @@ let resolvedKeys = new Set();
 let snoozes = {};
 function rotationKey(r) { return r.time + '|' + r.slot; }
 let currentPeriodIdx = 0;
+
+// ===== Plan-health: surfacing position-vs-fairness trade-offs =====
+// "startTime|slot|action" keys of decision groups the coach has reviewed and
+// chosen to leave as-is ("Got it"). Overriding a group resolves it a
+// different way - via a locked sub event, same as any other manual override -
+// so it naturally stops being logged as a trade-off on the next regenerate
+// and never needs a dismiss key at all.
+let dismissedDecisionKeys = new Set();
+
+// Groups PLAN.decisions (logged per-minute by runFairnessPass) into
+// contiguous ranges for the same slot/outcome, so a trade-off that persists
+// for several minutes reads as one note instead of one per minute.
+function groupDecisions(decisions) {
+  const sorted = [...(decisions || [])].sort((a, b) => a.time - b.time || a.slot.localeCompare(b.slot));
+  const groups = [];
+  for (const d of sorted) {
+    const last = groups[groups.length - 1];
+    if (last && last.slot === d.slot && last.action === d.action && last.chosen === d.chosen
+        && last.curPid === d.curPid && d.time - last.endTime <= 1) {
+      last.endTime = d.time;
+      last.items.push(d);
+    } else {
+      groups.push({slot: d.slot, group: d.group, action: d.action, chosen: d.chosen, curPid: d.curPid,
+        startTime: d.time, endTime: d.time, items: [d]});
+    }
+  }
+  return groups;
+}
+function decisionGroupKey(g) { return `${g.startTime}|${g.slot}|${g.action}`; }
+function visiblePlanHealthGroups() {
+  return groupDecisions(PLAN ? PLAN.decisions : []).filter(g => !dismissedDecisionKeys.has(decisionGroupKey(g)));
+}
+function minuteSpan(g) { return g.endTime > g.startTime ? `Mins ${g.startTime}-${g.endTime}` : `Min ${g.startTime}`; }
+// One plain-language line per decision group, explaining the trade-off that
+// was hit and which way it was resolved.
+function describeDecisionGroup(g) {
+  const curTierName = TIER_NAMES[playersById[g.curPid]?.positions[g.group] ?? 0];
+  if (g.action === 'shortage') {
+    return `${minuteSpan(g)}: no eligible bench cover for ${g.group} - ${g.curPid} held on past their fair share (${Math.abs(Math.round(g.curDeficit))}' over target).`;
+  }
+  const fairest = [...g.items[0].candidates].sort((a, b) => b.fairnessGain - a.fairnessGain)[0];
+  const fairestTierName = TIER_NAMES[fairest.tier];
+  if (g.action === 'swap') {
+    const chosenInfo = g.items[0].candidates.find(c => c.id === g.chosen);
+    return `${minuteSpan(g)}: brought on ${g.chosen} (${TIER_NAMES[chosenInfo.tier]} ${g.group}) ahead of a better-positioned option, to protect fairness.`;
+  }
+  return `${minuteSpan(g)}: kept ${g.curPid} (${curTierName} ${g.group}) on rather than bring on ${fairest.id} (${fairestTierName}), who needs the minutes more.`;
+}
+// Short reasoning clause for one candidate, shown in the override picker -
+// the "underlying info" the coach needs to make the call themselves.
+function describeCandidateOption(c, group) {
+  const tierName = TIER_NAMES[c.tier];
+  const minutesPhrase = c.fairnessGain > 1 ? `${Math.round(c.deficit)}' under target - needs the minutes`
+    : c.fairnessGain < -1 ? `${Math.abs(Math.round(c.deficit))}' over target already`
+    : `about on his fair share`;
+  return `${tierName} ${group} · ${minutesPhrase}`;
+}
+
+function renderPlanHealthPill() {
+  const pill = document.getElementById('planHealthPill');
+  if (!pill) return;
+  const groups = visiblePlanHealthGroups();
+  if (!groups.length) { pill.style.display = 'none'; return; }
+  pill.style.display = 'flex';
+  pill.innerHTML = `<span class="tag">${groups.length} NOTE${groups.length > 1 ? 'S' : ''}</span> <span>Position/fairness trade-off${groups.length > 1 ? 's' : ''} in this plan - tap to review</span>`;
+}
+document.getElementById('planHealthPill').addEventListener('click', openPlanHealthSummary);
+
+// The main plan-health popup: every current, undismissed trade-off, each
+// with its own Override (pick someone else for that slot/time) and Got it
+// (acknowledge and leave the plan as-is) actions. Rebuilt in place so taking
+// an action immediately reflects in the list rather than requiring a reopen.
+function openPlanHealthSummary() {
+  const overlay = openModal('', {wide: true});
+  const card = overlay.querySelector('.modal-card');
+  function refresh() {
+    const groups = visiblePlanHealthGroups();
+    card.innerHTML = `
+      <div class="picker-title">Plan health - position vs. fairness</div>
+      ${groups.length ? groups.map(g => `
+        <div class="decision-row" data-key="${decisionGroupKey(g)}">
+          <div class="decision-text">${describeDecisionGroup(g)}</div>
+          <div class="decision-actions">
+            <span class="decision-link" data-act="override">Override</span>
+            <span class="decision-link secondary" data-act="dismiss">Got it</span>
+          </div>
+        </div>
+      `).join('') : `<div class="config-note">No position/fairness trade-offs flagged right now - the plan is hitting both.</div>`}
+      <div class="picker-cancel" id="planHealthClose">Close</div>
+    `;
+    card.querySelectorAll('.decision-row').forEach(row => {
+      const key = row.dataset.key;
+      const g = groups.find(x => decisionGroupKey(x) === key);
+      row.querySelector('[data-act="dismiss"]').addEventListener('click', () => { dismissedDecisionKeys.add(key); renderPlanHealthPill(); refresh(); });
+      row.querySelector('[data-act="override"]').addEventListener('click', () => openDecisionOverridePicker(g));
+    });
+    card.querySelector('#planHealthClose').addEventListener('click', () => overlay.remove());
+  }
+  refresh();
+}
+
+// Lets the coach pick a different player for a flagged slot/time themselves,
+// armed with the same tier + fairness-deficit info the algorithm weighed.
+// This is exactly a manual substitution override (same lockedEvents/
+// resolvedKeys mechanism as tapping a player on the pitch) - it just starts
+// from the plan-health note instead of from the pitch.
+function openDecisionOverridePicker(g) {
+  const curTierName = TIER_NAMES[playersById[g.curPid]?.positions[g.group] ?? 0];
+  const options = [...g.items[0].candidates].sort((a, b) => b.tier - a.tier || b.fairnessGain - a.fairnessGain);
+  const overlay = openModal(`
+    <div class="picker-title">${g.group} slot, ${minuteSpan(g)} - who should play?</div>
+    <div class="decision-current">Currently on: <strong>${g.curPid}</strong> (${curTierName})</div>
+    ${options.map(c => `<div class="picker-opt" data-on="${c.id}"><span>${c.id}</span><span class="tier ${c.tier <= 1 ? 'warn' : ''}">${describeCandidateOption(c, g.group)}</span></div>`).join('')}
+    <div class="picker-cancel" id="planHealthBack">Keep as is - back to summary</div>
+  `, {wide: true});
+  overlay.querySelectorAll('.picker-opt[data-on]').forEach(el => {
+    el.addEventListener('click', () => {
+      lockedEvents.push({time: g.startTime, type: 'sub', slot: g.slot, on: el.dataset.on});
+      resolvedKeys.add(rotationKey({time: g.startTime, slot: g.slot}));
+      regeneratePlan();
+      render(currentT);
+      openPlanHealthSummary();
+    });
+  });
+  overlay.querySelector('#planHealthBack').addEventListener('click', openPlanHealthSummary);
+}
 let halfTimeActive = false, matchFinished = false;
 let pendingHalfTimeBoundaryIdx = null; // which period boundary triggered the current half-time pause (disambiguates a mid-halftime reload)
 let score = {us: 0, them: 0};
@@ -1876,6 +2060,7 @@ function saveLiveMatchState() {
       matchStartTs, pausedAccumMs, pauseStartedAt,
       currentPeriodIdx, halfTimeActive, matchFinished, pendingHalfTimeBoundaryIdx,
       resolvedKeys: [...resolvedKeys], snoozes: {...snoozes},
+      dismissedDecisionKeys: [...dismissedDecisionKeys],
       // score
       score: {...score}, goalEvents: JSON.parse(JSON.stringify(goalEvents)),
     };
@@ -1934,6 +2119,7 @@ function restoreLiveMatch(saved) {
   currentPeriodIdx = saved.currentPeriodIdx; matchFinished = saved.matchFinished;
   pendingHalfTimeBoundaryIdx = saved.pendingHalfTimeBoundaryIdx;
   resolvedKeys = new Set(saved.resolvedKeys || []); snoozes = {...(saved.snoozes || {})};
+  dismissedDecisionKeys = new Set(saved.dismissedDecisionKeys || []);
   liveMode = true;
 
   document.getElementById('previewControls').style.display = 'none';
@@ -1990,6 +2176,7 @@ function startMatch() {
   document.getElementById('nextSub').style.display = 'none';
   lastAutoPoppedKey = null;
   resolvedKeys = new Set(); snoozes = {};
+  dismissedDecisionKeys = new Set();
   document.getElementById('detailHalfMarks').innerHTML = PERIOD_BOUNDS.map((b,i) => {
     if (i === 0) return '<span>KO</span>';
     if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
