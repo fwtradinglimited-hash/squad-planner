@@ -1897,40 +1897,47 @@ function describeCandidateOption(c, group) {
 // fully make up for in so few chances. That's invisible to the per-slot
 // trade-off log above (there's no position conflict to point at), so it's
 // checked separately here, directly against the final projected minutes.
-function fairnessSpreadNote() {
-  if (!PLAN || !PLAYERS.length || !TARGET) return null;
+// Shared by fairnessSpreadNote() and the fix picker below: the fairness
+// basis (outfield-only or total minutes, per the coach's GK setting) and
+// the two peer groups players are judged against - GK-duty vs not, since
+// comparing across that line always shows a "gap" that's just the normal
+// cost of splitting keeper duty, never a fairness problem to flag or fix.
+function computeFairnessBasisGroups() {
   const forecastGk = computeStateAt(DURATION).gkMinutes;
   const basis = cfg.gkCountsForFairness ? PLAN.projectedMinutes
     : Object.fromEntries(PLAYERS.map(p => [p.id, PLAN.projectedMinutes[p.id] - (forecastGk[p.id] || 0)]));
-  const threshold = Math.max(3, TARGET * 0.15);
-  // A dedicated keeper (no outfield position above "Do not use" in any group)
-  // is never meant to earn outfield minutes at all, so reading 0 against the
-  // outfield target isn't a fairness gap for them - exclude players who were
-  // never outfield-eligible in the first place.
+  // A dedicated keeper (no outfield position above "Do not use" in any
+  // group) is never meant to earn outfield minutes at all, so reading 0
+  // against the outfield target isn't a fairness gap for them - exclude
+  // players who were never outfield-eligible in the first place.
   const outfieldEligible = PLAYERS.filter(p => (p.positions.DEF ?? 0) > 0 || (p.positions.MID ?? 0) > 0 || (p.positions.ATT ?? 0) > 0);
-  // Anyone who spends part of the match as goalkeeper has a structurally
-  // smaller outfield-availability window than someone who never does, so
-  // comparing those two kinds of player to each other - or to one flat
-  // match-wide target - always shows a "gap" even in a perfectly fair plan;
-  // that gap is just the normal cost of splitting keeper duty, not something
-  // to flag. Each player is instead compared only against peers who faced
-  // the same constraint: other players who shared GK duty, or other players
-  // who never kept goal at all.
   const gkDutyIds = HAS_GK ? new Set(GK_SEGMENTS.map(s => s.player)) : new Set();
-  const peerGroups = [
-    outfieldEligible.filter(p => !gkDutyIds.has(p.id)),
-    outfieldEligible.filter(p => gkDutyIds.has(p.id)),
+  const groups = [
+    outfieldEligible.filter(p => !gkDutyIds.has(p.id)).map(p => p.id),
+    outfieldEligible.filter(p => gkDutyIds.has(p.id)).map(p => p.id),
   ];
+  return {basis, groups};
+}
+function fairnessSpreadNote() {
+  if (!PLAN || !PLAYERS.length || !TARGET) return null;
+  const {basis, groups: peerGroups} = computeFairnessBasisGroups();
+  const threshold = Math.max(3, TARGET * 0.15);
   const under = [], over = [];
-  for (const group of peerGroups) {
-    if (group.length < 2) continue; // nobody to compare a lone player against
+  peerGroups.forEach((groupIds, groupIdx) => {
+    if (groupIds.length < 2) return; // nobody to compare a lone player against
+    const group = groupIds.map(id => playersById[id]);
     const mean = group.reduce((sum, p) => sum + basis[p.id], 0) / group.length;
     for (const p of group) {
       const dev = basis[p.id] - mean;
-      if (dev < -threshold) under.push({id: p.id, dev: -dev});
-      else if (dev > threshold) over.push({id: p.id, dev});
+      // groupIdx tags which peer group this reading came from, so a fix
+      // suggestion only ever pairs an under player with an over player who
+      // was actually judged against the same peers (GK-duty vs not) -
+      // comparing across groups would reintroduce the structural GK-duty
+      // skew this whole check exists to ignore.
+      if (dev < -threshold) under.push({id: p.id, dev: -dev, group: groupIdx});
+      else if (dev > threshold) over.push({id: p.id, dev, group: groupIdx});
     }
-  }
+  });
   if (!under.length && !over.length) return null;
   under.sort((a, b) => b.dev - a.dev);
   over.sort((a, b) => b.dev - a.dev);
@@ -1943,7 +1950,169 @@ function fairnessSpreadNote() {
   } else if (cfg.minShiftLength > 0.15 * DURATION) {
     cause = `"Minimum time before a sub" (${cfg.minShiftLength}') may be limiting how often the plan can rebalance - try lowering it, or adjust these players manually.`;
   }
-  return {text: `Playing time isn't evenly split among players in the same role: ${parts.join(' · ')}. ${cause}`};
+  return {text: `Playing time isn't evenly split among players in the same role: ${parts.join(' · ')}. ${cause}`, under, over};
+}
+
+// ===== Fairness-spread fix suggestions =====
+// Reconstructs contiguous per-slot occupancy windows straight from the
+// current plan's rotation history (automatic swaps and any manual
+// overrides alike), so a fix suggestion is always grounded in what the
+// plan is actually doing right now, not a fresh guess.
+function computeOccupancyWindows() {
+  let activeSlots = SLOTS;
+  let onPitch = {...startingLineup};
+  let starts = {};
+  for (const slotId in onPitch) starts[slotId] = {pid: onPitch[slotId], time: 0};
+  const windows = [];
+  const events = [...PLAN.rotations].sort((a, b) => a.time - b.time);
+  const groupOf = slotId => (activeSlots.find(s => s.id === slotId) || {}).group;
+  for (const ev of events) {
+    if (ev.type === 'formation') {
+      for (const slotId in starts) windows.push({slot: slotId, group: groupOf(slotId), pid: starts[slotId].pid, start: starts[slotId].time, end: ev.time});
+      activeSlots = ev.slots;
+      onPitch = {...ev.remap};
+      starts = {};
+      for (const slotId in onPitch) starts[slotId] = {pid: onPitch[slotId], time: ev.time};
+    } else if (ev.type !== 'skip' && ev.type !== 'unavailable') { // a sub, automatic or manual
+      const slotId = ev.slot;
+      if (starts[slotId] && starts[slotId].pid !== ev.on) {
+        windows.push({slot: slotId, group: groupOf(slotId), pid: starts[slotId].pid, start: starts[slotId].time, end: ev.time});
+        starts[slotId] = {pid: ev.on, time: ev.time};
+      }
+      onPitch[slotId] = ev.on;
+    }
+  }
+  for (const slotId in starts) windows.push({slot: slotId, group: groupOf(slotId), pid: starts[slotId].pid, start: starts[slotId].time, end: DURATION});
+  return windows.filter(w => w.end > w.start);
+}
+// Every concrete way to bring `underId` on for `overId`, found by scanning
+// `overId`'s actual stints in the current plan and, within each one,
+// trying different split points rather than just the earliest moment
+// underId is free - swapping from the very start of a long stint can hand
+// underId the whole thing and overshoot past fair just as badly the other
+// way, so the point that leaves the two players closest together is what
+// gets suggested. Long stints are sampled at a bounded number of points
+// rather than every minute, to keep this fast regardless of match length.
+// Each option carries the real final-forecast minutes both players would
+// end up with if that swap were made (via simulate(), the engine's own
+// math, not an estimate). Points the coach's Sub Timing setting wouldn't
+// normally allow are still considered - manual overrides are never gated
+// by that setting - but flagged `aligned: false` so the coach can see
+// they're stepping outside their own configured rhythm on purpose.
+function findFixOptions(underId, overId) {
+  const windows = computeOccupancyWindows().filter(w => w.pid === overId && w.group && w.group !== 'GK');
+  const out = [];
+  for (const win of windows) {
+    const tier = playersById[underId]?.positions[win.group] ?? 0;
+    if (tier === 0) continue; // coach said never play underId there
+    const step = Math.max(1, Math.ceil((win.end - win.start) / 40));
+    let bestAligned = null, bestAny = null;
+    for (let t = win.start; t < win.end; t += step) {
+      if (Object.values(computeStateAt(t).onPitch).includes(underId)) continue; // underId busy elsewhere at t
+      const hyp = simulate(startingLineup, [...lockedEvents, {time: t, type: 'sub', slot: win.slot, on: underId, reason: 'fairness fix'}]);
+      const basis = fairnessBasis(hyp);
+      const gap = Math.abs(basis[underId] - basis[overId]);
+      const cand = {
+        time: t, slot: win.slot, group: win.group, tier, gap,
+        aligned: t === 0 || isSubTimingAllowed(t),
+        newUnder: Math.round(basis[underId]), newOver: Math.round(basis[overId]),
+      };
+      if (cand.aligned && (!bestAligned || gap < bestAligned.gap)) bestAligned = cand;
+      if (!bestAny || gap < bestAny.gap) bestAny = cand;
+    }
+    if (bestAligned) out.push(bestAligned);
+    // Only also offer the unconstrained best when it's meaningfully better
+    // than the best aligned option (or there wasn't one) - otherwise it's
+    // just noise suggesting the coach break their own convention for no gain.
+    if (bestAny && (!bestAligned || bestAny.gap < bestAligned.gap - 1)) out.push(bestAny);
+  }
+  // Rank by how well each option actually balances the two players first -
+  // an in-timing option that doesn't meaningfully help isn't a better
+  // suggestion than an out-of-timing one that does. Alignment only breaks
+  // a near-tie, so the coach isn't shown a worse fix just to avoid the
+  // "outside Sub Timing" label.
+  out.sort((a, b) => (a.gap - b.gap) || (a.aligned === b.aligned ? 0 : (a.aligned ? -1 : 1)));
+  const seen = new Set();
+  return out.filter(o => {
+    const key = `${o.slot}|${o.newUnder}|${o.newOver}`;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  }).slice(0, 3).map(({gap, ...rest}) => rest);
+}
+// The fix-options popup for a flagged fairness spread: for each player
+// short on minutes, every real swap (against each over-target player in
+// their own peer group) that would bring minutes closer together, with the
+// resulting forecast for both players and their comfort level in the slot
+// involved - the same "underlying info to make an informed decision"
+// approach as the position-vs-fairness override picker, applied here to a
+// plain minutes rebalance.
+function openFairnessFixPicker() {
+  const spread = fairnessSpreadNote();
+  if (!spread) { openPlanHealthSummary(); return; }
+  const {basis, groups} = computeFairnessBasisGroups();
+  const overlay = openModal('', {wide: true});
+  const card = overlay.querySelector('.modal-card');
+  function refresh() {
+    // A flagged player's best partners are whoever else in their own peer
+    // group reads furthest the opposite way right now - not only players
+    // who individually crossed the flagging threshold too. A handful of
+    // players can each be a little over while only one reads meaningfully
+    // under (or vice versa), and that lone flagged player still deserves
+    // real options to pick from.
+    const flagged = [
+      ...spread.under.map(u => ({...u, dir: 'under'})),
+      ...spread.over.map(o => ({...o, dir: 'over'})),
+    ];
+    const seenPairs = new Set();
+    const blocks = flagged.map(f => {
+      const partners = groups[f.group].filter(id => id !== f.id)
+        .sort((a, b) => f.dir === 'under' ? basis[b] - basis[a] : basis[a] - basis[b])
+        .slice(0, 3);
+      const rows = partners.flatMap(partnerId => {
+        const underId = f.dir === 'under' ? f.id : partnerId;
+        const overId = f.dir === 'under' ? partnerId : f.id;
+        return findFixOptions(underId, overId).map(o => ({o, underId, overId}));
+      }).filter(({underId, overId}) => {
+        const key = `${underId}|${overId}`;
+        if (seenPairs.has(key)) return false;
+        seenPairs.add(key); return true;
+      // Different partners can each offer a window, but only the split
+      // point that leaves the two players closest together is worth
+      // leading with - sort across ALL of this player's partners together,
+      // not just within one partner's own options, so the best overall fix
+      // is always the first thing the coach sees.
+      }).sort((a, b) => {
+        const gapA = Math.abs(a.o.newUnder - a.o.newOver), gapB = Math.abs(b.o.newUnder - b.o.newOver);
+        return (gapA - gapB) || (a.o.aligned === b.o.aligned ? 0 : (a.o.aligned ? -1 : 1));
+      })
+      .slice(0, 3);
+      const rowsHtml = rows.map(({o, underId, overId}) => `
+        <div class="picker-opt" data-under="${underId}" data-over="${overId}" data-time="${o.time}" data-slot="${o.slot}">
+          <span>Sub ${overId} off, ${underId} on at ${o.time}' (${TIER_NAMES[o.tier]} ${o.group})</span>
+          <span class="tier ${o.aligned ? '' : 'warn'}">${underId} -> ${o.newUnder}' · ${overId} -> ${o.newOver}'${o.aligned ? '' : ' · outside Sub Timing'}</span>
+        </div>`).join('');
+      const label = f.dir === 'under' ? `${Math.round(f.dev)}' behind their peers` : `${Math.round(f.dev)}' ahead of their peers`;
+      return `<div class="decision-text">${f.id} is forecast ${label}:</div>
+        ${rowsHtml || '<div class="config-note">No window in the current plan frees up a swap for them - try the Substitutions screen directly.</div>'}`;
+    }).join('<div class="decision-row"></div>');
+    card.innerHTML = `
+      <div class="picker-title">Rebalance minutes</div>
+      ${blocks}
+      <div class="picker-cancel" id="fixPickerBack">Back to summary</div>
+    `;
+    card.querySelectorAll('.picker-opt[data-under]').forEach(el => {
+      el.addEventListener('click', () => {
+        const slot = el.dataset.slot, on = el.dataset.under, time = parseInt(el.dataset.time, 10);
+        lockedEvents.push({time, type: 'sub', slot, on, reason: 'fairness fix'});
+        resolvedKeys.add(rotationKey({time, slot}));
+        regeneratePlan();
+        render(currentT);
+        openPlanHealthSummary();
+      });
+    });
+    card.querySelector('#fixPickerBack').addEventListener('click', openPlanHealthSummary);
+  }
+  refresh();
 }
 function hasPlanHealthNotes() {
   return visiblePlanHealthGroups().length > 0 || (!dismissedDecisionKeys.has('fairness-spread') && !!fairnessSpreadNote());
@@ -1976,7 +2145,8 @@ function openPlanHealthSummary() {
       <div class="decision-row" data-key="fairness-spread">
         <div class="decision-text">${spread.text}</div>
         <div class="decision-actions">
-          <span class="decision-link" data-act="adjust">Adjust manually</span>
+          <span class="decision-link" data-act="suggest">See fix options</span>
+          <span class="decision-link secondary" data-act="adjust">Adjust manually</span>
           <span class="decision-link secondary" data-act="dismiss">Got it</span>
         </div>
       </div>` : '';
@@ -2007,6 +2177,8 @@ function openPlanHealthSummary() {
         setPlanSubTab('details');
         setDetailsSubTab('subs');
       });
+      const suggestLink = row.querySelector('[data-act="suggest"]');
+      if (suggestLink) suggestLink.addEventListener('click', openFairnessFixPicker);
     });
     card.querySelector('#planHealthClose').addEventListener('click', () => overlay.remove());
   }
