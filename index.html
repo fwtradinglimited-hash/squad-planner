@@ -367,7 +367,7 @@
           <div class="config-row">
             <div class="config-label"><span>Minimum time on before a sub</span><span class="val" id="minShiftLabel">8'</span></div>
             <input type="range" id="minShiftSlider" min="2" max="15" step="1" value="8">
-            <div class="config-ends"><span>2' (very frequent)</span><span>15' (rare)</span></div>
+            <div class="config-ends"><span>2' (very frequent)</span><span id="minShiftEndLabel">15' (rare)</span></div>
             <div class="config-note">No player is subbed off before this many minutes on the pitch, whatever the Sub timing setting above allows.</div>
           </div>
           <div class="config-row">
@@ -866,6 +866,7 @@ document.getElementById('confirmFormatBtn').addEventListener('click', () => {
 
   confirmedShape = {...shape}; // remembered so a reload mid-match can rebuild the same formation
   applyMatchFormat(players, hasGk, duration, periods, shape);
+  syncMinShiftSliderMax();
   gkKeepers = new Array(PERIODS).fill(null);
   gkMode = PERIODS > 1 ? 'rotate' : 'single';
 
@@ -1021,6 +1022,19 @@ function subTimingSummary() {
   if (cfg.subTimingMode === 'interval') return `every ${cfg.subIntervalMinutes}'`;
   if (cfg.subTimingMode === 'checkpoints') return cfg.checkpointHalfway ? 'period checkpoints + halfway' : 'period checkpoints only';
   return 'anytime';
+}
+function syncMinShiftSliderMax() {
+  // The "minimum time on before a sub" cap only makes sense relative to how
+  // long the match actually is - a fixed 15' ceiling was arbitrary, and on a
+  // short match it could even exceed the match length. Tying it to DURATION
+  // also gives coaches a clean way to disable fairness-driven subs entirely:
+  // set it to the full match length and nobody is ever subbed for fairness
+  // reasons (other events like manual subs or unavailability still apply).
+  const max = Math.max(2, DURATION);
+  minShiftSlider.max = max;
+  if (parseInt(minShiftSlider.value, 10) > max) minShiftSlider.value = max;
+  const endLabel = document.getElementById('minShiftEndLabel');
+  if (endLabel) endLabel.textContent = max === DURATION ? `${max}' (no fairness subs)` : `${max}' (rare)`;
 }
 function updateConfigSummary() {
   const fLabel = labelFor(cfg.fairnessPriority, 'Fewer subs', 'Balanced', 'Maximum fairness');
@@ -1882,6 +1896,7 @@ function clearLiveMatchState() {
 function restoreLiveMatch(saved) {
   confirmedShape = saved.shape;
   applyMatchFormat(saved.playersOnPitch, saved.hasGk, saved.duration, saved.periods, saved.shape);
+  syncMinShiftSliderMax();
 
   gkMode = saved.gkMode; gkKeepers = [...saved.gkKeepers];
   // Defaults cover snapshots saved before a given setting existed.
@@ -1889,6 +1904,13 @@ function restoreLiveMatch(saved) {
   fairnessSlider.value = cfg.fairnessPriority;
   strictnessSlider.value = 1 - cfg.positionStrictness;
   minShiftSlider.value = cfg.minShiftLength;
+  if (parseInt(minShiftSlider.value, 10) > parseInt(minShiftSlider.max, 10)) {
+    // An old snapshot's minShiftLength can exceed the new duration-based max
+    // (e.g. restored after the match format itself changed) - clamp both the
+    // slider and the actual cfg value so they stay in sync.
+    minShiftSlider.value = minShiftSlider.max;
+    cfg.minShiftLength = parseInt(minShiftSlider.max, 10);
+  }
   gkCountsCheckbox.checked = cfg.gkCountsForFairness;
   subTimingRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', o.dataset.timing === cfg.subTimingMode));
   subIntervalSelect.value = cfg.subIntervalMinutes;
