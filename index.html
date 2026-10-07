@@ -60,7 +60,7 @@
   .form-card { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; padding: 14px; margin-bottom: 16px; }
   .field { margin-bottom: 12px; }
   .field label { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
-  .field input[type="text"], .field input[type="number"], .field select {
+  .field input[type="text"], .field input[type="number"], .field input[type="date"], .field select {
     width: 100%; padding: 10px; border-radius: 9px; border: 1px solid var(--card-line);
     background: var(--shell-bg); color: var(--ink); font-size: 14px;
   }
@@ -242,7 +242,9 @@
   .match-card .badge { font-family: "Oswald", sans-serif; font-size: 11px; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 6px; background: var(--bench-card); color: var(--ink-soft); }
   .match-card .badge.live { background: var(--coral); color: #fff; }
   .match-card .badge.planned { background: var(--amber); color: var(--amber-ink); }
-  .match-card .mc-btn { margin-left: auto; }
+  .match-card .mc-btn { margin-left: auto; width: auto; padding: 8px 18px; margin-top: 0; }
+  .match-card .mc-small { width: auto; padding: 8px 12px; margin-top: 0; font-size: 13px; }
+  .match-card .mc-del { color: var(--coral); }
   .ht-subs { text-align: left; margin: 0 0 14px; }
   .ht-subs .action-panel { color: var(--ink); }
   .ht-subs .ht-subs-title { font-size: 12px; color: var(--chalk-dim); margin-bottom: 8px; }
@@ -337,6 +339,16 @@
     <!-- STEP 2: TEAM & MATCH PLANNING (only shown once format is confirmed) -->
     <div id="setupStepPlan" style="display:none;">
       <div class="config-note" style="margin-bottom:10px;"><span id="formatSummaryLine"></span> — <span id="changeFormatLink" style="text-decoration:underline; cursor:pointer; color:var(--turf-1);">change format</span></div>
+
+      <section>
+        <h2>Fixture <span style="font-weight:400; color:var(--ink-soft); font-size:12px;">(optional)</span></h2>
+        <div class="field"><label>Opposition</label><input type="text" id="fx-opp" placeholder="e.g. Oakfield U10s"></div>
+        <div class="pos-row">
+          <div class="field"><label>Date</label><input type="date" id="fx-date"></div>
+          <div class="field"><label>Venue</label><input type="text" id="fx-venue" placeholder="Ground / home / away"></div>
+        </div>
+        <div class="field"><label>Competition</label><input type="text" id="fx-comp" placeholder="League, cup, friendly..."></div>
+      </section>
 
       <section>
         <h2>How do you want to plan this match?</h2>
@@ -491,11 +503,17 @@
       <div id="startPickerHolder"></div>
 
       <section class="bench-section"><h2>Bench</h2><div class="bench-row" id="benchRow"></div></section>
+      <p class="edit-hint" id="endMatchLiveLink" style="cursor:pointer; text-decoration:underline; display:none; margin-top:12px;">End match</p>
     </div>
 
     <!-- DETAILS VIEW: format summary, substitutions / forecast / formation sub-tabs -->
     <div id="planViewDetails" style="display:none;">
+      <div class="config-note" id="detailsFixtureLine" style="margin:0 0 4px; color:var(--ink); font-weight:600;"></div>
       <p class="subline" id="detailsFormatLine" style="margin:0 0 8px;"></p>
+      <div style="display:flex; gap:14px; margin-bottom:8px;">
+        <span class="decision-link" id="editFixtureLink">Edit fixture details</span>
+        <span class="decision-link" id="exportImageLink">Export as image</span>
+      </div>
       <div class="half-marks" id="detailHalfMarks" style="margin-top:0;"></div>
       <div class="plan-subtabs" id="detailsSubtabs" style="margin-top:12px;">
         <div class="plan-subtab active" data-dtab="subs">Subs</div>
@@ -786,11 +804,21 @@ document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     if (tab.classList.contains('disabled')) return;
     if (tab.dataset.tab === 'matches') renderMatchesScreen();
-    if (tab.dataset.tab === 'setup') {
-      document.getElementById('setupStepPlan').style.display = 'none';
-      document.getElementById('setupStepFormat').style.display = 'block';
+    const go = () => {
+      if (tab.dataset.tab === 'setup') {
+        document.getElementById('setupStepPlan').style.display = 'none';
+        document.getElementById('setupStepFormat').style.display = 'block';
+      }
+      showScreen(tab.dataset.tab);
+    };
+    if (tab.dataset.tab === 'setup' && currentMatchId) {
+      if (liveMode && !matchFinished) {
+        showConfirm("Leave the live match to plan a new one? The live match keeps its clock - resume it any time from the Matches tab.", () => { detachOpenMatch(); go(); }, 'Leave match');
+        return;
+      }
+      detachOpenMatch();
     }
-    showScreen(tab.dataset.tab);
+    go();
   });
 });
 
@@ -1794,7 +1822,6 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   clearLiveMatchState(); // legacy single-slot save - the library below replaces it
   // An in-progress (live) match is NOT thrown away by planning another one:
   // it stays in the Matches tab to resume. Unstarted drafts are replaced.
-  if (currentMatchId) saveLiveMatchState();
   currentMatchId = null;
   const avail = squad.filter(p => availableIds.has(p.id));
   PLAYERS = avail;
@@ -1827,8 +1854,10 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   dismissedDecisionKeys = new Set();
   score = {us: 0, them: 0}; goalEvents = [];
   setPlanSubTab('live');
-  removeUnstartedPlans();
   currentMatchId = newMatchId();
+  matchFixture = {...draftFixture};
+  draftFixture.opponent = ''; draftFixture.venue = '';
+  syncFixtureForm();
   regeneratePlan();
   saveLiveMatchState();
   document.getElementById('regenBanner').classList.remove('show');
@@ -1884,6 +1913,7 @@ function render(t) {
     tokensG.appendChild(g);
   }
 
+  document.getElementById('endMatchLiveLink').style.display = (liveMode && !matchFinished) ? 'block' : 'none';
   const benchRow = document.getElementById('benchRow');
   benchRow.innerHTML = '';
   for (const p of PLAYERS) if (!onPitchSet.has(p.id)) {
@@ -3002,6 +3032,28 @@ document.getElementById('forecastViewToggle').addEventListener('click', e => {
    the browser reclaiming it, which would lose the whole match. This
    snapshots everything needed to fully reconstruct live state and
    restores it on load, matching PRD Section 63 / Scenario H. ------- */
+/* ---- Fixture details (opposition, date, venue, competition) ---- */
+function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+let draftFixture = {opponent: '', date: todayISO(), venue: '', competition: ''}; // the New Match form
+let matchFixture = {opponent: '', date: '', venue: '', competition: ''};         // the open match
+function syncFixtureForm() {
+  document.getElementById('fx-opp').value = draftFixture.opponent;
+  document.getElementById('fx-date').value = draftFixture.date;
+  document.getElementById('fx-venue').value = draftFixture.venue;
+  document.getElementById('fx-comp').value = draftFixture.competition;
+}
+[['fx-opp', 'opponent'], ['fx-date', 'date'], ['fx-venue', 'venue'], ['fx-comp', 'competition']].forEach(([id, key]) => {
+  document.getElementById(id).addEventListener('input', e => { draftFixture[key] = e.target.value; });
+});
+syncFixtureForm();
+function fmtFixtureDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  try { return new Date(y, m - 1, d).toLocaleDateString([], {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'}); } catch (e) { return iso; }
+}
+function fixtureTitle(fx, fallback) { return fx && fx.opponent ? `vs ${fx.opponent}` : (fallback || 'Match'); }
+function fixtureLine(fx) { return [fmtFixtureDate(fx && fx.date), fx && fx.venue, fx && fx.competition].filter(Boolean).join(' · '); }
+
 const MATCH_STATE_KEY = 'rf_live_match_v1'; // legacy single-slot save; migrated into the library below
 const MATCHES_KEY = 'rf_matches_v1';        // the match library: every plan / live / finished match
 const MAX_SAVED_MATCHES = 40;
@@ -3030,7 +3082,7 @@ function matchStatus() { return matchFinished ? 'finished' : (liveMode ? 'live' 
 
 function buildMatchSnapshot() {
   return {
-    v: 2, status: matchStatus(), finishedAt: matchFinished ? finishedAtMinute : null,
+    v: 2, fixture: {...matchFixture}, status: matchStatus(), finishedAt: matchFinished ? finishedAtMinute : null,
     // match format, needed to rebuild SLOTS/PERIOD_BOUNDS via applyMatchFormat
     playersOnPitch: PLAYERS_ON_PITCH, hasGk: HAS_GK, duration: DURATION, periods: PERIODS, shape: confirmedShape,
     // squad + GK plan
@@ -3058,6 +3110,10 @@ function buildMatchSnapshot() {
 // loses nothing.
 function saveLiveMatchState() {
   if (!PLAN || !currentMatchId) return false;
+  // Never write a snapshot whose pieces disagree (e.g. the line-up belongs to
+  // a different match format than the globals) - that would corrupt the saved
+  // match. Better to skip one save than to poison the record.
+  if (Object.keys(startingLineup).length !== PLAYERS_ON_PITCH) { console.warn('Skipped save: format/line-up mismatch'); return false; }
   try {
     const lib = loadMatchLibrary();
     const snap = buildMatchSnapshot();
@@ -3066,6 +3122,7 @@ function saveLiveMatchState() {
     if (!rec) { rec = {id: currentMatchId, createdAt: now}; lib.push(rec); }
     rec.updatedAt = now; rec.status = snap.status; rec.snapshot = snap;
     rec.title = rec.title || matchTitle(rec.createdAt);
+    rec.fixture = {...matchFixture};
     rec.format = `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH} · ${DURATION}' · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`;
     rec.score = {...score};
     rec.minute = snap.status === 'finished' ? finishedAtMinute : (snap.status === 'live' ? (halfTimeActive && pendingHalfTimeBoundaryIdx !== null ? PERIOD_BOUNDS[pendingHalfTimeBoundaryIdx] : liveElapsedMinute()) : 0);
@@ -3088,6 +3145,18 @@ function schedulePersist() {
 }
 function clearLiveMatchState() {
   try { localStorage.removeItem(MATCH_STATE_KEY); } catch (e) { /* ignore */ }
+}
+// The New Match flow reuses the same format/squad/settings globals as an open
+// match, so starting it detaches whatever match is open: it's saved first, then
+// closed (a live match keeps its real-time clock and is resumed from Matches).
+function detachOpenMatch() {
+  saveLiveMatchState();
+  clearTimeout(persistTimer);
+  clearInterval(liveTicker);
+  currentMatchId = null; PLAN = null;
+  liveMode = false; halfTimeActive = false; matchFinished = false;
+  document.getElementById('planTab').classList.add('disabled');
+  document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
 }
 function deleteMatchRecord(id) {
   const lib = loadMatchLibrary().filter(r => r.id !== id);
@@ -3119,7 +3188,32 @@ function migrateLegacyLiveMatch() {
 }
 
 // Everything the plan screen needs that depends on the match format.
+function renderFixtureLine() {
+  const el = document.getElementById('detailsFixtureLine');
+  const line = fixtureLine(matchFixture);
+  el.textContent = (matchFixture.opponent ? `vs ${matchFixture.opponent}` : 'Fixture') + (line ? ' — ' + line : '');
+}
+function openFixtureEditor() {
+  const f = matchFixture;
+  const overlay = openModal(`
+    <div class="picker-title">Fixture details</div>
+    <div class="field"><label>Opposition</label><input type="text" id="fe-opp" value=""></div>
+    <div class="field"><label>Date</label><input type="date" id="fe-date"></div>
+    <div class="field"><label>Venue</label><input type="text" id="fe-venue" value=""></div>
+    <div class="field"><label>Competition</label><input type="text" id="fe-comp" value=""></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="feCancel">Cancel</button><button class="btn btn-primary" id="feSave">Save</button></div>`, {wide: true});
+  overlay.querySelector('#fe-opp').value = f.opponent || ''; overlay.querySelector('#fe-date').value = f.date || '';
+  overlay.querySelector('#fe-venue').value = f.venue || ''; overlay.querySelector('#fe-comp').value = f.competition || '';
+  overlay.querySelector('#feCancel').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#feSave').addEventListener('click', () => {
+    matchFixture = {opponent: overlay.querySelector('#fe-opp').value.trim(), date: overlay.querySelector('#fe-date').value,
+      venue: overlay.querySelector('#fe-venue').value.trim(), competition: overlay.querySelector('#fe-comp').value.trim()};
+    overlay.remove(); renderFixtureLine(); saveLiveMatchState();
+  });
+}
+document.getElementById('editFixtureLink').addEventListener('click', openFixtureEditor);
 function initPlanScreenForFormat() {
+  renderFixtureLine();
   document.getElementById('scrub').max = DURATION;
   document.getElementById('detailsFormatLine').textContent =
     `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}${HAS_GK ? '' : ' (no GK)'} · ${DURATION} min · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`;
@@ -3159,6 +3253,7 @@ function restoreLiveMatch(saved, recordId) {
   currentMatchId = null; // regenerate without writing until fully restored
   regeneratePlan();
   currentMatchId = recordId || currentMatchId;
+  matchFixture = {opponent: '', date: '', venue: '', competition: '', ...(saved.fixture || {})};
 
   matchStartTs = saved.matchStartTs; pausedAccumMs = saved.pausedAccumMs; pauseStartedAt = saved.pauseStartedAt;
   currentPeriodIdx = saved.currentPeriodIdx || 0; matchFinished = status === 'finished';
@@ -3225,34 +3320,65 @@ function openMatchFromLibrary(id) {
   }
 }
 
+function copyPlannedMatch(id) {
+  const lib = loadMatchLibrary();
+  const rec = lib.find(r => r.id === id);
+  if (!rec) return;
+  const now = Date.now();
+  const snap = JSON.parse(JSON.stringify(rec.snapshot));
+  snap.fixture = {...(snap.fixture || {}), opponent: ''};
+  lib.push({...JSON.parse(JSON.stringify(rec)), id: newMatchId(), createdAt: now, updatedAt: now, title: matchTitle(now), snapshot: snap, fixture: snap.fixture});
+  saveMatchLibrary(lib);
+  renderMatchesScreen();
+}
 function renderMatchesScreen() {
-  const lib = loadMatchLibrary().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const lib = loadMatchLibrary();
   const note = document.getElementById('matchesStorageNote');
   note.style.display = storageProblem ? 'block' : 'none';
   note.textContent = storageProblem ? "This browser isn't letting the app save matches (private browsing or storage full), so they won't survive closing it." : '';
   const list = document.getElementById('matchesList');
-  if (!lib.length) { list.innerHTML = '<div class="config-note">No matches yet - generate a match plan from the New Match tab and it will appear here.</div>'; return; }
-  list.innerHTML = lib.map(r => {
+  const dateKey = r => (r.fixture && r.fixture.date) || '';
+  const live = lib.filter(r => r.status === 'live').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const planned = lib.filter(r => r.status === 'planned').sort((a, b) => {
+    const da = dateKey(a), db = dateKey(b);
+    if (da && db && da !== db) return da < db ? -1 : 1;
+    if (!da !== !db) return da ? -1 : 1;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+  const done = lib.filter(r => r.status === 'finished').sort((a, b) => {
+    const da = dateKey(a), db = dateKey(b);
+    if (da !== db) return da < db ? 1 : -1;
+    return (b.updatedAt || 0) - (a.updatedAt || 0);
+  });
+  const card = r => {
     const badge = r.status === 'live' ? '<span class="badge live">LIVE</span>' : r.status === 'planned' ? '<span class="badge planned">PLANNED</span>' : '<span class="badge">FINISHED</span>';
-    const score = r.status === 'planned' ? '' : ` · ${r.score ? r.score.us : 0} – ${r.score ? r.score.them : 0}`;
-    const where = r.status === 'live' ? ` · at ${r.minute || 0}'` : r.status === 'finished' ? ` · full time ${r.minute || ''}'` : '';
+    const scoreTxt = r.status === 'planned' ? '' : ` · ${r.score ? r.score.us : 0} – ${r.score ? r.score.them : 0}`;
+    const where = r.status === 'live' ? ` · at ${r.minute || 0}'` : r.status === 'finished' && r.minute ? ` · full time ${r.minute}'` : '';
     const btn = r.status === 'live' ? 'Resume' : r.status === 'planned' ? 'Open' : 'View';
+    const line = fixtureLine(r.fixture);
     return `<div class="match-card" data-id="${r.id}">
-      <div class="mc-title">${r.title || matchTitle(r.createdAt)}</div>
-      <div class="mc-sub">${r.format || ''}${score}${where}</div>
-      <div class="mc-row">${badge}<span class="decision-link secondary" data-del="${r.id}">Delete</span><button class="btn btn-primary mc-btn" data-open="${r.id}" style="width:auto; padding:6px 16px; margin:0;">${btn}</button></div>
+      <div class="mc-title">${fixtureTitle(r.fixture, r.title || matchTitle(r.createdAt)).replace(/</g, '&lt;')}</div>
+      ${line ? `<div class="mc-sub">${line.replace(/</g, '&lt;')}</div>` : ''}
+      <div class="mc-sub">${r.format || ''}${scoreTxt}${where}</div>
+      <div class="mc-row">${badge}
+        ${r.status === 'planned' ? `<button class="btn btn-ghost mc-small" data-copy="${r.id}">Copy</button>` : ''}
+        <button class="btn btn-ghost mc-small mc-del" data-del="${r.id}">Delete</button>
+        <button class="btn btn-primary mc-btn" data-open="${r.id}">${btn}</button></div>
     </div>`;
-  }).join('');
+  };
+  const section = (title, rows) => rows.length ? `<h2 style="margin:16px 0 8px;">${title}</h2>${rows.map(card).join('')}` : '';
+  list.innerHTML = `<button class="btn btn-primary" id="newFixtureBtn" style="margin-bottom:6px;">+ Plan a new fixture</button>`
+    + (lib.length ? section('In progress', live) + section('Upcoming fixtures', planned) + section('Finished', done)
+      : '<div class="config-note">No matches yet - plan a fixture and its line-up will be saved here.</div>');
+  document.getElementById('newFixtureBtn').addEventListener('click', () => document.querySelector('.tab[data-tab="setup"]').click());
   list.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openMatchFromLibrary(b.dataset.open)));
+  list.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copyPlannedMatch(b.dataset.copy)));
   list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.del;
-    showConfirm('Delete this match from your history? This can\'t be undone.', () => {
+    const rec = loadMatchLibrary().find(r => r.id === id);
+    showConfirm(`Delete ${rec ? fixtureTitle(rec.fixture, rec.title) : 'this match'} from your history? This can't be undone.`, () => {
+      if (id === currentMatchId) { detachOpenMatch(); }
       deleteMatchRecord(id);
-      if (id === currentMatchId) {
-        clearInterval(liveTicker);
-        liveMode = false; halfTimeActive = false; matchFinished = false; currentMatchId = null; PLAN = null;
-        document.getElementById('planTab').classList.add('disabled');
-      }
       renderMatchesScreen();
     }, 'Delete');
   }));
@@ -3296,6 +3422,7 @@ function startMatch() {
 }
 document.getElementById('startMatchBtn').addEventListener('click', startMatch);
 document.getElementById('earlyFinishLink').addEventListener('click', requestEarlyFinish);
+document.getElementById('endMatchLiveLink').addEventListener('click', requestEarlyFinish);
 
 document.getElementById('livePauseBtn').addEventListener('click', () => {
   if (pauseStartedAt) {
@@ -3418,7 +3545,11 @@ function renderSubsPill(mins) {
     const overdue = mins - next.time;
     const more = due.length > 1 ? ` (+${due.length - 1} more)` : '';
     pill.innerHTML = `<span class="tag">${overdue > 0 ? overdue + "' late" : 'NOW'}</span> <span><strong>${next.on}</strong> ON · <strong>${next.off}</strong> OFF${more}</span>`;
-    if (lastAutoPoppedKey !== key) { lastAutoPoppedKey = key; openSubsPopup(); }
+    // The auto-popup must never wipe out a dialog the coach already has open
+    // (e.g. the "End match?" or "Delete match?" confirmation - openModal would
+    // remove it a second later), nor appear over a different screen.
+    const planVisible = document.getElementById('screen-plan').classList.contains('active');
+    if (lastAutoPoppedKey !== key && planVisible && !document.querySelector('.modal-overlay')) { lastAutoPoppedKey = key; openSubsPopup(); }
   } else if (due.length) {
     // every currently-due sub has been delayed - show when the soonest one asks again
     const soonestUntil = Math.min(...due.map(r => snoozes[rotationKey(r)]));
@@ -3750,7 +3881,8 @@ function requestEarlyFinish() {
     matchFinished = true;
     clearInterval(liveTicker);
     document.getElementById('halfTimePanel').style.display = 'none';
-    finishMatch(mins);
+    try { finishMatch(mins); }
+    catch (e) { console.error(e); showAlert(`Couldn't show the full-time summary (${e.message}), but the match has been ended and saved.`); saveLiveMatchState(); }
   }, 'End match');
 }
 
@@ -3781,6 +3913,187 @@ function finishMatch(atMinute, opts) {
     ${buildSummaryTable(atMinute)}
     <p class="config-note">${subCount} substitution${subCount === 1 ? '' : 's'} made.</p>`;
 }
+
+/* ================= EXPORT: line-up sheet as an image ================= */
+// Draws the whole match sheet straight onto a canvas (no libraries, works
+// offline): fixture header, kick-off and full-time pitch views, every change
+// minute by minute, keepers per period and the forecast playing-time table.
+function renderLineupCanvas() {
+  const W = 1080, PAD = 40, FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  const C = {bg: '#F7F5EC', ink: '#12241A', soft: '#56675B', line: '#DAD6C6', turf: '#1F4A33', turf2: '#215A3B', amber: '#E3A23C', coral: '#C1503F', green: '#2E7D4F', chalk: '#F4F1E6'};
+  const c = document.createElement('canvas'); c.width = W; c.height = 7000;
+  const g = c.getContext('2d');
+  g.fillStyle = C.bg; g.fillRect(0, 0, W, c.height);
+  const font = (size, weight) => `${weight || 400} ${size}px ${FONT}`;
+  function txt(str, x, y, o) {
+    o = o || {}; g.font = font(o.size || 24, o.weight); g.fillStyle = o.color || C.ink; g.textAlign = o.align || 'left'; g.textBaseline = 'alphabetic';
+    g.fillText(str, x, y);
+    return g.measureText(str).width;
+  }
+  function wrap(str, x, y, maxW, lineH, o) {
+    o = o || {}; g.font = font(o.size || 22, o.weight);
+    const words = str.split(' '); let line = '';
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (g.measureText(t).width > maxW && line) { txt(line, x, y, o); y += lineH; line = w; } else line = t;
+    }
+    if (line) { txt(line, x, y, o); y += lineH; }
+    return y;
+  }
+  function rule(y) { g.fillStyle = C.line; g.fillRect(PAD, y, W - 2 * PAD, 2); }
+  function pitch(x, y, w, state, caption) {
+    const h = w * 4 / 3, k = w / 300;
+    txt(caption, x, y + 28, {size: 26, weight: 700});
+    y += 44;
+    for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#1F4A33' : '#215A3B'; g.fillRect(x, y + i * h / 8, w, h / 8); }
+    g.strokeStyle = 'rgba(244,241,230,0.6)'; g.lineWidth = 2;
+    g.strokeRect(x + 10 * k, y + 10 * k, 280 * k, 380 * k);
+    g.beginPath(); g.moveTo(x + 10 * k, y + 205 * k); g.lineTo(x + 290 * k, y + 205 * k); g.stroke();
+    g.beginPath(); g.arc(x + 150 * k, y + 205 * k, 30 * k, 0, Math.PI * 2); g.stroke();
+    g.strokeRect(x + 75 * k, y + 10 * k, 150 * k, 40 * k); g.strokeRect(x + 75 * k, y + 350 * k, 150 * k, 40 * k);
+    for (const sl of state.activeSlots) {
+      const pid = state.onPitch[sl.id], cx = x + sl.x * k, cy = y + sl.y * k, r = 25 * k;
+      g.fillStyle = C.chalk; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = C.amber; g.lineWidth = 3; g.stroke();
+      txt(initials(pid), cx, cy + 7, {size: 20, weight: 700, color: C.turf, align: 'center'});
+      txt(sl.label, cx, cy - r - 8, {size: 15, color: 'rgba(244,241,230,0.85)', align: 'center'});
+      g.font = font(19, 700); const tw = g.measureText(pid).width + 16;
+      g.fillStyle = 'rgba(10,25,17,0.72)'; g.beginPath(); g.roundRect(cx - tw / 2, cy + r + 6, tw, 28, 8); g.fill();
+      txt(pid, cx, cy + r + 26, {size: 19, weight: 700, color: '#fff', align: 'center'});
+    }
+    return y + h;
+  }
+
+  let y = PAD;
+  // ---- header
+  txt((document.querySelector('.scoreboard h1') || {}).textContent || 'Match sheet', PAD, y + 22, {size: 22, color: C.soft, weight: 600});
+  y += 70;
+  y = wrap(matchFixture.opponent ? `vs ${matchFixture.opponent}` : 'Match line-up', PAD, y, W - 2 * PAD, 64, {size: 58, weight: 800}) - 20;
+  const fl = fixtureLine(matchFixture);
+  if (fl) { txt(fl, PAD, y, {size: 26, color: C.soft}); y += 38; }
+  const stat = matchFinished ? 'Final' : (liveMode ? 'Live' : 'Planned');
+  const scoreStr = (liveMode || matchFinished) ? `   ·   ${score.us} – ${score.them}` : '';
+  txt(`${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}${HAS_GK ? '' : ' (no GK)'} · ${DURATION} min · ${PERIODS} period${PERIODS > 1 ? 's' : ''}   ·   ${stat}${scoreStr}`, PAD, y, {size: 24, color: C.soft});
+  y += 30;
+  rule(y); y += 28;
+
+  // ---- pitches
+  const pw = (W - 2 * PAD - 40) / 2;
+  const s0 = computeStateAt(0), sEnd = computeStateAt(DURATION);
+  const yEnd = pitch(PAD, y, pw, s0, 'Kick-off line-up');
+  pitch(PAD + pw + 40, y, pw, sEnd, `Full time (after all changes)`);
+  y = yEnd + 30;
+  const segs = activeGkSegments();
+  if (HAS_GK && segs.length) {
+    y = wrap('In goal: ' + segs.map((s, i) => `${PERIODS > 1 ? 'P' + (i + 1) + ' ' : ''}${s.player}`).join('  ·  '), PAD, y, W - 2 * PAD, 30, {size: 24, weight: 600});
+    y += 6;
+  }
+  rule(y); y += 38;
+
+  // ---- changes minute by minute
+  txt('Changes, minute by minute', PAD, y, {size: 32, weight: 800}); y += 20;
+  const grouped = {};
+  PLAN.rotations.forEach(r => { if (r.type === 'skip' || r.type === 'unavailable') return; (grouped[r.time] = grouped[r.time] || []).push(r); });
+  const times = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+  if (!times.length) { y += 34; txt('No changes planned - the starting line-up plays the whole match.', PAD, y, {size: 24, color: C.soft}); y += 20; }
+  for (const time of times) {
+    y += 14;
+    const rows = grouped[time];
+    const periodIdx = PERIOD_BOUNDS.indexOf(time);
+    const lineH = 34;
+    const rowTop = y;
+    let ry = y + 28;
+    txt(`${time}'`, PAD, ry, {size: 30, weight: 800, color: C.turf});
+    if (periodIdx > 0 && periodIdx < PERIOD_BOUNDS.length - 1) txt(`start of period ${periodIdx + 1}`, PAD, ry + 26, {size: 16, color: C.soft});
+    let moveText = reshuffleMovesAt(time);
+    let first = true;
+    for (const r of rows) {
+      if (r.type === 'formation') {
+        const shape = ['DEF', 'MID', 'ATT'].map(gp => r.slots.filter(s => s.group === gp).length).filter(n => n > 0).join('-');
+        txt(`Formation changes to ${shape}`, PAD + 150, ry, {size: 24, color: C.soft}); ry += lineH; continue;
+      }
+      if (r.type === 'reshuffle') continue;
+      const slotLbl = slotLabelAt(time, r.slot);
+      let x = PAD + 150;
+      x += txt('ON ', x, ry, {size: 22, weight: 700, color: C.green}) + 2;
+      x += txt(r.on, x, ry, {size: 26, weight: 700}) + 22;
+      x += txt('OFF ', x, ry, {size: 22, weight: 700, color: C.coral}) + 2;
+      x += txt(r.off, x, ry, {size: 26, weight: 700}) + 22;
+      txt(`(${slotLbl})`, x, ry, {size: 22, color: C.soft});
+      ry += lineH; first = false;
+    }
+    if (moveText.length) { ry = wrap('Positions: ' + moveText.join(' · '), PAD + 150, ry - 2, W - PAD - (PAD + 150), 28, {size: 21, color: C.soft}); }
+    y = Math.max(ry, rowTop + 60) - 6;
+    g.fillStyle = C.line; g.fillRect(PAD + 150, y + 6, W - 2 * PAD - 150, 1);
+  }
+  y += 34;
+  rule(y); y += 38;
+
+  // ---- forecast
+  txt('Forecast playing time', PAD, y, {size: 32, weight: 800}); y += 14;
+  const fin = computeStateAt(DURATION);
+  const longest = computeLongestBenchSpell(DURATION);
+  const list = PLAYERS.slice().sort((a, b) => PLAN.projectedMinutes[b.id] - PLAN.projectedMinutes[a.id]);
+  const colName = PAD, colBar = PAD + 190, barW = 380, colTot = colBar + barW + 70, colTarget = colTot + 110, colBench = colTarget + 110;
+  y += 36;
+  txt('Player', colName, y, {size: 18, color: C.soft, weight: 700});
+  txt('Minutes (outfield + GK)', colBar, y, {size: 18, color: C.soft, weight: 700});
+  txt('Total', colTot, y, {size: 18, color: C.soft, weight: 700, align: 'right'});
+  txt('Target', colTarget, y, {size: 18, color: C.soft, weight: 700, align: 'right'});
+  txt('Longest off', colBench + 40, y, {size: 18, color: C.soft, weight: 700, align: 'right'});
+  y += 10;
+  for (const p of list) {
+    y += 44;
+    const total = PLAN.projectedMinutes[p.id], gk = Math.min(fin.gkMinutes[p.id] || 0, total), out = total - gk;
+    txt(p.id, colName, y, {size: 24, weight: 600});
+    g.fillStyle = '#E8E4D4'; g.fillRect(colBar, y - 20, barW, 22);
+    g.fillStyle = C.turf2; g.fillRect(colBar, y - 20, barW * out / DURATION, 22);
+    g.fillStyle = C.amber; g.fillRect(colBar + barW * out / DURATION, y - 20, barW * gk / DURATION, 22);
+    const tgt = cfg.gkCountsForFairness ? TARGETS[p.id] : TARGETS[p.id];
+    g.fillStyle = C.ink; g.fillRect(colBar + barW * Math.min(1, tgt / DURATION) - 1, y - 26, 3, 34);
+    txt(`${Math.round(total)}'`, colTot, y, {size: 24, weight: 700, align: 'right'});
+    txt(`${Math.round(tgt)}'`, colTarget, y, {size: 22, color: C.soft, align: 'right'});
+    txt(`${longest[p.id]}'`, colBench + 40, y, {size: 22, color: C.soft, align: 'right'});
+  }
+  y += 34;
+  txt('Green = outfield minutes, amber = in goal, black tick = fair share (outfield). Target and "longest off" are outfield-based.', PAD, y, {size: 17, color: C.soft});
+  y += 40;
+  txt(`Made with the Squad & Rotation Planner · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, y, {size: 17, color: C.soft});
+  y += PAD;
+
+  const out = document.createElement('canvas'); out.width = W; out.height = y;
+  out.getContext('2d').drawImage(c, 0, 0, W, y, 0, 0, W, y);
+  return out;
+}
+
+function exportFileName() {
+  const slug = s => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `lineup-${slug(matchFixture.opponent) || 'match'}${matchFixture.date ? '-' + matchFixture.date : ''}.png`;
+}
+function openExportModal() {
+  if (!PLAN) return;
+  let canvas;
+  try { canvas = renderLineupCanvas(); }
+  catch (e) { console.error(e); showAlert(`Couldn't build the image (${e.message}).`); return; }
+  const url = canvas.toDataURL('image/png');
+  const overlay = openModal(`
+    <div class="picker-title">Line-up image</div>
+    <div class="config-note" style="margin-bottom:8px;">Tap and hold the image to save it, or use the buttons.</div>
+    <img id="exportImg" alt="Line-up sheet" style="width:100%; border-radius:8px; border:1px solid var(--card-line);" src="${url}">
+    <div class="modal-btn-row" style="margin-top:12px;"><button class="btn btn-ghost" id="expClose">Close</button><button class="btn btn-ghost" id="expDownload">Download</button><button class="btn btn-primary" id="expShare">Share / save</button></div>`, {wide: true});
+  const name = exportFileName();
+  const getFile = () => new Promise(res => canvas.toBlob(b => res(b ? new File([b], name, {type: 'image/png'}) : null), 'image/png'));
+  overlay.querySelector('#expClose').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#expDownload').addEventListener('click', () => { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); });
+  overlay.querySelector('#expShare').addEventListener('click', async () => {
+    try {
+      const f = await getFile();
+      if (f && navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f], title: fixtureTitle(matchFixture, 'Line-up')}); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  });
+}
+document.getElementById('exportImageLink').addEventListener('click', openExportModal);
 
 /* ================= INIT ================= */
 renderSquadList();
