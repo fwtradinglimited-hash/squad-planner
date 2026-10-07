@@ -1698,6 +1698,8 @@ function runBenchLimitPass(state, t, skipSlots) {
 // the coach picked by hand, which position tidy-ups must leave alone.
 function applyEventsAt(state, t, events) {
   const dueNow = events.filter(e => e.time === t);
+  const startIdx = state.rotations.length, beforeLineup = {...state.onPitch};
+  const beforeClocks = {lastSubIn: {...state.lastSubIn}, lastOff: {...state.lastOff}, benchSet: new Set(state.benchSet)};
   const skipSlots = new Set();
   skipSlots.manual = new Set();
   for (const ev of dueNow) {
@@ -1729,7 +1731,12 @@ function applyEventsAt(state, t, events) {
       state.rotations.push({time:t, type:'unavailable', player: ev.player, reason:'marked unavailable'});
     } else { // substitution override
       const curPid = state.onPitch[ev.slot];
-      if (curPid !== ev.on) {
+      // "X comes on" is already true when X is on the pitch - e.g. the coach
+      // later changed the starting line-up so X now starts, or two overrides
+      // cancel each other out. That's not a substitution at all, so it must
+      // neither duplicate X onto a second position nor show up as a sub.
+      const alreadyOn = Object.values(state.onPitch).includes(ev.on);
+      if (curPid !== ev.on && !alreadyOn) {
         state.benchSet.delete(ev.on); state.benchSet.add(curPid);
         state.onPitch[ev.slot] = ev.on; state.lastSubIn[ev.on] = t; state.lastOff[curPid] = t;
         clearBlocks(state, curPid);
@@ -1737,6 +1744,20 @@ function applyEventsAt(state, t, events) {
       }
       skipSlots.add(ev.slot); // don't let the fairness pass immediately re-touch what the coach just set
       if (ev.manual) skipSlots.manual.add(ev.slot);
+    }
+  }
+  // Coach overrides that cancel each other out within the same minute (one
+  // sub undoing another) leave the same eleven on the pitch: no substitution
+  // happened, so none is listed or prompted.
+  if (!dueNow.some(e => e.type === 'formation')) {
+    const raw = state.rotations.slice(startIdx).filter(r => !r.type);
+    if (raw.length) {
+      const samePlaces = Object.keys(beforeLineup).length === Object.keys(state.onPitch).length
+        && Object.keys(beforeLineup).every(sl => beforeLineup[sl] === state.onPitch[sl]);
+      if (samePlaces) {
+        state.rotations.splice(startIdx, state.rotations.length - startIdx, ...state.rotations.slice(startIdx).filter(r => r.type));
+        state.lastSubIn = beforeClocks.lastSubIn; state.lastOff = beforeClocks.lastOff; state.benchSet = beforeClocks.benchSet;
+      }
     }
   }
   return skipSlots;
