@@ -267,7 +267,6 @@
 
   <div class="tabs">
     <div class="tab active" data-tab="squad">Squad</div>
-    <div class="tab" data-tab="setup">New Match</div>
     <div class="tab" data-tab="matches">Matches</div>
     <div class="tab disabled" data-tab="plan" id="planTab">Match Plan</div>
   </div>
@@ -278,6 +277,24 @@
       <h2>Squad</h2>
       <div id="squadList"></div>
       <button class="btn btn-ghost" id="addPlayerBtn">+ Add player</button>
+    </section>
+    <section>
+      <h2>Line-up presets</h2>
+      <div class="config-note" style="margin-bottom:8px;">Save your go-to line-ups (strongest, defensive, attacking...) and drop one in when you plan a fixture.</div>
+      <div id="presetList"></div>
+      <button class="btn btn-ghost" id="addPresetBtn">+ New preset</button>
+    </section>
+    <section>
+      <h2>Default match type</h2>
+      <div class="config-note" style="margin-bottom:8px;">New fixtures start with this format, so you don't have to set it every time.</div>
+      <div class="pos-row">
+        <div class="field"><label>Players per side</label><select id="dm-players"></select></div>
+        <div class="field"><label>Duration (min)</label><select id="dm-duration"></select></div>
+        <div class="field"><label>Periods</label><select id="dm-periods"></select></div>
+      </div>
+      <div class="check-row" style="margin:6px 0 10px;"><input type="checkbox" id="dm-gk"><label for="dm-gk">Uses a goalkeeper</label></div>
+      <div class="field"><label>Formation</label><select id="dm-formation"></select></div>
+      <div class="config-note" id="dmSummary"></div>
     </section>
   </div>
 
@@ -306,6 +323,7 @@
 
   <!-- SETUP SCREEN -->
   <div class="screen" id="screen-setup">
+    <div class="decision-link" id="setupBackLink" style="margin-bottom:10px; display:inline-block;">‹ Matches</div>
 
     <!-- STEP 1: MATCH FORMAT (must be confirmed before planning) -->
     <div id="setupStepFormat">
@@ -348,6 +366,12 @@
           <div class="field"><label>Venue</label><input type="text" id="fx-venue" placeholder="Ground / home / away"></div>
         </div>
         <div class="field"><label>Competition</label><input type="text" id="fx-comp" placeholder="League, cup, friendly..."></div>
+      </section>
+
+      <section id="presetSection">
+        <h2>Starting line-up <span style="font-weight:400; color:var(--ink-soft); font-size:12px;">(optional)</span></h2>
+        <div class="radio-row" id="presetChips" style="flex-wrap:wrap;"></div>
+        <div class="config-note" id="presetNote"></div>
       </section>
 
       <section>
@@ -512,6 +536,7 @@
       <p class="subline" id="detailsFormatLine" style="margin:0 0 8px;"></p>
       <div style="display:flex; gap:14px; margin-bottom:8px;">
         <span class="decision-link" id="editFixtureLink">Edit fixture details</span>
+        <span class="decision-link" id="presetsLink">Line-up presets</span>
         <span class="decision-link" id="exportImageLink">Export as image</span>
       </div>
       <div class="half-marks" id="detailHalfMarks" style="margin-top:0;"></div>
@@ -790,7 +815,7 @@ function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  const tabName = (name === 'playerForm') ? 'squad' : name;
+  const tabName = (name === 'playerForm') ? 'squad' : (name === 'setup' ? 'matches' : name);
   const tabEl = document.querySelector(`.tab[data-tab="${tabName}"]`);
   if (tabEl) tabEl.classList.add('active');
   // The Plan screen has its own compact back button + Live/Details sub-tabs,
@@ -804,21 +829,7 @@ document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     if (tab.classList.contains('disabled')) return;
     if (tab.dataset.tab === 'matches') renderMatchesScreen();
-    const go = () => {
-      if (tab.dataset.tab === 'setup') {
-        document.getElementById('setupStepPlan').style.display = 'none';
-        document.getElementById('setupStepFormat').style.display = 'block';
-      }
-      showScreen(tab.dataset.tab);
-    };
-    if (tab.dataset.tab === 'setup' && currentMatchId) {
-      if (liveMode && !matchFinished) {
-        showConfirm("Leave the live match to plan a new one? The live match keeps its clock - resume it any time from the Matches tab.", () => { detachOpenMatch(); go(); }, 'Leave match');
-        return;
-      }
-      detachOpenMatch();
-    }
-    go();
+    showScreen(tab.dataset.tab);
   });
 });
 
@@ -964,14 +975,20 @@ document.getElementById('confirmFormatBtn').addEventListener('click', () => {
   gkMode = PERIODS > 1 ? 'rotate' : 'single';
   gkAuto = false;
 
-  const shapeDesc = ['DEF', 'MID', 'ATT'].filter(g => shape[g] > 0).map(g => `${shape[g]} ${g}`).join('-');
-  document.getElementById('formatSummaryLine').textContent =
-    `${players}v${players}${hasGk ? '' : ' (no GK)'} · ${duration}' · ${periods} period${periods > 1 ? 's' : ''} · ${shapeDesc || 'no outfield players?!'}`;
+  setupBaseShape = {...shape}; selectedPresetId = null;
+  updateFormatSummaryLine();
 
   document.getElementById('setupStepFormat').style.display = 'none';
   document.getElementById('setupStepPlan').style.display = 'block';
   renderSetupScreen();
 });
+let setupBaseShape = {DEF: 2, MID: 3, ATT: 1};
+let selectedPresetId = null;
+function updateFormatSummaryLine() {
+  const shapeDesc = ['DEF', 'MID', 'ATT'].filter(g => confirmedShape[g] > 0).map(g => `${confirmedShape[g]} ${g}`).join('-');
+  document.getElementById('formatSummaryLine').textContent =
+    `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}${HAS_GK ? '' : ' (no GK)'} · ${DURATION}' · ${PERIODS} period${PERIODS > 1 ? 's' : ''} · ${shapeDesc || 'no outfield players?!'}`;
+}
 document.getElementById('changeFormatLink').addEventListener('click', () => {
   document.getElementById('setupStepPlan').style.display = 'none';
   document.getElementById('setupStepFormat').style.display = 'block';
@@ -1010,6 +1027,7 @@ function renderSetupScreen() {
   countEl.classList.toggle('warn', n < PLAYERS_ON_PITCH);
 
   renderGkSection();
+  renderPresetChips();
   validateSetup();
 }
 
@@ -1838,6 +1856,18 @@ document.getElementById('generateBtn').addEventListener('click', () => {
     return;
   }
 
+  if (selectedPresetId) {
+    const pr = presets.find(x => x.id === selectedPresetId);
+    if (pr && presetFits(pr)) {
+      try { startingLineup = lineupFromPreset(pr, startingLineup); syncGkToLineup(); }
+      catch (e) {
+        document.getElementById('setupError').style.display = 'block';
+        document.getElementById('setupError').textContent = e.message;
+        return;
+      }
+    }
+  }
+  selectedPresetId = null;
   lockedEvents = []; unavailableFrom = {}; cfgEras = []; // fresh match - clear any previous match's coach decisions
   finishedAtMinute = null;
   liveMode = false; halfTimeActive = false; matchFinished = false;
@@ -1873,6 +1903,286 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   // rather than leaving it to be discovered mid-match.
   if (hasPlanHealthNotes()) openPlanHealthSummary();
 });
+
+/* ================= DEFAULT MATCH TYPE ================= */
+const DEFAULTS_KEY = 'rf_defaults_v1';
+const FACTORY_DEFAULTS = {players: 7, duration: 50, periods: 2, hasGk: true, formation: 'auto'};
+function loadDefaults() {
+  try { const r = localStorage.getItem(DEFAULTS_KEY); if (r) return {...FACTORY_DEFAULTS, ...JSON.parse(r)}; } catch (e) { /* use factory */ }
+  return {...FACTORY_DEFAULTS};
+}
+let matchDefaults = loadDefaults();
+function saveDefaults() { try { localStorage.setItem(DEFAULTS_KEY, JSON.stringify(matchDefaults)); } catch (e) { console.warn('Could not save defaults', e); } }
+
+function renderDefaultsUI() {
+  const d = matchDefaults;
+  document.getElementById('dm-players').value = d.players;
+  document.getElementById('dm-duration').value = d.duration;
+  document.getElementById('dm-periods').value = d.periods;
+  document.getElementById('dm-gk').checked = !!d.hasGk;
+  const oc = Math.max(0, d.hasGk ? d.players - 1 : d.players);
+  const combos = formationCombos(oc);
+  const sel = document.getElementById('dm-formation');
+  sel.innerHTML = `<option value="auto">Balanced (planner suggests)</option>` + combos.map(c => `<option value="${formationLabel(c)}">${formationLabel(c)}</option>`).join('');
+  if (d.formation !== 'auto' && !combos.some(c => formationLabel(c) === d.formation)) d.formation = 'auto';
+  sel.value = d.formation;
+  const bounds = periodBoundaries(d.duration, d.periods);
+  document.getElementById('dmSummary').textContent =
+    `New fixtures start as ${d.players}v${d.players}${d.hasGk ? '' : ' (no GK)'} · ${d.duration}' · ${d.periods} period${d.periods > 1 ? 's' : ''} of ${bounds.slice(1).map((b, i) => b - bounds[i] + "'").join(', ')}${d.formation !== 'auto' ? ' · ' + d.formation : ''}.`;
+}
+populateSelectOptions('dm-players', Array.from({length: 9}, (_, i) => i + 3));
+populateSelectOptions('dm-duration', Array.from({length: 17}, (_, i) => (i + 2) * 5));
+populateSelectOptions('dm-periods', Array.from({length: 9}, (_, i) => i + 1));
+function onDefaultsChange(e) {
+  const prevPlayers = matchDefaults.players, prevGk = matchDefaults.hasGk;
+  matchDefaults = {
+    players: parseInt(document.getElementById('dm-players').value, 10) || 7,
+    duration: parseInt(document.getElementById('dm-duration').value, 10) || 50,
+    periods: parseInt(document.getElementById('dm-periods').value, 10) || 2,
+    hasGk: document.getElementById('dm-gk').checked,
+    formation: document.getElementById('dm-formation').value || 'auto',
+  };
+  if (matchDefaults.players !== prevPlayers || matchDefaults.hasGk !== prevGk) matchDefaults.formation = 'auto';
+  saveDefaults();
+  renderDefaultsUI();
+}
+['dm-players', 'dm-duration', 'dm-periods', 'dm-gk', 'dm-formation'].forEach(id => document.getElementById(id).addEventListener('change', onDefaultsChange));
+renderDefaultsUI();
+
+/* ================= NEW FIXTURE (lives under the Matches tab) ================= */
+function startNewFixture() {
+  const d = matchDefaults;
+  document.getElementById('fmt-players').value = d.players;
+  document.getElementById('fmt-duration').value = d.duration;
+  document.getElementById('fmt-periods').value = d.periods;
+  document.getElementById('fmt-gk').checked = !!d.hasGk;
+  refillShapeSuggestion();
+  updatePeriodPreview();
+  if (d.formation !== 'auto') {
+    const sel = document.getElementById('fmt-formation');
+    if ([...sel.options].some(o => o.value === d.formation)) { sel.value = d.formation; sel.dispatchEvent(new Event('change')); }
+  }
+  document.getElementById('setupStepPlan').style.display = 'none';
+  document.getElementById('setupStepFormat').style.display = 'block';
+  showScreen('setup');
+  // Straight to the fixture/team step with the default format applied;
+  // "change format" is one tap away if this fixture is different.
+  document.getElementById('confirmFormatBtn').click();
+}
+function requestNewFixture() {
+  const go = () => { startNewFixture(); };
+  if (currentMatchId) {
+    if (liveMode && !matchFinished) {
+      showConfirm("Leave the live match to plan a new fixture? The live match keeps its clock - resume it any time from the Matches tab.", () => { detachOpenMatch(); go(); }, 'Leave match');
+      return;
+    }
+    detachOpenMatch();
+  }
+  go();
+}
+document.getElementById('setupBackLink').addEventListener('click', () => { renderMatchesScreen(); showScreen('matches'); });
+
+/* ================= LINE-UP PRESETS ================= */
+const PRESETS_KEY = 'rf_presets_v1';
+function loadPresets() { try { const r = localStorage.getItem(PRESETS_KEY); if (r) return JSON.parse(r); } catch (e) { /* none */ } return []; }
+let presets = loadPresets();
+function savePresets() { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); } catch (e) { console.warn('Could not save presets', e); } }
+const shapeLabel = sh => `${sh.DEF || 0}-${sh.MID || 0}-${sh.ATT || 0}`;
+function presetFits(pr) { return pr.players === PLAYERS_ON_PITCH && !!pr.hasGk === !!HAS_GK; }
+function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
+// Fills a preset into the current match. Anyone in the preset who isn't
+// available is replaced by the planner's best choice for that spot.
+function lineupFromPreset(pr, base) {
+  const lineup = {}; const used = new Set();
+  for (const sl of SLOTS) {
+    const pid = pr.lineup[sl.id];
+    if (pid && playersById[pid] && !used.has(pid)) { lineup[sl.id] = pid; used.add(pid); }
+  }
+  const missing = SLOTS.filter(sl => !lineup[sl.id]);
+  const gkSlot = missing.find(sl => sl.group === 'GK');
+  if (gkSlot) {
+    const baseGk = base && base[gkSlot.id];
+    const cand = (baseGk && !used.has(baseGk) && playersById[baseGk]) ? baseGk : (PLAYERS.find(q => q.gk && !used.has(q.id)) || {}).id;
+    if (!cand) throw new Error('No goalkeeper available for this preset.');
+    lineup[gkSlot.id] = cand; used.add(cand);
+  }
+  const outMissing = missing.filter(sl => sl.group !== 'GK');
+  if (outMissing.length) {
+    const pool = PLAYERS.map(q => q.id).filter(id => !used.has(id));
+    if (pool.length < outMissing.length) throw new Error('Not enough players available to fill this preset.');
+    const res = bestOutfieldAssignment(outMissing, pool, null);
+    outMissing.forEach(sl => { lineup[sl.id] = res.assign[sl.id]; });
+  }
+  return lineup;
+}
+// Keep the goalkeeper schedule in step with whoever the line-up put in goal.
+function syncGkToLineup() {
+  if (!HAS_GK) return;
+  const gk = startingLineup.GK;
+  if (!GK_SEGMENTS.length) return;
+  GK_SEGMENTS[0].player = gk;
+  if (!gkAuto && gkMode === 'single') { GK_SEGMENTS.forEach(sg => { sg.player = gk; }); gkKeepers = new Array(PERIODS).fill(gk); }
+  else if (!gkAuto) gkKeepers[0] = gk;
+}
+
+function renderPresetChips() {
+  const wrap = document.getElementById('presetChips'), note = document.getElementById('presetNote');
+  if (!wrap) return;
+  const fit = presets.filter(presetFits);
+  if (!fit.length) {
+    wrap.innerHTML = '';
+    note.textContent = presets.length
+      ? `None of your presets are ${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}${HAS_GK ? '' : ' (no GK)'}. The planner will pick the starting team.`
+      : 'No presets yet - create them in the Squad tab (Line-up presets) and they will appear here. The planner picks the starting team.';
+    return;
+  }
+  wrap.innerHTML = `<div class="radio-opt ${selectedPresetId ? '' : 'selected'}" data-preset="">Planner picks</div>`
+    + fit.map(pr => `<div class="radio-opt ${selectedPresetId === pr.id ? 'selected' : ''}" data-preset="${pr.id}">${esc(pr.name)}<br><small>${shapeLabel(pr.shape)}</small></div>`).join('');
+  const pr = selectedPresetId && presets.find(x => x.id === selectedPresetId);
+  if (!pr) note.textContent = 'Or tap a preset to start from that line-up. You can still change anyone afterwards.';
+  else {
+    const out = Object.values(pr.lineup).filter(id => id && !availableIds.has(id));
+    note.textContent = `${pr.name}: ${shapeLabel(pr.shape)}.` + (out.length ? ` ${out.join(', ')} ${out.length > 1 ? "aren't" : "isn't"} available, so the planner fills ${out.length > 1 ? 'those spots' : 'that spot'}.` : '');
+  }
+}
+document.getElementById('presetChips').addEventListener('click', e => {
+  const opt = e.target.closest('[data-preset]'); if (!opt) return;
+  const id = opt.dataset.preset || null;
+  selectedPresetId = id;
+  const pr = id && presets.find(x => x.id === id);
+  const shape = pr ? pr.shape : setupBaseShape;
+  confirmedShape = {...shape};
+  applyMatchFormat(PLAYERS_ON_PITCH, HAS_GK, DURATION, PERIODS, shape);
+  updateFormatSummaryLine();
+  renderSetupScreen();
+});
+
+// ---- Squad tab list + editor
+function renderPresetList() {
+  const el = document.getElementById('presetList');
+  if (!el) return;
+  el.innerHTML = presets.length ? presets.map(pr => {
+    const gk = pr.hasGk && pr.lineup.GK ? ` · GK ${esc(pr.lineup.GK)}` : '';
+    return `<div class="match-card" data-pid="${pr.id}"><div class="mc-title">${esc(pr.name)}</div>
+      <div class="mc-sub">${pr.players}v${pr.players}${pr.hasGk ? '' : ' (no GK)'} · ${shapeLabel(pr.shape)}${gk}</div>
+      <div class="mc-row"><button class="btn btn-ghost mc-small" data-pedit="${pr.id}">Edit</button><button class="btn btn-ghost mc-small mc-del" data-pdel="${pr.id}">Delete</button></div></div>`;
+  }).join('') : '<div class="config-note">No presets yet.</div>';
+  el.querySelectorAll('[data-pedit]').forEach(b => b.addEventListener('click', () => openPresetEditor({id: b.dataset.pedit})));
+  el.querySelectorAll('[data-pdel]').forEach(b => b.addEventListener('click', () => {
+    const pr = presets.find(x => x.id === b.dataset.pdel);
+    showConfirm(`Delete the "${pr ? pr.name : ''}" preset?`, () => { presets = presets.filter(x => x.id !== b.dataset.pdel); savePresets(); renderPresetList(); }, 'Delete');
+  }));
+}
+function defaultShapeFor(players, hasGk, formation) {
+  const oc = Math.max(0, hasGk ? players - 1 : players);
+  const combos = formationCombos(oc);
+  const hit = combos.find(c => formationLabel(c) === formation);
+  return hit ? {...hit} : suggestBalancedCounts(oc);
+}
+// opts: {id} to edit, {from: {players, hasGk, shape, lineup}} to prefill (save current line-up)
+function openPresetEditor(opts) {
+  opts = opts || {};
+  const ex = opts.id ? presets.find(x => x.id === opts.id) : null;
+  const st = ex ? {id: ex.id, name: ex.name, players: ex.players, hasGk: ex.hasGk, shape: {...ex.shape}, lineup: {...ex.lineup}}
+    : opts.from ? {id: null, name: '', ...JSON.parse(JSON.stringify(opts.from))}
+    : {id: null, name: '', players: matchDefaults.players, hasGk: matchDefaults.hasGk, shape: defaultShapeFor(matchDefaults.players, matchDefaults.hasGk, matchDefaults.formation), lineup: {}};
+  const overlay = openModal('', {wide: true});
+  const card = overlay.querySelector('.modal-card');
+  function draw() {
+    const oc = Math.max(0, st.hasGk ? st.players - 1 : st.players);
+    const combos = formationCombos(oc);
+    if (combos.length && !combos.some(c => c.DEF === st.shape.DEF && c.MID === st.shape.MID && c.ATT === st.shape.ATT)) st.shape = {...suggestBalancedCounts(oc)};
+    if (!combos.length) st.shape = suggestBalancedCounts(oc);
+    const slots = buildFormation(st.shape, st.hasGk);
+    const validIds = new Set(slots.map(sl => sl.id));
+    for (const k of Object.keys(st.lineup)) if (!validIds.has(k)) delete st.lineup[k];
+    const opt = (list, sel) => `<option value="">- choose -</option>` + list.map(q => `<option value="${esc(q.id)}" ${q.id === sel ? 'selected' : ''}>${esc(q.id)}</option>`).join('');
+    const gkPool = squad.filter(q => q.gk).length ? squad.filter(q => q.gk) : squad;
+    const nameCount = {};
+    card.innerHTML = `
+      <div class="picker-title">${ex ? 'Edit preset' : 'New line-up preset'}</div>
+      <div class="field"><label>Name</label><input type="text" id="pe-name" value="${esc(st.name)}" placeholder="e.g. Strongest"></div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin:-4px 0 10px;">${['Strongest', 'Defensive', 'Attacking'].map(n => `<span class="decision-link" data-quick="${n}">${n}</span>`).join('')}</div>
+      <div class="pos-row">
+        <div class="field"><label>Players per side</label><select id="pe-players">${Array.from({length: 9}, (_, i) => i + 3).map(n => `<option ${n === st.players ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+        <div class="field"><label>Formation</label><select id="pe-shape" ${combos.length ? '' : 'disabled'}>${combos.length ? combos.map(c => `<option value="${formationLabel(c)}" ${formationLabel(c) === formationLabel(st.shape) ? 'selected' : ''}>${formationLabel(c)}</option>`).join('') : `<option>${shapeLabel(st.shape)}</option>`}</select></div>
+      </div>
+      <div class="check-row" style="margin:4px 0 10px;"><input type="checkbox" id="pe-gk" ${st.hasGk ? 'checked' : ''}><label for="pe-gk">Uses a goalkeeper</label></div>
+      ${slots.slice().reverse().map(sl => {
+        nameCount[sl.group] = (nameCount[sl.group] || 0) + 1;
+        const lab = sl.group === 'GK' ? 'Goalkeeper' : `${sl.group} ${slots.filter(x => x.group === sl.group).length > 1 ? nameCount[sl.group] : ''}`;
+        return `<div class="field"><label>${lab.trim()}</label><select data-slot="${sl.id}">${opt(sl.group === 'GK' ? gkPool : squad, st.lineup[sl.id])}</select></div>`;
+      }).join('')}
+      <div class="warn-box" id="pe-err" style="display:none;"></div>
+      <div class="modal-btn-row"><button class="btn btn-ghost" id="pe-cancel">Cancel</button><button class="btn btn-primary" id="pe-save">Save preset</button></div>`;
+    card.querySelector('#pe-name').addEventListener('input', e => { st.name = e.target.value; });
+    card.querySelectorAll('[data-quick]').forEach(b => b.addEventListener('click', () => { st.name = b.dataset.quick; card.querySelector('#pe-name').value = st.name; }));
+    card.querySelector('#pe-players').addEventListener('change', e => { st.players = parseInt(e.target.value, 10); st.shape = defaultShapeFor(st.players, st.hasGk, 'auto'); st.lineup = {}; draw(); });
+    card.querySelector('#pe-gk').addEventListener('change', e => { st.hasGk = e.target.checked; st.shape = defaultShapeFor(st.players, st.hasGk, 'auto'); st.lineup = {}; draw(); });
+    card.querySelector('#pe-shape').addEventListener('change', e => { const [d, m, a] = e.target.value.split('-').map(Number); st.shape = {DEF: d, MID: m, ATT: a}; st.lineup = Object.fromEntries(Object.entries(st.lineup).filter(([k]) => k === 'GK')); draw(); });
+    card.querySelectorAll('[data-slot]').forEach(sel => sel.addEventListener('change', e => { st.lineup[sel.dataset.slot] = e.target.value; }));
+    card.querySelector('#pe-cancel').addEventListener('click', () => overlay.remove());
+    card.querySelector('#pe-save').addEventListener('click', () => {
+      const err = card.querySelector('#pe-err');
+      const fail = m => { err.style.display = 'block'; err.textContent = m; };
+      const name = st.name.trim();
+      if (!name) return fail('Give the preset a name.');
+      if (presets.some(x => x.name.toLowerCase() === name.toLowerCase() && x.id !== st.id)) return fail('You already have a preset with that name.');
+      const ids = slots.map(sl => st.lineup[sl.id]);
+      if (ids.some(v => !v)) return fail('Choose a player for every position.');
+      if (new Set(ids).size !== ids.length) return fail('A player can only be in one position.');
+      const rec = {id: st.id || ('pr' + Date.now().toString(36)), name, players: st.players, hasGk: st.hasGk, shape: {...st.shape}, lineup: Object.fromEntries(slots.map(sl => [sl.id, st.lineup[sl.id]]))};
+      if (st.id) presets = presets.map(x => x.id === st.id ? rec : x); else presets.push(rec);
+      savePresets(); renderPresetList(); renderPresetChips();
+      overlay.remove();
+    });
+  }
+  draw();
+}
+document.getElementById('addPresetBtn').addEventListener('click', () => openPresetEditor());
+renderPresetList();
+
+// ---- Plan screen: apply a preset before kick-off, or save the current line-up as one
+function applyPresetInPlan(pr) {
+  const same = ['DEF', 'MID', 'ATT'].every(g => (pr.shape[g] || 0) === (confirmedShape[g] || 0));
+  const doApply = () => {
+    if (!same) {
+      confirmedShape = {...pr.shape};
+      applyMatchFormat(PLAYERS_ON_PITCH, HAS_GK, DURATION, PERIODS, pr.shape);
+      lockedEvents = [];
+    }
+    try { startingLineup = lineupFromPreset(pr, startingLineup); } catch (e) { showAlert(e.message); return; }
+    syncGkToLineup();
+    regeneratePlan();
+    openPicker = null;
+    initPlanScreenForFormat();
+    render(0);
+  };
+  if (!same && lockedEvents.some(ev => ev.type === 'sub' || ev.type === 'formation')) {
+    showConfirm(`"${pr.name}" uses a different formation, so any changes you added by hand will be cleared.`, doApply, 'Apply');
+  } else doApply();
+}
+function openPresetsModal() {
+  const fit = presets.filter(presetFits);
+  const canApply = !liveMode && !matchFinished;
+  const overlay = openModal(`
+    <div class="picker-title">Line-up presets</div>
+    ${canApply ? (fit.length ? fit.map(pr => `<div class="picker-opt" data-apply="${pr.id}"><span>${esc(pr.name)}</span><span class="tier">${shapeLabel(pr.shape)}</span></div>`).join('')
+      : `<div class="config-note">No ${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH} presets saved yet.</div>`)
+      : '<div class="config-note">Presets can only be applied before kick-off. You can still save this line-up.</div>'}
+    <div class="modal-btn-row" style="margin-top:12px;"><button class="btn btn-ghost" id="prClose">Close</button><button class="btn btn-primary" id="prSave">Save starting line-up as preset</button></div>`);
+  overlay.querySelector('#prClose').addEventListener('click', () => overlay.remove());
+  overlay.querySelectorAll('[data-apply]').forEach(row => row.addEventListener('click', () => {
+    const pr = presets.find(x => x.id === row.dataset.apply);
+    overlay.remove();
+    if (pr) applyPresetInPlan(pr);
+  }));
+  overlay.querySelector('#prSave').addEventListener('click', () => {
+    openPresetEditor({from: {players: PLAYERS_ON_PITCH, hasGk: HAS_GK, shape: {...confirmedShape}, lineup: {...startingLineup}}});
+  });
+}
+document.getElementById('presetsLink').addEventListener('click', openPresetsModal);
 
 /* ================= PLAN SCREEN RENDERING (pitch / timeline / fairness) ================= */
 let currentT = 0;
@@ -3370,7 +3680,7 @@ function renderMatchesScreen() {
   list.innerHTML = `<button class="btn btn-primary" id="newFixtureBtn" style="margin-bottom:6px;">+ Plan a new fixture</button>`
     + (lib.length ? section('In progress', live) + section('Upcoming fixtures', planned) + section('Finished', done)
       : '<div class="config-note">No matches yet - plan a fixture and its line-up will be saved here.</div>');
-  document.getElementById('newFixtureBtn').addEventListener('click', () => document.querySelector('.tab[data-tab="setup"]').click());
+  document.getElementById('newFixtureBtn').addEventListener('click', requestNewFixture);
   list.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openMatchFromLibrary(b.dataset.open)));
   list.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copyPlannedMatch(b.dataset.copy)));
   list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
@@ -3921,7 +4231,11 @@ function finishMatch(atMinute, opts) {
 function renderLineupCanvas() {
   const W = 1080, PAD = 40, FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
   const C = {bg: '#F7F5EC', ink: '#12241A', soft: '#56675B', line: '#DAD6C6', turf: '#1F4A33', turf2: '#215A3B', amber: '#E3A23C', coral: '#C1503F', green: '#2E7D4F', chalk: '#F4F1E6'};
-  const c = document.createElement('canvas'); c.width = W; c.height = 7000;
+  const grouped = {};
+  PLAN.rotations.forEach(r => { if (r.type === 'skip' || r.type === 'unavailable') return; (grouped[r.time] = grouped[r.time] || []).push(r); });
+  const times = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+  const moments = [{time: 0, rows: []}, ...times.map(t => ({time: t, rows: grouped[t]}))];
+  const c = document.createElement('canvas'); c.width = W; c.height = 2200 + Math.ceil(moments.length / 2) * 1000 + PLAYERS.length * 52;
   const g = c.getContext('2d');
   g.fillStyle = C.bg; g.fillRect(0, 0, W, c.height);
   const font = (size, weight) => `${weight || 400} ${size}px ${FONT}`;
@@ -3941,10 +4255,11 @@ function renderLineupCanvas() {
     return y;
   }
   function rule(y) { g.fillStyle = C.line; g.fillRect(PAD, y, W - 2 * PAD, 2); }
-  function pitch(x, y, w, state, caption) {
+  function pitch(x, y, w, state, caption, hl, sub) {
     const h = w * 4 / 3, k = w / 300;
-    txt(caption, x, y + 28, {size: 26, weight: 700});
-    y += 44;
+    const cw = txt(caption, x, y + 30, {size: 32, weight: 800, color: C.turf});
+    if (sub) txt(sub, x + cw + 14, y + 30, {size: 19, color: C.soft});
+    y += 48;
     for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#1F4A33' : '#215A3B'; g.fillRect(x, y + i * h / 8, w, h / 8); }
     g.strokeStyle = 'rgba(244,241,230,0.6)'; g.lineWidth = 2;
     g.strokeRect(x + 10 * k, y + 10 * k, 280 * k, 380 * k);
@@ -3954,7 +4269,9 @@ function renderLineupCanvas() {
     for (const sl of state.activeSlots) {
       const pid = state.onPitch[sl.id], cx = x + sl.x * k, cy = y + sl.y * k, r = 25 * k;
       g.fillStyle = C.chalk; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = C.amber; g.lineWidth = 3; g.stroke();
+      const isOn = hl && hl.has(pid);
+      g.strokeStyle = isOn ? '#3FD17A' : C.amber; g.lineWidth = isOn ? 6 : 3; g.stroke();
+      if (isOn) { g.fillStyle = '#2E7D4F'; g.beginPath(); g.roundRect(cx + r * 0.35, cy - r - 4, 38, 22, 6); g.fill(); txt('ON', cx + r * 0.35 + 19, cy - r + 12, {size: 14, weight: 800, color: '#fff', align: 'center'}); }
       txt(initials(pid), cx, cy + 7, {size: 20, weight: 700, color: C.turf, align: 'center'});
       txt(sl.label, cx, cy - r - 8, {size: 15, color: 'rgba(244,241,230,0.85)', align: 'center'});
       g.font = font(19, 700); const tw = g.measureText(pid).width + 16;
@@ -3977,56 +4294,55 @@ function renderLineupCanvas() {
   y += 30;
   rule(y); y += 28;
 
-  // ---- pitches
-  const pw = (W - 2 * PAD - 40) / 2;
-  const s0 = computeStateAt(0), sEnd = computeStateAt(DURATION);
-  const yEnd = pitch(PAD, y, pw, s0, 'Kick-off line-up');
-  pitch(PAD + pw + 40, y, pw, sEnd, `Full time (after all changes)`);
-  y = yEnd + 30;
-  const segs = activeGkSegments();
-  if (HAS_GK && segs.length) {
-    y = wrap('In goal: ' + segs.map((s, i) => `${PERIODS > 1 ? 'P' + (i + 1) + ' ' : ''}${s.player}`).join('  ·  '), PAD, y, W - 2 * PAD, 30, {size: 24, weight: 600});
-    y += 6;
+  // ---- in goal summary
+  {
+    const segs = activeGkSegments();
+    if (HAS_GK && segs.length) {
+      y = wrap('In goal: ' + segs.map((sg, i) => `${PERIODS > 1 ? 'P' + (i + 1) + ' ' : ''}${sg.player}`).join('  ·  '), PAD, y - 6, W - 2 * PAD, 30, {size: 24, weight: 600});
+      y += 10;
+    }
   }
-  rule(y); y += 38;
+  rule(y); y += 34;
 
-  // ---- changes minute by minute
-  txt('Changes, minute by minute', PAD, y, {size: 32, weight: 800}); y += 20;
-  const grouped = {};
-  PLAN.rotations.forEach(r => { if (r.type === 'skip' || r.type === 'unavailable') return; (grouped[r.time] = grouped[r.time] || []).push(r); });
-  const times = Object.keys(grouped).map(Number).sort((a, b) => a - b);
-  if (!times.length) { y += 34; txt('No changes planned - the starting line-up plays the whole match.', PAD, y, {size: 24, color: C.soft}); y += 20; }
-  for (const time of times) {
-    y += 14;
-    const rows = grouped[time];
-    const periodIdx = PERIOD_BOUNDS.indexOf(time);
-    const lineH = 34;
-    const rowTop = y;
-    let ry = y + 28;
-    txt(`${time}'`, PAD, ry, {size: 30, weight: 800, color: C.turf});
-    if (periodIdx > 0 && periodIdx < PERIOD_BOUNDS.length - 1) txt(`start of period ${periodIdx + 1}`, PAD, ry + 26, {size: 16, color: C.soft});
-    let moveText = reshuffleMovesAt(time);
-    let first = true;
+  // ---- one pitch per moment: kick-off, then the line-up after every change
+  txt('Line-up at each change', PAD, y, {size: 32, weight: 800}); y += 14;
+  const pw = (W - 2 * PAD - 40) / 2, ph = pw * 4 / 3;
+  function changeLines(x, ly, w, time, rows) {
     for (const r of rows) {
       if (r.type === 'formation') {
-        const shape = ['DEF', 'MID', 'ATT'].map(gp => r.slots.filter(s => s.group === gp).length).filter(n => n > 0).join('-');
-        txt(`Formation changes to ${shape}`, PAD + 150, ry, {size: 24, color: C.soft}); ry += lineH; continue;
+        const shape = ['DEF', 'MID', 'ATT'].map(gp => r.slots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-');
+        txt(`Formation changes to ${shape}`, x, ly, {size: 21, color: C.soft}); ly += 32; continue;
       }
       if (r.type === 'reshuffle') continue;
-      const slotLbl = slotLabelAt(time, r.slot);
-      let x = PAD + 150;
-      x += txt('ON ', x, ry, {size: 22, weight: 700, color: C.green}) + 2;
-      x += txt(r.on, x, ry, {size: 26, weight: 700}) + 22;
-      x += txt('OFF ', x, ry, {size: 22, weight: 700, color: C.coral}) + 2;
-      x += txt(r.off, x, ry, {size: 26, weight: 700}) + 22;
-      txt(`(${slotLbl})`, x, ry, {size: 22, color: C.soft});
-      ry += lineH; first = false;
+      let cx = x;
+      cx += txt('ON ', cx, ly, {size: 19, weight: 700, color: C.green}) + 2;
+      cx += txt(r.on, cx, ly, {size: 23, weight: 700}) + 14;
+      cx += txt('OFF ', cx, ly, {size: 19, weight: 700, color: C.coral}) + 2;
+      cx += txt(r.off, cx, ly, {size: 23, weight: 700}) + 12;
+      txt(`(${slotLabelAt(time, r.slot)})`, cx, ly, {size: 19, color: C.soft});
+      ly += 32;
     }
-    if (moveText.length) { ry = wrap('Positions: ' + moveText.join(' · '), PAD + 150, ry - 2, W - PAD - (PAD + 150), 28, {size: 21, color: C.soft}); }
-    y = Math.max(ry, rowTop + 60) - 6;
-    g.fillStyle = C.line; g.fillRect(PAD + 150, y + 6, W - 2 * PAD - 150, 1);
+    const moves = reshuffleMovesAt(time);
+    if (moves.length) ly = wrap('Positions: ' + moves.join(' · '), x, ly, w, 26, {size: 19, color: C.soft});
+    return ly;
   }
-  y += 34;
+  function momentCard(x, top, m) {
+    const periodIdx = PERIOD_BOUNDS.indexOf(m.time);
+    const sub = m.time === 0 ? 'starting line-up' : (periodIdx > 0 && periodIdx < PERIOD_BOUNDS.length - 1 ? `start of period ${periodIdx + 1}` : '');
+    const hl = new Set(m.rows.filter(r => r.type !== 'formation' && r.type !== 'reshuffle' && r.on).map(r => r.on));
+    let by = pitch(x, top, pw, computeStateAt(m.time), `${m.time}'`, hl, sub);
+    by += 34;
+    if (m.time === 0) { txt(PLAN.rotations.some(r => r.type !== 'skip' && r.type !== 'unavailable') ? 'Starters shown - changes follow' : 'No changes planned - same eleven play the whole match', x, by, {size: 19, color: C.soft}); by += 14; }
+    else by = changeLines(x, by, pw, m.time, m.rows);
+    return by;
+  }
+  for (let i = 0; i < moments.length; i += 2) {
+    y += 16;
+    const b1 = momentCard(PAD, y, moments[i]);
+    const b2 = moments[i + 1] ? momentCard(PAD + pw + 40, y, moments[i + 1]) : 0;
+    y = Math.max(b1, b2) + 18;
+  }
+  y += 10;
   rule(y); y += 38;
 
   // ---- forecast
