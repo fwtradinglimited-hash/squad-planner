@@ -233,6 +233,20 @@
   .halftime-mins { text-align: left; background: rgba(244,241,230,0.08); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
   .halftime-mins div { display: flex; justify-content: space-between; padding: 3px 0; }
 
+  .tl-del { float: right; color: var(--coral); cursor: pointer; font-size: 13px; padding: 0 4px; }
+  .tl-moves { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .match-card { background: var(--card); border: 1px solid var(--card-line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .match-card .mc-title { font-weight: 600; font-size: 14px; }
+  .match-card .mc-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .match-card .mc-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .match-card .badge { font-family: "Oswald", sans-serif; font-size: 11px; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 6px; background: var(--bench-card); color: var(--ink-soft); }
+  .match-card .badge.live { background: var(--coral); color: #fff; }
+  .match-card .badge.planned { background: var(--amber); color: var(--amber-ink); }
+  .match-card .mc-btn { margin-left: auto; }
+  .ht-subs { text-align: left; margin: 0 0 14px; }
+  .ht-subs .action-panel { color: var(--ink); }
+  .ht-subs .ht-subs-title { font-size: 12px; color: var(--chalk-dim); margin-bottom: 8px; }
+  button.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
   .summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
   .summary-table th, .summary-table td { text-align: right; padding: 7px 6px; border-bottom: 1px solid var(--card-line); }
   .summary-table th:first-child, .summary-table td:first-child { text-align: left; font-weight: 600; }
@@ -252,6 +266,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="squad">Squad</div>
     <div class="tab" data-tab="setup">New Match</div>
+    <div class="tab" data-tab="matches">Matches</div>
     <div class="tab disabled" data-tab="plan" id="planTab">Match Plan</div>
   </div>
 
@@ -335,6 +350,7 @@
         <div class="radio-row" id="gkModeRow">
           <div class="radio-opt" data-mode="single">Same keeper all game</div>
           <div class="radio-opt selected" data-mode="rotate">Rotate by period</div>
+          <div class="radio-opt" data-mode="auto">Planner decides</div>
         </div>
         <div id="gkPickers"></div>
       </section>
@@ -378,6 +394,12 @@
             <div class="config-note">No player is subbed off before this many minutes on the pitch, whatever the Sub timing setting above allows.</div>
           </div>
           <div class="config-row">
+            <div class="config-label"><span>Maximum time off as a sub</span><span class="val" id="maxBenchLabel">No limit</span></div>
+            <input type="range" id="maxBenchSlider" min="2" max="40" step="1" value="40">
+            <div class="config-ends"><span>2' (rarely sit out)</span><span id="maxBenchEndLabel">No limit</span></div>
+            <div class="config-note">A player is brought back on before they've sat out this long in one go. It's a target, not a guarantee - if the plan can't manage it (few players, strict Sub timing), Plan Health tells you where.</div>
+          </div>
+          <div class="config-row">
             <div class="check-row" style="margin-bottom:4px;"><input type="checkbox" id="gkCountsCheckbox"><label for="gkCountsCheckbox">Count goalkeeper time toward fairness</label></div>
             <div class="config-note">Off (default): only outfield minutes are balanced — time in goal doesn't count against a player's fair share, and doesn't let them "owe" less outfield time either. On: total pitch time (GK included) is balanced instead, the way earlier versions of this worked.</div>
           </div>
@@ -389,6 +411,16 @@
     </div>
   </div>
 
+
+  <!-- MATCHES SCREEN: saved plans, in-progress and finished matches -->
+  <div class="screen" id="screen-matches">
+    <section>
+      <h2>Matches</h2>
+      <div class="config-note" id="matchesStorageNote" style="display:none;"></div>
+      <div id="matchesList"></div>
+      <div class="config-note">Every match is saved on this device as you go - plan, live and finished - so you can quit the app and pick up exactly where you left off.</div>
+    </section>
+  </div>
 
   <!-- PLAN SCREEN -->
   <div class="screen" id="screen-plan">
@@ -457,9 +489,10 @@
       <p class="subline" id="detailsFormatLine" style="margin:0 0 8px;"></p>
       <div class="half-marks" id="detailHalfMarks" style="margin-top:0;"></div>
       <div class="plan-subtabs" id="detailsSubtabs" style="margin-top:12px;">
-        <div class="plan-subtab active" data-dtab="subs">Substitutions</div>
+        <div class="plan-subtab active" data-dtab="subs">Subs</div>
         <div class="plan-subtab" data-dtab="forecast">Forecast</div>
         <div class="plan-subtab" data-dtab="formation">Formation</div>
+        <div class="plan-subtab" data-dtab="settings">Settings</div>
       </div>
 
       <div id="detailsViewSubs" style="margin-top:14px;">
@@ -502,6 +535,8 @@
           <button class="btn btn-primary" id="dfc-apply">Change formation</button>
         </div>
       </div>
+
+      <div id="detailsViewSettings" style="display:none; margin-top:14px;"></div>
 
       <p class="edit-hint" id="earlyFinishLink" style="cursor:pointer; text-decoration:underline; display:none; margin-top:16px;">End match now</p>
       <p class="note">Squad and match settings are saved on this device. Manual edits recalculate everything after the change only.</p>
@@ -739,6 +774,7 @@ function showScreen(name) {
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     if (tab.classList.contains('disabled')) return;
+    if (tab.dataset.tab === 'matches') renderMatchesScreen();
     if (tab.dataset.tab === 'setup') {
       document.getElementById('setupStepPlan').style.display = 'none';
       document.getElementById('setupStepFormat').style.display = 'block';
@@ -957,7 +993,8 @@ function renderGkSection() {
     return;
   }
   modeRow.style.display = 'flex';
-  if (PERIODS === 1 || eligible.length === 1) gkMode = 'single';
+  if (eligible.length === 1) gkMode = 'single';
+  else if (PERIODS === 1 && gkMode === 'rotate') gkMode = 'single';
 
   if (!gkKeepers.length || gkKeepers.length !== PERIODS) gkKeepers = new Array(PERIODS).fill(null);
   for (let i = 0; i < PERIODS; i++) {
@@ -966,14 +1003,16 @@ function renderGkSection() {
 
   modeRow.querySelectorAll('.radio-opt').forEach(opt => {
     opt.classList.toggle('selected', opt.dataset.mode === gkMode);
-    opt.classList.toggle('disabled', (eligible.length < 2 || PERIODS < 2) && opt.dataset.mode === 'rotate');
+    opt.classList.toggle('disabled', ((eligible.length < 2 || PERIODS < 2) && opt.dataset.mode === 'rotate') || (eligible.length < 2 && opt.dataset.mode === 'auto'));
   });
 
   function selectHtml(selectedId) {
     return eligible.map(p => `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.id}</option>`).join('');
   }
 
-  if (gkMode === 'single') {
+  if (gkMode === 'auto') {
+    pickersEl.innerHTML = `<div class="config-note">The planner picks who goes in goal each period from your ${eligible.length} keeper-capable players. It shares the gloves out and prefers whoever leaves the best set of players on the pitch - e.g. when one of your two preferred defenders is in goal, the other is kept on the pitch rather than the bench. You'll see who's in goal in each period in the plan.</div>`;
+  } else if (gkMode === 'single') {
     pickersEl.innerHTML = `<div class="field"><label>Goalkeeper (whole match)</label><select id="gk-single">${selectHtml(gkKeepers[0])}</select></div>`;
     document.getElementById('gk-single').addEventListener('change', e => { gkKeepers = new Array(PERIODS).fill(e.target.value); validateSetup(); });
   } else {
@@ -1024,11 +1063,24 @@ function validateSetup() {
 // 'interval' (only consider subs every subIntervalMinutes, counted
 // continuously from kick-off regardless of period breaks), or 'checkpoints'
 // (only at period boundaries, optionally also halfway through each period).
-let cfg = {fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, gkCountsForFairness: false,
+let cfg = {fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, maxBenchLength: 0, gkCountsForFairness: false,
   subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false};
+// maxBenchLength: the longest a player should sit off the pitch in one go
+// (0 = no limit). A soft target - the planner brings players back on in time
+// where it can, and Plan Health flags anywhere it couldn't.
+// cfgEras: mid-match setting changes. Each {from: minute, cfg: {...overrides}}
+// applies from that minute onward and never touches anything already played,
+// because simulate() switches to the era's settings only as the clock reaches it.
+let cfgEras = [];
+function effectiveCfgAt(base, t) {
+  let out = base;
+  for (const era of cfgEras) if (era.from <= t) out = {...out, ...era.cfg};
+  return out;
+}
 const fairnessSlider = document.getElementById('fairnessSlider');
 const strictnessSlider = document.getElementById('strictnessSlider');
 const minShiftSlider = document.getElementById('minShiftSlider');
+const maxBenchSlider = document.getElementById('maxBenchSlider');
 const gkCountsCheckbox = document.getElementById('gkCountsCheckbox');
 const subTimingRow = document.getElementById('subTimingRow');
 const subIntervalSelect = document.getElementById('subIntervalSelect');
@@ -1036,9 +1088,10 @@ const checkpointHalfwayCheckbox = document.getElementById('checkpointHalfwayChec
 populateSelectOptions('subIntervalSelect', [5, 10, 15, 20, 30], v => `${v} minutes`);
 subIntervalSelect.value = 15;
 function labelFor(val, lo, mid, hi) { return val <= 0.3 ? lo : (val >= 0.7 ? hi : mid); }
-function subTimingSummary() {
-  if (cfg.subTimingMode === 'interval') return `every ${cfg.subIntervalMinutes}'`;
-  if (cfg.subTimingMode === 'checkpoints') return cfg.checkpointHalfway ? 'period checkpoints + halfway' : 'period checkpoints only';
+function subTimingSummary(c) {
+  c = c || cfg;
+  if (c.subTimingMode === 'interval') return `every ${c.subIntervalMinutes}'`;
+  if (c.subTimingMode === 'checkpoints') return c.checkpointHalfway ? 'period checkpoints + halfway' : 'period checkpoints only';
   return 'anytime';
 }
 function syncMinShiftSliderMax() {
@@ -1053,6 +1106,11 @@ function syncMinShiftSliderMax() {
   if (parseInt(minShiftSlider.value, 10) > max) minShiftSlider.value = max;
   const endLabel = document.getElementById('minShiftEndLabel');
   if (endLabel) endLabel.textContent = max === DURATION ? `${max}' (no fairness subs)` : `${max}' (rare)`;
+  // "Maximum time off" runs from 2' up to the full match, and the top of the
+  // slider means "no limit" (stored as 0).
+  maxBenchSlider.max = max;
+  if (!cfg.maxBenchLength || cfg.maxBenchLength >= max) maxBenchSlider.value = max;
+  else maxBenchSlider.value = cfg.maxBenchLength;
 }
 function updateConfigSummary() {
   const fLabel = labelFor(cfg.fairnessPriority, 'Fewer subs', 'Balanced', 'Maximum fairness');
@@ -1060,14 +1118,35 @@ function updateConfigSummary() {
   document.getElementById('fairnessLabel').textContent = fLabel;
   document.getElementById('strictnessLabel').textContent = sLabel;
   document.getElementById('minShiftLabel').textContent = cfg.minShiftLength + "'";
+  document.getElementById('maxBenchLabel').textContent = cfg.maxBenchLength ? cfg.maxBenchLength + "'" : 'No limit';
   document.getElementById('subTimingNote').textContent = cfg.subTimingMode === 'anytime'
     ? 'Subs can be suggested for any minute - true max fairness, no timing restriction.'
     : cfg.subTimingMode === 'interval'
     ? `Subs are only considered every ${cfg.subIntervalMinutes} minutes from kick-off, regardless of period breaks.`
     : `Subs are only considered at the start of each period${cfg.checkpointHalfway ? ', and halfway through each period' : ''}.`;
-  document.getElementById('configSummary').textContent = `${fLabel} · ${sLabel} · ${subTimingSummary()} · min ${cfg.minShiftLength}' on pitch · GK time ${cfg.gkCountsForFairness ? 'counts' : "doesn't count"}`;
+  document.getElementById('configSummary').textContent = `${fLabel} · ${sLabel} · ${subTimingSummary()} · min ${cfg.minShiftLength}' on pitch${cfg.maxBenchLength ? ` · max ${cfg.maxBenchLength}' off` : ''} · GK time ${cfg.gkCountsForFairness ? 'counts' : "doesn't count"}`;
+}
+// Pushes cfg back into the New Match sliders (used when a match is restored
+// or the Settings tab changes a pre-match plan).
+function syncConfigUIFromCfg() {
+  fairnessSlider.value = cfg.fairnessPriority;
+  strictnessSlider.value = 1 - cfg.positionStrictness;
+  minShiftSlider.value = Math.min(cfg.minShiftLength, parseInt(minShiftSlider.max, 10));
+  maxBenchSlider.value = cfg.maxBenchLength ? Math.min(cfg.maxBenchLength, parseInt(maxBenchSlider.max, 10)) : maxBenchSlider.max;
+  gkCountsCheckbox.checked = cfg.gkCountsForFairness;
+  subTimingRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', o.dataset.timing === cfg.subTimingMode));
+  subIntervalSelect.value = cfg.subIntervalMinutes;
+  checkpointHalfwayCheckbox.checked = cfg.checkpointHalfway;
+  document.getElementById('subIntervalField').style.display = cfg.subTimingMode === 'interval' ? 'block' : 'none';
+  document.getElementById('subCheckpointHalfwayRow').style.display = cfg.subTimingMode === 'checkpoints' ? 'flex' : 'none';
+  updateConfigSummary();
 }
 function onConfigInput() {
+  // These sliders belong to the NEXT match. Once a match is running its
+  // settings are only changed from the Details > Settings tab, which applies
+  // from the current minute onward - so the sliders must never reach back and
+  // rewrite the live plan.
+  if (liveMode) { syncConfigUIFromCfg(); return; }
   cfg = {
     fairnessPriority: parseFloat(fairnessSlider.value),
     // The slider is drawn with "Fluid rotation" on the right so its direction
@@ -1078,6 +1157,7 @@ function onConfigInput() {
     // 0.30000000000000004 in floating point, not exactly 0.3.
     positionStrictness: Math.round((1 - parseFloat(strictnessSlider.value)) * 10) / 10,
     minShiftLength: parseInt(minShiftSlider.value, 10),
+    maxBenchLength: parseInt(maxBenchSlider.value, 10) >= parseInt(maxBenchSlider.max, 10) ? 0 : parseInt(maxBenchSlider.value, 10),
     gkCountsForFairness: gkCountsCheckbox.checked,
     subTimingMode: subTimingRow.querySelector('.radio-opt.selected')?.dataset.timing || 'anytime',
     subIntervalMinutes: parseInt(subIntervalSelect.value, 10) || 15,
@@ -1094,6 +1174,7 @@ function onConfigInput() {
 fairnessSlider.addEventListener('input', onConfigInput);
 strictnessSlider.addEventListener('input', onConfigInput);
 minShiftSlider.addEventListener('input', onConfigInput);
+maxBenchSlider.addEventListener('input', onConfigInput);
 gkCountsCheckbox.addEventListener('change', onConfigInput);
 subTimingRow.addEventListener('click', e => {
   const opt = e.target.closest('.radio-opt');
@@ -1119,22 +1200,87 @@ let GK_SEGMENTS = [];
 let TARGET = 0, TARGETS = {};
 let startingLineup = {};
 
+/* ---- Position optimiser ----
+   Placing players into positions is an assignment problem: given who is on
+   the pitch, which arrangement puts the most people in the positions they
+   prefer? Solved exactly with the Hungarian algorithm (tiny sizes: <= ~10
+   players). Used to build the starting line-up, to tidy positions whenever a
+   substitution happens, and to judge how well a substitute really fits. */
+function hungarianMin(cost) { // n rows <= m cols; returns ans[row] = col
+  const n = cost.length, m = cost[0].length, INF = 1e9;
+  const u = new Array(n + 1).fill(0), v = new Array(m + 1).fill(0);
+  const p = new Array(m + 1).fill(0), way = new Array(m + 1).fill(0);
+  for (let i = 1; i <= n; i++) {
+    p[0] = i; let j0 = 0;
+    const minv = new Array(m + 1).fill(INF), used = new Array(m + 1).fill(false);
+    do {
+      used[j0] = true;
+      const i0 = p[j0]; let delta = INF, j1 = 0;
+      for (let j = 1; j <= m; j++) if (!used[j]) {
+        const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+        if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+        if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+      }
+      for (let j = 0; j <= m; j++) { if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta; }
+      j0 = j1;
+    } while (p[j0] !== 0);
+    do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+  }
+  const ans = new Array(n).fill(-1);
+  for (let j = 1; j <= m; j++) if (p[j]) ans[p[j] - 1] = j - 1;
+  return ans;
+}
+const NO_POSITION = 1000; // cost of putting someone where the coach said "Do not use"
+// Best placement of `pids` into outfield `slots` (pids.length >= slots.length).
+// `stay` (slotId -> pid) gives a tiny bonus for leaving people where they
+// already are so ties never shuffle anyone for no reason.
+function bestOutfieldAssignment(slots, pids, stay) {
+  if (!slots.length) return {assign: {}, value: 0, feasible: true, score: 0};
+  const cost = slots.map(sl => pids.map((pid, j) => {
+    const tier = playersById[pid].positions[sl.group] ?? 0;
+    return (tier === 0 ? NO_POSITION : -tier) - (stay && stay[sl.id] === pid ? 0.05 : 0) + j * 1e-6;
+  }));
+  const ans = hungarianMin(cost);
+  const assign = {}; let value = 0, feasible = true;
+  slots.forEach((sl, i) => {
+    const pid = pids[ans[i]]; assign[sl.id] = pid;
+    const tier = playersById[pid].positions[sl.group] ?? 0;
+    if (tier === 0) feasible = false;
+    value += tier;
+  });
+  return {assign, value, feasible, score: feasible ? value : value - 100};
+}
+function outfieldSlotsOf(state, exclude) { return state.activeSlots.filter(s => s.group !== 'GK' && !(exclude && exclude.has(s.id))); }
+
+function autoStartingKeeper(availablePlayers, outSlots) {
+  const gks = availablePlayers.filter(p => p.gk);
+  if (!gks.length) throw new Error('No available goalkeeper-eligible player.');
+  let best = null;
+  for (const k of gks) {
+    const pool = availablePlayers.filter(p => p.id !== k.id).map(p => p.id);
+    if (pool.length < outSlots.length) continue;
+    const r = bestOutfieldAssignment(outSlots, pool, null);
+    if (!best || r.score > best.score) best = {id: k.id, score: r.score};
+  }
+  return (best || {id: gks[0].id}).id;
+}
+
 function buildStartingLineup(availablePlayers, gkSegments) {
   const lineup = {};
-  const used = new Set();
+  const outSlots = SLOTS.filter(s => s.group !== 'GK');
+  let gkId = null;
   if (HAS_GK) {
-    const gkSlot = SLOTS.find(s => s.group === 'GK');
-    lineup[gkSlot.id] = gkSegments[0].player;
-    used.add(gkSegments[0].player);
+    gkId = gkSegments[0].player;
+    if (gkId === null || gkId === undefined) gkId = autoStartingKeeper(availablePlayers, outSlots);
+    lineup[SLOTS.find(s => s.group === 'GK').id] = gkId;
   }
-
-  for (const slot of SLOTS) {
-    if (slot.group === 'GK') continue;
-    const candidates = availablePlayers.filter(p => !used.has(p.id) && (p.positions[slot.group] ?? 0) >= 1);
-    if (!candidates.length) throw new Error(`No available player left for ${slot.label} (${slot.group}).`);
-    candidates.sort((a,b) => (b.positions[slot.group] ?? 0) - (a.positions[slot.group] ?? 0));
-    lineup[slot.id] = candidates[0].id;
-    used.add(candidates[0].id);
+  const pool = availablePlayers.filter(p => p.id !== gkId).map(p => p.id);
+  if (pool.length < outSlots.length) throw new Error(`Not enough outfield players for ${outSlots.length} positions.`);
+  const res = bestOutfieldAssignment(outSlots, pool, null);
+  for (const sl of outSlots) {
+    lineup[sl.id] = res.assign[sl.id];
+    if ((playersById[res.assign[sl.id]].positions[sl.group] ?? 0) === 0)
+      throw new Error(`No available player left for ${sl.label} (${sl.group}).`);
   }
   return lineup;
 }
@@ -1142,44 +1288,83 @@ function buildStartingLineup(availablePlayers, gkSegments) {
 function buildState(lineup) {
   const onPitch = {...lineup};
   const onPitchIds = new Set(Object.values(onPitch));
+  const gkSegments = GK_SEGMENTS.map(s => ({...s}));
+  const gkPeriods = {};
+  if (HAS_GK && gkSegments.length) { gkSegments[0].player = onPitch['GK']; gkPeriods[onPitch['GK']] = 1; }
   return {
     onPitch,
     activeSlots: SLOTS,          // can change mid-match via a formation-change locked event
     minutesPlayed: Object.fromEntries(PLAYERS.map(p => [p.id, 0])),
     outfieldMinutesPlayed: Object.fromEntries(PLAYERS.map(p => [p.id, 0])), // excludes time in the GK slot
     lastSubIn: Object.fromEntries(Object.values(onPitch).map(pid => [pid, 0])),
+    lastOff: Object.fromEntries(PLAYERS.map(p => [p.id, 0])), // minute each player last left the pitch (0 = never played yet)
+    blocked: {},                 // "offPid>onPid": a removed sub that must not be re-proposed while offPid stays on
+    gkSegments, gkPeriods,       // resolved keeper per period (auto mode fills these in as the match runs)
     benchSet: new Set(PLAYERS.map(p => p.id).filter(id => !onPitchIds.has(id))),
     rotations: [],
     decisions: [], // notable position-vs-fairness trade-offs the algorithm hit, for the plan-health summary
   };
 }
+function clearBlocks(state, offPid) {
+  for (const k of Object.keys(state.blocked)) if (k.startsWith(offPid + '>')) delete state.blocked[k];
+}
+function cloneStateLite(state) {
+  return {...state, onPitch: {...state.onPitch}, benchSet: new Set(state.benchSet), lastSubIn: {...state.lastSubIn},
+    lastOff: {...state.lastOff}, rotations: [...state.rotations], minutesPlayed: {...state.minutesPlayed},
+    outfieldMinutesPlayed: {...state.outfieldMinutesPlayed}, blocked: {...state.blocked},
+    decisions: [...state.decisions], gkPeriods: {...state.gkPeriods}};
+}
 // The basis fairness decisions are made on: total pitch time, or outfield-only
 // (the coach's choice via cfg.gkCountsForFairness).
 function fairnessBasis(state) { return cfg.gkCountsForFairness ? state.minutesPlayed : state.outfieldMinutesPlayed; }
 
-// Handles a scheduled goalkeeper change at any period boundary, not just half-time.
-function applyPeriodGKChange(state, t) {
-  if (!HAS_GK) return;
-  const seg = GK_SEGMENTS.find(s => s.from === t);
-  if (!seg) return;
+// Tidies positions after a substitution: anyone already on the pitch can
+// move to a position that suits them better so the player who came on isn't
+// forced into whatever slot happened to open up. Only done when it gains at
+// least one full position-tier overall (or fixes a "Do not use" placement).
+// `fixedSlots` are slots the coach set by hand - never touched.
+function reshuffleOutfield(state, t, fixedSlots, reason) {
+  const slots = outfieldSlotsOf(state, fixedSlots);
+  if (slots.length < 2) return false;
+  const pids = slots.map(s => state.onPitch[s.id]);
+  const stay = {}; slots.forEach(s => { stay[s.id] = state.onPitch[s.id]; });
+  let cur = 0, curFeasible = true;
+  for (const s of slots) { const tier = playersById[state.onPitch[s.id]].positions[s.group] ?? 0; cur += tier; if (!tier) curFeasible = false; }
+  const best = bestOutfieldAssignment(slots, pids, stay);
+  if (!best.feasible) return false;
+  if (curFeasible && best.value < cur + 1 - 1e-9) return false;
+  const oldSlot = {}; for (const s of slots) oldSlot[state.onPitch[s.id]] = s.id;
+  const assign = {}, moves = [];
+  for (const s of slots) {
+    const np = best.assign[s.id];
+    if (np !== state.onPitch[s.id]) { assign[s.id] = np; moves.push({pid: np, from: oldSlot[np], to: s.id}); }
+  }
+  if (!moves.length) return false;
+  Object.assign(state.onPitch, assign);
+  state.rotations.push({time: t, type: 'reshuffle', assign, moves, reason: reason || 'better positions'});
+  return true;
+}
+
+// Performs the scheduled keeper change at a period boundary (shared by the
+// real run and by auto-keeper trial runs on a cloned state).
+function doKeeperChange(state, t, newKeeper) {
   const gkSlot = state.activeSlots.find(s => s.group === 'GK');
   const outgoingGK = state.onPitch[gkSlot.id];
-  if (outgoingGK === seg.player) return;
-
+  if (outgoingGK === newKeeper) return;
   let incomingSlotId = null;
   for (const [sid, pid] of Object.entries(state.onPitch)) {
-    if (pid === seg.player && sid !== gkSlot.id) { incomingSlotId = sid; break; }
+    if (pid === newKeeper && sid !== gkSlot.id) { incomingSlotId = sid; break; }
   }
   if (incomingSlotId) {
     const vacated = state.activeSlots.find(s => s.id === incomingSlotId);
-    state.onPitch[gkSlot.id] = seg.player; state.lastSubIn[seg.player] = t;
-    state.rotations.push({time:t, slot:gkSlot.id, off:outgoingGK, on:seg.player, reason:'scheduled GK rotation'});
+    state.onPitch[gkSlot.id] = newKeeper; state.lastSubIn[newKeeper] = t;
+    state.rotations.push({time:t, slot:gkSlot.id, off:outgoingGK, on:newKeeper, reason:'scheduled GK rotation'});
     const outgoingVal = playersById[outgoingGK].positions[vacated.group] ?? 0;
     if (outgoingVal > 0) {
       state.onPitch[incomingSlotId] = outgoingGK; state.lastSubIn[outgoingGK] = t;
-      state.rotations.push({time:t, slot:incomingSlotId, off:seg.player, on:outgoingGK, reason:'keeper moves outfield after GK swap'});
+      state.rotations.push({time:t, slot:incomingSlotId, off:newKeeper, on:outgoingGK, reason:'keeper moves outfield after GK swap'});
     } else {
-      state.benchSet.add(outgoingGK);
+      state.benchSet.add(outgoingGK); state.lastOff[outgoingGK] = t;
       const cands = [...state.benchSet].map(id => playersById[id])
         .filter(p => (p.positions[vacated.group] ?? 0) > 0)
         .filter(p => unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]);
@@ -1189,14 +1374,43 @@ function applyPeriodGKChange(state, t) {
         const rep = cands[0];
         state.benchSet.delete(rep.id);
         state.onPitch[incomingSlotId] = rep.id; state.lastSubIn[rep.id] = t;
-        state.rotations.push({time:t, slot:incomingSlotId, off:seg.player, on:rep.id, reason:'backfill after GK swap'});
+        state.rotations.push({time:t, slot:incomingSlotId, off:newKeeper, on:rep.id, reason:'backfill after GK swap'});
       }
     }
   } else {
-    state.benchSet.delete(seg.player); state.benchSet.add(outgoingGK);
-    state.onPitch[gkSlot.id] = seg.player; state.lastSubIn[seg.player] = t;
-    state.rotations.push({time:t, slot:gkSlot.id, off:outgoingGK, on:seg.player, reason:'scheduled GK rotation'});
+    state.benchSet.delete(newKeeper); state.benchSet.add(outgoingGK); state.lastOff[outgoingGK] = t;
+    state.onPitch[gkSlot.id] = newKeeper; state.lastSubIn[newKeeper] = t;
+    state.rotations.push({time:t, slot:gkSlot.id, off:outgoingGK, on:newKeeper, reason:'scheduled GK rotation'});
   }
+}
+// "Let the planner decide" keeper: tries each keeper-eligible player in goal
+// on a copy of the match, and keeps the one that leaves the best outfield
+// (so a preferred defender in goal never strands the other on the bench with
+// a weaker side out there) while sharing keeper duty fairly between them.
+function chooseAutoKeeper(state, t) {
+  const gkSlot = state.activeSlots.find(s => s.group === 'GK');
+  const cands = PLAYERS.filter(p => p.gk && (unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]));
+  if (!cands.length) return state.onPitch[gkSlot.id];
+  const outSlots = outfieldSlotsOf(state);
+  let best = null;
+  for (const k of cands) {
+    const tr = cloneStateLite(state);
+    doKeeperChange(tr, t, k.id);
+    const pl = bestOutfieldAssignment(outSlots, outSlots.map(s => tr.onPitch[s.id]), null);
+    const score = pl.score - 0.8 * (state.gkPeriods[k.id] || 0);
+    if (!best || score > best.score + 1e-9) best = {id: k.id, score};
+  }
+  return best.id;
+}
+
+// Handles a scheduled goalkeeper change at any period boundary, not just half-time.
+function applyPeriodGKChange(state, t) {
+  if (!HAS_GK) return;
+  const seg = state.gkSegments.find(s => s.from === t);
+  if (!seg) return;
+  if (seg.player === null || seg.player === undefined) seg.player = chooseAutoKeeper(state, t);
+  state.gkPeriods[seg.player] = (state.gkPeriods[seg.player] || 0) + 1;
+  doKeeperChange(state, t, seg.player);
 }
 
 // Applies a coach-triggered formation change: same on-pitch players, remapped
@@ -1239,6 +1453,25 @@ function isSubTimingAllowed(t) {
   return true; // 'anytime' (or unset/legacy cfg) - no restriction, true max fairness
 }
 
+// How strongly position fit counts against fairness, in minutes per
+// "position point" lost. Same scale the original per-slot penalty used.
+function positionPenaltyPerPoint() {
+  return TARGET * 0.18 * (0.3 + cfg.positionStrictness) * (1.3 - 0.6 * cfg.fairnessPriority);
+}
+// What the outfield would look like if `candPid` replaced the player in
+// `slotId`, with everyone free to move to their best position afterwards.
+function placementIfSwapped(state, slotId, candPid, exclude) {
+  const slots = outfieldSlotsOf(state, exclude);
+  const stay = {}, pids = slots.map(s => {
+    const pid = s.id === slotId ? candPid : state.onPitch[s.id];
+    if (s.id !== slotId) stay[s.id] = pid;
+    return pid;
+  });
+  const r = bestOutfieldAssignment(slots, pids, stay);
+  const where = slots.find(s => r.assign[s.id] === candPid);
+  return {...r, candSlot: where || null};
+}
+
 function runFairnessPass(state, t, skipSlots) {
   const threshold = (1 - cfg.fairnessPriority) * 0.4 * TARGET;
   const basis = fairnessBasis(state);
@@ -1248,102 +1481,153 @@ function runFairnessPass(state, t, skipSlots) {
     const curPid = state.onPitch[slot.id];
     if (t - state.lastSubIn[curPid] < cfg.minShiftLength) continue;
     const curDeficit = TARGETS[curPid] - basis[curPid];
-    // "Do not use" (tier 0) is an absolute exclusion, never just a cost - the
-    // coach said never play this player there, full stop. Everyone else
-    // (Can play/Comfortable/Preferred) is eligible and weighed below.
-    const eligible = [...state.benchSet].map(id => playersById[id])
-      .filter(p => (p.positions[slot.group] ?? 0) >= 1)
-      .filter(p => unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]);
-    if (!eligible.length) {
-      // A genuine shortage: nobody at all can fill this slot right now. Only
-      // worth surfacing once the current player is meaningfully over their
-      // fair share, otherwise this would fire for the most trivial gaps.
-      if (curDeficit < -0.15 * TARGET) {
+    // "Do not use" (tier 0) is an absolute exclusion, never just a cost.
+    // Bench players who are unavailable, or whose swap for this player was
+    // deliberately removed by the coach, are out.
+    const pool = [...state.benchSet].map(id => playersById[id])
+      .filter(p => unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id])
+      .filter(p => !state.blocked[curPid + '>' + p.id]);
+    // Cheap gate first: a swap can only go ahead if fairness alone wants it.
+    const maxGain = pool.length ? Math.max(...pool.map(p => (TARGETS[p.id] - basis[p.id]) - curDeficit)) : -Infinity;
+    if (!pool.length || maxGain <= threshold) {
+      // A genuine shortage: nobody at all can fill this slot right now, and
+      // the current player is meaningfully over their share.
+      if (curDeficit < -0.15 * TARGET && !pool.some(p => placementIfSwapped(state, slot.id, p.id, skipSlots).feasible)) {
         state.decisions.push({time:t, slot:slot.id, group:slot.group, curPid, curDeficit, action:'shortage', chosen:null, candidates:[]});
       }
       continue;
     }
 
-    // Each candidate is scored on fairness gain minus a position-tier
-    // penalty. The penalty is relative to the BEST tier actually available on
-    // the bench right now (not an absolute scale), scaled by how strict the
-    // coach's "Position vs. fluid" slider is and softened a little the more
-    // they've prioritised fairness. When every bench candidate for this slot
-    // is the same tier - the common case - every penalty is zero and this is
-    // identical to a plain fairness-deficit comparison.
-    const bestTierAvailable = Math.max(...eligible.map(p => p.positions[slot.group] ?? 0));
-    const scored = eligible.map(p => {
-      const tier = p.positions[slot.group] ?? 0;
+    // Each candidate is judged on the WHOLE pitch, not just this one slot:
+    // the player coming on can take any position, and everyone already out
+    // there can move to suit. `pos` is how well-placed the best arrangement
+    // is; a candidate is penalised by how far that falls short of the best
+    // arrangement any bench player could give right now.
+    const scored = [];
+    for (const p of pool) {
+      const pl = placementIfSwapped(state, slot.id, p.id, skipSlots);
+      if (!pl.feasible) continue; // can't be placed anywhere without breaking a "Do not use"
+      const tier = pl.candSlot ? (p.positions[pl.candSlot.group] ?? 0) : 0;
       const candDeficit = TARGETS[p.id] - basis[p.id];
-      const fairnessGain = candDeficit - curDeficit; // minutes this swap would genuinely close
-      const tierGap = bestTierAvailable - tier;
-      const penalty = tierGap * (TARGET * 0.18) * (0.3 + cfg.positionStrictness) * (1.3 - 0.6 * cfg.fairnessPriority);
-      return {id: p.id, tier, deficit: candDeficit, fairnessGain, netBenefit: fairnessGain - penalty};
-    });
+      scored.push({id: p.id, tier, group: pl.candSlot ? pl.candSlot.group : slot.group, pos: pl.value,
+        deficit: candDeficit, fairnessGain: candDeficit - curDeficit});
+    }
+    if (!scored.length) {
+      if (curDeficit < -0.15 * TARGET) state.decisions.push({time:t, slot:slot.id, group:slot.group, curPid, curDeficit, action:'shortage', chosen:null, candidates:[]});
+      continue;
+    }
+    const bestPos = Math.max(...scored.map(s => s.pos));
+    const perPoint = positionPenaltyPerPoint();
+    scored.forEach(s => { s.netBenefit = s.fairnessGain - (bestPos - s.pos) * perPoint; });
     scored.sort((a,b) => b.netBenefit - a.netBenefit);
     const best = scored[0];
     const willSwap = best.netBenefit > threshold;
 
-    // Notable trade-off: is the fairest overall candidate NOT also the
-    // best-positioned one? Fires whichever way the decision actually goes -
-    // "picked a worse-fit player for fairness" and "kept the better fit and
-    // let fairness drift" both get surfaced, so the coach can see it either way.
-    const idealTierPick = [...scored].filter(s => s.tier === bestTierAvailable).sort((a,b) => b.fairnessGain - a.fairnessGain)[0];
+    // Notable trade-off: fairness wanted one player but position fit pointed
+    // at another. Only surfaced when fairness actually wanted a swap (its best
+    // candidate cleared the threshold) - otherwise nothing was traded off.
+    const idealPick = [...scored].filter(s => s.pos === bestPos).sort((a,b) => b.fairnessGain - a.fairnessGain)[0];
     const fairestPick = [...scored].sort((a,b) => b.fairnessGain - a.fairnessGain)[0];
-    if (idealTierPick.id !== fairestPick.id) {
+    if (idealPick.id !== fairestPick.id && fairestPick.fairnessGain > threshold) {
       state.decisions.push({
         time: t, slot: slot.id, group: slot.group, curPid, curDeficit,
         action: willSwap ? 'swap' : 'hold',
         chosen: willSwap ? best.id : null,
-        candidates: scored.map(s => ({id: s.id, tier: s.tier, deficit: s.deficit, fairnessGain: s.fairnessGain})),
+        candidates: scored.map(s => ({id: s.id, tier: s.tier, group: s.group, deficit: s.deficit, fairnessGain: s.fairnessGain})),
       });
     }
     if (willSwap) {
       state.benchSet.delete(best.id); state.benchSet.add(curPid);
-      state.onPitch[slot.id] = best.id; state.lastSubIn[best.id] = t;
+      state.onPitch[slot.id] = best.id; state.lastSubIn[best.id] = t; state.lastOff[curPid] = t;
+      clearBlocks(state, curPid);
       state.rotations.push({time:t, slot:slot.id, off:curPid, on:best.id, reason:'playing-time fairness'});
     }
   }
 }
 
+// Soft "maximum time off the pitch" rule. Looks ahead to the next moment the
+// coach's Sub timing would even allow a change, and brings a player back on
+// now if waiting would push them past the limit. Never breaks a "Do not use"
+// position; relaxes the minimum-time-on rule only for a player already due.
+function nextAllowedSubTime(t) {
+  for (let u = t + 1; u < DURATION; u++) if (isSubTimingAllowed(u)) return u;
+  return Infinity;
+}
+function runBenchLimitPass(state, t, skipSlots) {
+  const max = cfg.maxBenchLength;
+  if (!max || !isSubTimingAllowed(t)) return;
+  const nxt = nextAllowedSubTime(t);
+  const wait = nxt === Infinity ? DURATION - t : nxt - t;
+  const basis = fairnessBasis(state);
+  const overdue = [...state.benchSet]
+    .filter(id => unavailableFrom[id] === undefined || t < unavailableFrom[id])
+    .filter(id => (t - state.lastOff[id]) + wait > max)
+    .sort((a, b) => state.lastOff[a] - state.lastOff[b]);
+  for (const pid of overdue) {
+    if (!state.benchSet.has(pid)) continue;
+    const pick = strict => outfieldSlotsOf(state, skipSlots).filter(sl => {
+      const cur = state.onPitch[sl.id];
+      if (state.blocked[cur + '>' + pid]) return false;
+      return !(strict && t - state.lastSubIn[cur] < cfg.minShiftLength);
+    });
+    let slots = pick(true);
+    if (!slots.length) slots = pick(false);
+    let best = null;
+    for (const sl of slots) {
+      const cur = state.onPitch[sl.id];
+      const pl = placementIfSwapped(state, sl.id, pid, skipSlots);
+      if (!pl.feasible) continue;
+      const surplus = basis[cur] - TARGETS[cur];
+      const score = surplus + pl.value * positionPenaltyPerPoint();
+      if (!best || score > best.score) best = {sl, cur, score};
+    }
+    if (!best) continue;
+    state.benchSet.delete(pid); state.benchSet.add(best.cur);
+    state.onPitch[best.sl.id] = pid; state.lastSubIn[pid] = t; state.lastOff[best.cur] = t;
+    clearBlocks(state, best.cur);
+    state.rotations.push({time: t, slot: best.sl.id, off: best.cur, on: pid, reason: 'maximum time off the pitch'});
+    skipSlots.add(best.sl.id);
+  }
+}
+
 // Replays the ENTIRE ordered history of coach decisions (substitution
 // overrides, formation changes, skips, and unavailability) from kick-off
-// every time. This fixes a real bug: previously only the single most-recent
-// edit was applied, so a second manual edit silently erased the first. Now
-// every locked event persists across edits, and the algorithm fills in
-// everything around them.
-// Applies every locked event timestamped exactly at `t` (subs, skips,
-// unavailability, formation changes) to `state`, returning the set of slots
-// that were just explicitly touched by the coach (so the fairness pass
-// doesn't immediately re-touch them). Factored out of simulate()'s per-minute
-// loop so the same logic can also run once for t=0, before that loop starts.
+// every time. Every locked event persists across edits, and the algorithm
+// fills in everything around them.
+// Applies every locked event timestamped exactly at `t` to `state`, returning
+// the set of slots the coach explicitly touched (so the fairness pass doesn't
+// immediately re-touch them). `.manual` on the returned set holds the slots
+// the coach picked by hand, which position tidy-ups must leave alone.
 function applyEventsAt(state, t, events) {
   const dueNow = events.filter(e => e.time === t);
   const skipSlots = new Set();
+  skipSlots.manual = new Set();
   for (const ev of dueNow) {
     if (ev.type === 'formation') {
       applyFormationChange(state, t, ev);
     } else if (ev.type === 'skip') {
-      // Coach declined this suggested swap for now. Reset the current
+      // Coach declined (or deleted) this suggested swap. Reset the current
       // occupant's clock so the fairness pass doesn't immediately
-      // re-suggest the exact same swap again one minute later - but it
-      // will genuinely reconsider once min_shift_length has passed again.
+      // re-suggest it one minute later. A deleted sub additionally blocks
+      // that exact pairing for as long as the player stays on.
       const curPid = state.onPitch[ev.slot];
       state.lastSubIn[curPid] = t;
-      state.rotations.push({time:t, type:'skip', slot:ev.slot, reason:'coach skipped'});
+      if (ev.block) state.blocked[curPid + '>' + ev.block] = true;
+      state.rotations.push({time:t, type:'skip', slot:ev.slot, reason: ev.deleted ? 'sub removed' : 'coach skipped',
+        deleted: !!ev.deleted, off: ev.off, on: ev.on});
       skipSlots.add(ev.slot);
     } else if (ev.type === 'unavailable') {
-      // Informational marker only - the actual exclusion is enforced via
-      // unavailableFrom, consulted by every eligibility check above.
       state.rotations.push({time:t, type:'unavailable', player: ev.player, reason:'marked unavailable'});
     } else { // substitution override
       const curPid = state.onPitch[ev.slot];
       if (curPid !== ev.on) {
         state.benchSet.delete(ev.on); state.benchSet.add(curPid);
-        state.onPitch[ev.slot] = ev.on; state.lastSubIn[ev.on] = t;
+        state.onPitch[ev.slot] = ev.on; state.lastSubIn[ev.on] = t; state.lastOff[curPid] = t;
+        clearBlocks(state, curPid);
         state.rotations.push({time:t, slot:ev.slot, off:curPid, on:ev.on, reason:ev.reason || 'coach override', edited:true});
       }
       skipSlots.add(ev.slot); // don't let the fairness pass immediately re-touch what the coach just set
+      if (ev.manual) skipSlots.manual.add(ev.slot);
     }
   }
   return skipSlots;
@@ -1351,27 +1635,31 @@ function applyEventsAt(state, t, events) {
 
 function simulate(lineup, lockedEvents) {
   const events = [...lockedEvents].sort((a,b) => a.time - b.time);
-  const state = buildState(lineup);
+  const baseCfg = cfg;
+  try {
+    const state = buildState(lineup);
+    // Events locked at the literal kickoff instant must be applied before
+    // the per-minute loop below, which only considers t=1..DURATION.
+    cfg = effectiveCfgAt(baseCfg, 0);
+    const skip0 = applyEventsAt(state, 0, events);
+    if (state.rotations.some(r => !r.type)) reshuffleOutfield(state, 0, skip0.manual, 'better positions');
 
-  // Events locked at the literal kickoff instant (minute 0 - e.g. the coach
-  // makes a sub, marks someone unavailable, or tweaks the formation in the
-  // first 60 seconds of play, before the clock has ticked over to minute 1)
-  // must be applied before the per-minute loop below, which only ever
-  // considers t=1..DURATION and would otherwise silently drop them.
-  applyEventsAt(state, 0, events);
-
-  for (let t = 1; t <= DURATION; t++) {
-    for (const [slotId, pid] of Object.entries(state.onPitch)) {
-      state.minutesPlayed[pid] += 1;
-      if (!(HAS_GK && slotId === 'GK')) state.outfieldMinutesPlayed[pid] += 1;
+    for (let t = 1; t <= DURATION; t++) {
+      for (const [slotId, pid] of Object.entries(state.onPitch)) {
+        state.minutesPlayed[pid] += 1;
+        if (!(HAS_GK && slotId === 'GK')) state.outfieldMinutesPlayed[pid] += 1;
+      }
+      if (t === DURATION) break;
+      cfg = effectiveCfgAt(baseCfg, t); // mid-match setting changes only apply from their own minute on
+      const before = state.rotations.length;
+      applyPeriodGKChange(state, t);
+      const skipSlots = applyEventsAt(state, t, events);
+      runBenchLimitPass(state, t, skipSlots);
+      runFairnessPass(state, t, skipSlots);
+      if (state.rotations.slice(before).some(r => !r.type)) reshuffleOutfield(state, t, skipSlots.manual, 'better positions');
     }
-    if (t === DURATION) break;
-    applyPeriodGKChange(state, t);
-
-    const skipSlots = applyEventsAt(state, t, events);
-    runFairnessPass(state, t, skipSlots);
-  }
-  return state;
+    return state;
+  } finally { cfg = baseCfg; }
 }
 
 let PLAN = null;
@@ -1379,7 +1667,8 @@ let lockedEvents = []; // persistent history of coach decisions this match: subs
 let unavailableFrom = {}; // playerId -> minute they became unavailable (time-scoped, not retroactive)
 function regeneratePlan() {
   const state = simulate(startingLineup, lockedEvents);
-  PLAN = {rotations: state.rotations, projectedMinutes: state.minutesPlayed, decisions: state.decisions};
+  PLAN = {rotations: state.rotations, projectedMinutes: state.minutesPlayed, decisions: state.decisions, gkSegments: state.gkSegments};
+  if (typeof schedulePersist === 'function') schedulePersist();
 }
 
 // Reconstructs exact match state at any minute by replaying PLAN.rotations
@@ -1408,6 +1697,7 @@ function computeStateAt(t) {
     accumulate(ev.time);
     if (ev.type === 'formation') { activeSlots = ev.slots; onPitch = {...ev.remap}; }
     else if (ev.type === 'skip' || ev.type === 'unavailable') { /* no onPitch change - informational only */ }
+    else if (ev.type === 'reshuffle') Object.assign(onPitch, ev.assign);
     else onPitch[ev.slot] = ev.on;
   }
   accumulate(t);
@@ -1431,14 +1721,21 @@ function computeTargets() {
 function computeGkSegments() {
   if (!HAS_GK) return [];
   return PERIOD_BOUNDS.slice(0, -1).map((start, i) => ({
-    player: gkMode === 'single' ? gkKeepers[0] : gkKeepers[i],
+    player: gkMode === 'auto' ? null : (gkMode === 'single' ? gkKeepers[0] : gkKeepers[i]),
     from: start, to: PERIOD_BOUNDS[i + 1],
   }));
 }
+// The keeper actually in goal each period: for "let the planner decide"
+// that's whatever the plan resolved to, otherwise the preselected schedule.
+function activeGkSegments() { return (PLAN && PLAN.gkSegments && PLAN.gkSegments.length) ? PLAN.gkSegments : GK_SEGMENTS; }
 
 /* ---- GENERATE button: build match state from squad + setup choices ---- */
 document.getElementById('generateBtn').addEventListener('click', () => {
-  clearLiveMatchState(); // starting a fresh plan invalidates any previously saved in-progress match
+  clearLiveMatchState(); // legacy single-slot save - the library below replaces it
+  // An in-progress (live) match is NOT thrown away by planning another one:
+  // it stays in the Matches tab to resume. Unstarted drafts are replaced.
+  if (currentMatchId) saveLiveMatchState();
+  currentMatchId = null;
   const avail = squad.filter(p => availableIds.has(p.id));
   PLAYERS = avail;
   playersById = Object.fromEntries(PLAYERS.map(p => [p.id, p]));
@@ -1454,7 +1751,8 @@ document.getElementById('generateBtn').addEventListener('click', () => {
     return;
   }
 
-  lockedEvents = []; unavailableFrom = {}; // fresh match - clear any previous match's coach decisions
+  lockedEvents = []; unavailableFrom = {}; cfgEras = []; // fresh match - clear any previous match's coach decisions
+  finishedAtMinute = null;
   liveMode = false; halfTimeActive = false; matchFinished = false;
   clearInterval(liveTicker); matchStartTs = null; pausedAccumMs = 0; pauseStartedAt = null;
   document.getElementById('previewControls').style.display = 'block';
@@ -1469,21 +1767,14 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   dismissedDecisionKeys = new Set();
   score = {us: 0, them: 0}; goalEvents = [];
   setPlanSubTab('live');
+  removeUnstartedPlans();
+  currentMatchId = newMatchId();
   regeneratePlan();
+  saveLiveMatchState();
   document.getElementById('regenBanner').classList.remove('show');
   document.getElementById('planTab').classList.remove('disabled');
-
-  document.getElementById('scrub').max = DURATION;
-  const shapeDesc = SLOTS.filter(s => s.group !== 'GK').length
-    ? ['DEF','MID','ATT'].map(g => SLOTS.filter(s => s.group === g).length).filter(n => n > 0).join('-')
-    : '';
-  document.getElementById('detailsFormatLine').textContent =
-    `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}${HAS_GK ? '' : ' (no GK)'} · ${DURATION} min · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`;
-  document.getElementById('halfMarks').innerHTML = PERIOD_BOUNDS.map((b, i) => {
-    if (i === 0) return '<span>KO</span>';
-    if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
-    return `<span>P${i + 1} ${b}'</span>`;
-  }).join('');
+  setDetailsSubTab('subs');
+  initPlanScreenForFormat();
 
   currentT = 0; openPicker = null;
   render(0);
@@ -1598,6 +1889,34 @@ function render(t) {
   renderPlanHealthPill();
 }
 
+// "Theo ATT → MID" style description of the position changes planned at a
+// minute - the players already on the pitch who move to suit the sub.
+function slotLabelAt(time, slotId) {
+  const sl = computeStateAt(time).activeSlots.find(x => x.id === slotId);
+  return sl ? sl.label : slotId;
+}
+function reshuffleMovesAt(time) {
+  const out = [];
+  // Someone who has just come on has no "from" position worth showing - they
+  // simply end up in their best spot - while a player already out there moves.
+  const cameOn = new Set(PLAN.rotations.filter(r => !r.type && r.time === time).map(r => r.on));
+  PLAN.rotations.filter(r => r.type === 'reshuffle' && r.time === time).forEach(r =>
+    r.moves.forEach(m => out.push(cameOn.has(m.pid)
+      ? `${m.pid} plays ${slotLabelAt(time, m.to)}`
+      : `${m.pid} ${slotLabelAt(time, m.from)} → ${slotLabelAt(time, m.to)}`)));
+  return out;
+}
+function movesHtml(time) {
+  const m = reshuffleMovesAt(time);
+  return m.length ? `<div class="tl-moves">⇄ Positions: ${m.join(' · ')}</div>` : '';
+}
+// Only the planner's own fairness/time-off subs and subs the coach edited can
+// be removed - the keeper rotation and unavailability cover are structural.
+function isDeletableSub(r) {
+  if (r.type) return false;
+  return r.reason === 'playing-time fairness' || r.reason === 'maximum time off the pitch' || !!r.edited && r.reason !== 'unavailable replacement';
+}
+
 function renderTimeline(t, upcoming) {
   const tl = document.getElementById('timeline');
   tl.innerHTML = '';
@@ -1615,7 +1934,13 @@ function renderTimeline(t, upcoming) {
         return;
       }
       if (r.type === 'skip') {
-        inner += `<div class="tl-swap" style="color:var(--ink-soft);">⏭ Sub at ${r.slot} skipped</div>`;
+        inner += r.deleted
+          ? `<div class="tl-swap" style="color:var(--ink-soft);">✕ Planned sub removed (${r.on} for ${r.off}, ${r.slot})</div>`
+          : `<div class="tl-swap" style="color:var(--ink-soft);">⏭ Sub at ${r.slot} skipped</div>`;
+        return;
+      }
+      if (r.type === 'reshuffle') {
+        inner += movesHtml(time);
         return;
       }
       if (r.type === 'unavailable') {
@@ -1624,7 +1949,9 @@ function renderTimeline(t, upcoming) {
       }
       const isPast = time < t;
       const badge = r.edited ? '<span class="edited-badge">edited</span>' : '';
-      inner += `<div class="tl-swap"><span class="on ${isPast ? 'locked-past' : ''}" data-time="${time}" data-slot="${r.slot}">↑ ${r.on}</span>${badge} · <span class="off">↓ ${r.off}</span> <span style="color:var(--ink-soft)">(${r.slot})</span></div>`;
+      const canDelete = isDeletableSub(r) && !matchFinished && (!liveMode || time > liveElapsedMinute());
+      const del = canDelete ? `<span class="tl-del" data-del-time="${time}" data-del-slot="${r.slot}" title="Remove this substitution">✕ Remove</span>` : '';
+      inner += `<div class="tl-swap">${del}<span class="on ${isPast ? 'locked-past' : ''}" data-time="${time}" data-slot="${r.slot}">↑ ${r.on}</span>${badge} · <span class="off">↓ ${r.off}</span> <span style="color:var(--ink-soft)">(${r.slot})</span></div>`;
     });
     div.innerHTML = inner;
     tl.appendChild(div);
@@ -1635,6 +1962,9 @@ function renderTimeline(t, upcoming) {
   });
   tl.querySelectorAll('.on:not(.locked-past)').forEach(el => {
     el.addEventListener('click', () => togglePicker({kind:'event', slotId: el.dataset.slot, time: parseInt(el.dataset.time, 10)}));
+  });
+  tl.querySelectorAll('.tl-del').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); deletePlannedSub(parseInt(el.dataset.delTime, 10), el.dataset.delSlot); });
   });
 }
 
@@ -1790,7 +2120,7 @@ function buildPicker(slotId, time) {
     row.addEventListener('click', () => {
       if (openPicker.kind === 'start') { startingLineup = {...startingLineup, [slotId]: p.id}; }
       else {
-        lockedEvents.push({time, type: 'sub', slot: slotId, on: p.id});
+        lockedEvents.push({time, type: 'sub', slot: slotId, on: p.id, manual: true});
         // The coach just explicitly actioned this slot/time themselves, so it
         // must never show up again as a "due" swap waiting for a decision.
         resolvedKeys.add(rotationKey({time, slot: slotId}));
@@ -1887,7 +2217,7 @@ function describeDecisionGroup(g) {
 // actually end up with if they made the swap; this does.
 function decisionSwapForecast(g, candidateId) {
   const beforeBasis = fairnessBasis(simulate(startingLineup, lockedEvents));
-  const hyp = simulate(startingLineup, [...lockedEvents, {time: g.startTime, type: 'sub', slot: g.slot, on: candidateId, reason: 'override'}]);
+  const hyp = simulate(startingLineup, [...lockedEvents, {time: g.startTime, type: 'sub', slot: g.slot, on: candidateId, reason: 'override', manual: true}]);
   const afterBasis = fairnessBasis(hyp);
   return {
     curBefore: Math.round(beforeBasis[g.curPid]), curAfter: Math.round(afterBasis[g.curPid]),
@@ -1924,7 +2254,7 @@ function computeFairnessBasisGroups() {
   // against the outfield target isn't a fairness gap for them - exclude
   // players who were never outfield-eligible in the first place.
   const outfieldEligible = PLAYERS.filter(p => (p.positions.DEF ?? 0) > 0 || (p.positions.MID ?? 0) > 0 || (p.positions.ATT ?? 0) > 0);
-  const gkDutyIds = HAS_GK ? new Set(GK_SEGMENTS.map(s => s.player)) : new Set();
+  const gkDutyIds = HAS_GK ? new Set(activeGkSegments().map(s => s.player)) : new Set();
   const groups = [
     outfieldEligible.filter(p => !gkDutyIds.has(p.id)).map(p => p.id),
     outfieldEligible.filter(p => gkDutyIds.has(p.id)).map(p => p.id),
@@ -1983,10 +2313,11 @@ function fairnessSpreadNote() {
   if (under.length) parts.push(under.map(x => `${x.id} (${Math.round(x.dev)}' behind)`).join(', '));
   if (over.length) parts.push(over.map(x => `${x.id} (+${Math.round(x.dev)}')`).join(', '));
   let cause = 'The plan may simply need more rebalancing room than it has.';
-  if (cfg.subTimingMode !== 'anytime') {
-    cause = `"Sub timing" is set to ${subTimingSummary()}, which limits how often the plan can rebalance - try loosening it, or adjust these players manually.`;
-  } else if (cfg.minShiftLength > 0.15 * DURATION) {
-    cause = `"Minimum time before a sub" (${cfg.minShiftLength}') may be limiting how often the plan can rebalance - try lowering it, or adjust these players manually.`;
+  const eff = effectiveCfgAt(cfg, liveMode ? liveElapsedMinute() : 0);
+  if (eff.subTimingMode !== 'anytime') {
+    cause = `"Sub timing" is set to ${subTimingSummary(eff)}, which limits how often the plan can rebalance - try loosening it, or adjust these players manually.`;
+  } else if (eff.minShiftLength > 0.15 * DURATION) {
+    cause = `"Minimum time before a sub" (${eff.minShiftLength}') may be limiting how often the plan can rebalance - try lowering it, or adjust these players manually.`;
   }
   return {text: `Playing time isn't evenly split among players in the same role: ${parts.join(' · ')}. ${cause}`, under, over};
 }
@@ -2011,6 +2342,14 @@ function computeOccupancyWindows() {
       onPitch = {...ev.remap};
       starts = {};
       for (const slotId in onPitch) starts[slotId] = {pid: onPitch[slotId], time: ev.time};
+    } else if (ev.type === 'reshuffle') {
+      for (const slotId in ev.assign) {
+        if (starts[slotId] && starts[slotId].pid !== ev.assign[slotId]) {
+          windows.push({slot: slotId, group: groupOf(slotId), pid: starts[slotId].pid, start: starts[slotId].time, end: ev.time});
+          starts[slotId] = {pid: ev.assign[slotId], time: ev.time};
+        }
+        onPitch[slotId] = ev.assign[slotId];
+      }
     } else if (ev.type !== 'skip' && ev.type !== 'unavailable') { // a sub, automatic or manual
       const slotId = ev.slot;
       if (starts[slotId] && starts[slotId].pid !== ev.on) {
@@ -2047,7 +2386,7 @@ function findFixOptions(underId, overId) {
     let bestAligned = null, bestAny = null;
     for (let t = win.start; t < win.end; t += step) {
       if (Object.values(computeStateAt(t).onPitch).includes(underId)) continue; // underId busy elsewhere at t
-      const hyp = simulate(startingLineup, [...lockedEvents, {time: t, type: 'sub', slot: win.slot, on: underId, reason: 'fairness fix'}]);
+      const hyp = simulate(startingLineup, [...lockedEvents, {time: t, type: 'sub', slot: win.slot, on: underId, reason: 'fairness fix', manual: true}]);
       const basis = fairnessBasis(hyp);
       const gap = Math.abs(basis[underId] - basis[overId]);
       const cand = {
@@ -2141,7 +2480,7 @@ function openFairnessFixPicker() {
     card.querySelectorAll('.picker-opt[data-under]').forEach(el => {
       el.addEventListener('click', () => {
         const slot = el.dataset.slot, on = el.dataset.under, time = parseInt(el.dataset.time, 10);
-        lockedEvents.push({time, type: 'sub', slot, on, reason: 'fairness fix'});
+        lockedEvents.push({time, type: 'sub', slot, on, reason: 'fairness fix', manual: true});
         resolvedKeys.add(rotationKey({time, slot}));
         regeneratePlan();
         render(currentT);
@@ -2152,8 +2491,51 @@ function openFairnessFixPicker() {
   }
   refresh();
 }
+// ===== Remove a planned substitution =====
+// Removing a sub is a "skip" that sticks: the player due to come off stays on,
+// the swap isn't re-proposed while they're still out there, and everything
+// after it is re-planned from the new situation (the algorithm adapts - the
+// rest of the plan is NOT left as it was). The coach is then shown exactly
+// what moved, and Plan Health is re-checked straight away.
+function deletePlannedSub(time, slot) {
+  const r = PLAN.rotations.find(x => !x.type && x.time === time && x.slot === slot);
+  if (!r) return;
+  const savedLocked = JSON.parse(JSON.stringify(lockedEvents));
+  const savedResolved = new Set(resolvedKeys);
+  const beforeMins = {...PLAN.projectedMinutes};
+  const keyOf = x => `${x.time}|${x.slot}|${x.off}|${x.on}`;
+  const beforeSubs = new Map(PLAN.rotations.filter(x => !x.type && x.time > time).map(x => [keyOf(x), x]));
+  lockedEvents = lockedEvents.filter(e => !(e.type === 'sub' && e.time === time && e.slot === slot));
+  lockedEvents.push({time, type: 'skip', slot, deleted: true, block: r.on, off: r.off, on: r.on});
+  resolvedKeys.add(rotationKey({time, slot}));
+  dismissedDecisionKeys.delete('fairness-spread'); dismissedDecisionKeys.delete('bench-limit');
+  regeneratePlan();
+  openPicker = null;
+  render(currentT);
+  saveLiveMatchState();
+  const afterSubs = PLAN.rotations.filter(x => !x.type && x.time > time);
+  const changedLater = afterSubs.filter(x => !beforeSubs.has(keyOf(x))).length;
+  const moved = PLAYERS.map(p => ({id: p.id, d: Math.round(PLAN.projectedMinutes[p.id] - beforeMins[p.id]), now: Math.round(PLAN.projectedMinutes[p.id])}))
+    .filter(x => x.d !== 0).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  const intro = `
+    <div class="decision-row" style="border-bottom:1px solid var(--card-line); padding-bottom:10px;">
+      <div class="decision-text"><strong>Sub removed at ${time}'</strong> - ${r.off} stays on (${r.slot}) instead of coming off for ${r.on}.</div>
+      <div class="config-note" style="margin-top:6px;">
+        ${moved.length ? 'Forecast change: ' + moved.slice(0, 5).map(x => `${x.id} ${x.d > 0 ? '+' : ''}${x.d}' (now ${x.now}')`).join(' · ') + '.' : 'No change to anyone\'s forecast minutes.'}
+        ${changedLater ? `${changedLater} later substitution${changedLater === 1 ? ' was' : 's were'} re-planned around it.` : 'No later substitutions needed to change.'}
+      </div>
+      <div class="decision-actions"><span class="decision-link secondary" id="undoDeleteSub">Undo removal</span></div>
+    </div>`;
+  const undo = () => {
+    lockedEvents = savedLocked; resolvedKeys = savedResolved;
+    regeneratePlan(); render(currentT); saveLiveMatchState();
+  };
+  openPlanHealthSummary({intro, undo, always: true});
+}
+
 function hasPlanHealthNotes() {
-  return visiblePlanHealthGroups().length > 0 || (!dismissedDecisionKeys.has('fairness-spread') && !!fairnessSpreadNote());
+  return visiblePlanHealthGroups().length > 0 || (!dismissedDecisionKeys.has('fairness-spread') && !!fairnessSpreadNote())
+    || (!dismissedDecisionKeys.has('bench-limit') && !!benchLimitNote());
 }
 
 function renderPlanHealthPill() {
@@ -2161,7 +2543,8 @@ function renderPlanHealthPill() {
   if (!pill) return;
   const groups = visiblePlanHealthGroups();
   const spread = !dismissedDecisionKeys.has('fairness-spread') ? fairnessSpreadNote() : null;
-  const count = groups.length + (spread ? 1 : 0);
+  const bench = !dismissedDecisionKeys.has('bench-limit') ? benchLimitNote() : null;
+  const count = groups.length + (spread ? 1 : 0) + (bench ? 1 : 0);
   if (!count) { pill.style.display = 'none'; return; }
   pill.style.display = 'flex';
   pill.innerHTML = `<span class="tag">${count} NOTE${count > 1 ? 'S' : ''}</span> <span>Plan health note${count > 1 ? 's' : ''} - tap to review</span>`;
@@ -2173,12 +2556,24 @@ document.getElementById('planHealthPill').addEventListener('click', openPlanHeal
 // with its own Override (pick someone else for that slot/time) and Got it
 // (acknowledge and leave the plan as-is) actions. Rebuilt in place so taking
 // an action immediately reflects in the list rather than requiring a reopen.
-function openPlanHealthSummary() {
+function openPlanHealthSummary(opts) {
+  // opts.intro: html shown above the notes (e.g. what a removed sub changed);
+  // opts.undo: handler for its "Undo removal" link; always: show even if clean.
+  opts = opts && opts.intro !== undefined ? opts : null;
   const overlay = openModal('', {wide: true});
   const card = overlay.querySelector('.modal-card');
   function refresh() {
     const groups = visiblePlanHealthGroups();
     const spread = !dismissedDecisionKeys.has('fairness-spread') ? fairnessSpreadNote() : null;
+    const bench = !dismissedDecisionKeys.has('bench-limit') ? benchLimitNote() : null;
+    const benchRow = bench ? `
+      <div class="decision-row" data-key="bench-limit">
+        <div class="decision-text">${bench.text}</div>
+        <div class="decision-actions">
+          <span class="decision-link" data-act="adjust">Adjust manually</span>
+          <span class="decision-link secondary" data-act="dismiss">Got it</span>
+        </div>
+      </div>` : '';
     const spreadRow = spread ? `
       <div class="decision-row" data-key="fairness-spread">
         <div class="decision-text">${spread.text}</div>
@@ -2190,7 +2585,9 @@ function openPlanHealthSummary() {
       </div>` : '';
     card.innerHTML = `
       <div class="picker-title">Plan health</div>
+      ${opts ? opts.intro : ''}
       ${spreadRow}
+      ${benchRow}
       ${groups.length ? groups.map(g => `
         <div class="decision-row" data-key="${decisionGroupKey(g)}">
           <div class="decision-text">${describeDecisionGroup(g)}</div>
@@ -2200,7 +2597,7 @@ function openPlanHealthSummary() {
           </div>
         </div>
       `).join('') : ''}
-      ${!spreadRow && !groups.length ? `<div class="config-note">No trade-offs or fairness gaps flagged right now - the plan is hitting everything.</div>` : ''}
+      ${!spreadRow && !benchRow && !groups.length ? `<div class="config-note">No trade-offs or fairness gaps flagged right now - the plan is hitting everything.</div>` : ''}
       <div class="picker-cancel" id="planHealthClose">Close</div>
     `;
     card.querySelectorAll('.decision-row').forEach(row => {
@@ -2219,6 +2616,8 @@ function openPlanHealthSummary() {
       if (suggestLink) suggestLink.addEventListener('click', openFairnessFixPicker);
     });
     card.querySelector('#planHealthClose').addEventListener('click', () => overlay.remove());
+    const undoLink = card.querySelector('#undoDeleteSub');
+    if (undoLink) undoLink.addEventListener('click', () => { overlay.remove(); opts.undo(); });
   }
   refresh();
 }
@@ -2240,7 +2639,7 @@ function openDecisionOverridePicker(g) {
   `, {wide: true});
   overlay.querySelectorAll('.picker-opt[data-on]').forEach(el => {
     el.addEventListener('click', () => {
-      lockedEvents.push({time: g.startTime, type: 'sub', slot: g.slot, on: el.dataset.on});
+      lockedEvents.push({time: g.startTime, type: 'sub', slot: g.slot, on: el.dataset.on, manual: true});
       resolvedKeys.add(rotationKey({time: g.startTime, slot: g.slot}));
       regeneratePlan();
       render(currentT);
@@ -2335,7 +2734,125 @@ function setDetailsSubTab(tab) {
   document.getElementById('detailsViewSubs').style.display = tab === 'subs' ? 'block' : 'none';
   document.getElementById('detailsViewForecast').style.display = tab === 'forecast' ? 'block' : 'none';
   document.getElementById('detailsViewFormation').style.display = tab === 'formation' ? 'block' : 'none';
+  document.getElementById('detailsViewSettings').style.display = tab === 'settings' ? 'block' : 'none';
   if (tab === 'formation') initDetailsFormationPanel();
+  if (tab === 'settings') renderSettingsTab();
+}
+
+/* ---- DETAILS > SETTINGS: change rotation settings mid-match ----------
+   Same controls as New Match, but applied from the current minute onward as
+   a "settings era" - nothing already played is ever re-planned. Before
+   kick-off it simply edits the plan's settings. */
+function settingsFromMinute() {
+  if (!liveMode || matchFinished) return 0;
+  if (halfTimeActive && pendingHalfTimeBoundaryIdx !== null) return PERIOD_BOUNDS[pendingHalfTimeBoundaryIdx];
+  return Math.min(DURATION - 1, liveElapsedMinute() + 1);
+}
+function applyCfgChange(partial) {
+  if (liveMode && !matchFinished) {
+    const from = settingsFromMinute();
+    const era = cfgEras.find(e => e.from === from);
+    if (era) Object.assign(era.cfg, partial); else cfgEras.push({from, cfg: {...partial}});
+    cfgEras.sort((a, b) => a.from - b.from);
+  } else {
+    cfg = {...cfg, ...partial};
+    syncConfigUIFromCfg();
+  }
+  regeneratePlan();
+  openPicker = null;
+  render(currentT);
+  saveLiveMatchState();
+}
+const CFG_LABELS = {fairnessPriority: 'Fairness', positionStrictness: 'Position', minShiftLength: 'Min time on', maxBenchLength: 'Max time off', subTimingMode: 'Sub timing', subIntervalMinutes: 'Sub interval', checkpointHalfway: 'Halfway checkpoints'};
+function describeCfgChange(c) {
+  return Object.entries(c).map(([k, v]) => {
+    if (k === 'fairnessPriority') return `fairness ${labelFor(v, 'fewer subs', 'balanced', 'maximum').toLowerCase()}`;
+    if (k === 'positionStrictness') return `position ${labelFor(v, 'fluid', 'balanced', 'stick to position')}`;
+    if (k === 'minShiftLength') return `min ${v}' on`;
+    if (k === 'maxBenchLength') return v ? `max ${v}' off` : 'no max time off';
+    if (k === 'subTimingMode') return `sub timing ${subTimingSummary({...cfg, subTimingMode: v})}`;
+    if (k === 'subIntervalMinutes') return `every ${v}'`;
+    if (k === 'checkpointHalfway') return v ? 'halfway checkpoints on' : 'halfway checkpoints off';
+    return `${k}: ${v}`;
+  }).join(', ');
+}
+function renderSettingsTab() {
+  const host = document.getElementById('detailsViewSettings');
+  if (!host || !PLAN) return;
+  const from = settingsFromMinute();
+  const c = effectiveCfgAt(cfg, from);
+  const live = liveMode && !matchFinished;
+  const maxLen = Math.max(2, DURATION);
+  const history = cfgEras.map(e => `<div>From ${e.from}': ${describeCfgChange(e.cfg)}</div>`).join('');
+  host.innerHTML = `
+    <div class="config-note" style="margin:0 0 10px;">${matchFinished ? 'This match has finished - settings are read-only.' : live
+      ? `Changes apply from <strong>${from}'</strong> onward. Everything already played stays exactly as it was.`
+      : 'Match not started yet - changes re-plan the whole match.'}</div>
+    ${matchFinished ? '' : `<div class="radio-row" id="stPresets">
+      <div class="radio-opt" data-preset="chase">Chasing the game</div>
+      <div class="radio-opt" data-preset="protect">Comfortable lead</div>
+    </div>
+    <div class="config-note" style="margin:-4px 0 12px;">Chasing: less fair, stick to best positions. Comfortable: share minutes out, try players in new positions.</div>`}
+    <div class="form-card" ${matchFinished ? 'style="opacity:0.6; pointer-events:none;"' : ''}>
+      <div class="config-row">
+        <div class="config-label"><span>Substitution style</span><span class="val" id="stFairLabel"></span></div>
+        <input type="range" id="stFair" min="0" max="1" step="0.1" value="${c.fairnessPriority}">
+        <div class="config-ends"><span>Fewer subs</span><span>Maximum fairness</span></div>
+      </div>
+      <div class="config-row">
+        <div class="config-label"><span>Position vs. fluid</span><span class="val" id="stStrictLabel"></span></div>
+        <input type="range" id="stStrict" min="0" max="1" step="0.1" value="${Math.round((1 - c.positionStrictness) * 10) / 10}">
+        <div class="config-ends"><span>Stick to best position</span><span>Fluid rotation</span></div>
+      </div>
+      <div class="config-row">
+        <div class="config-label"><span>Sub timing</span></div>
+        <div class="radio-row" id="stTiming">
+          <div class="radio-opt ${c.subTimingMode === 'anytime' ? 'selected' : ''}" data-timing="anytime">Anytime</div>
+          <div class="radio-opt ${c.subTimingMode === 'interval' ? 'selected' : ''}" data-timing="interval">Fixed interval</div>
+          <div class="radio-opt ${c.subTimingMode === 'checkpoints' ? 'selected' : ''}" data-timing="checkpoints">Period checkpoints</div>
+        </div>
+        <div class="field" style="display:${c.subTimingMode === 'interval' ? 'block' : 'none'};"><label>Only consider subs every</label>
+          <select id="stInterval">${[5, 10, 15, 20, 30].map(v => `<option value="${v}" ${v === c.subIntervalMinutes ? 'selected' : ''}>${v} minutes</option>`).join('')}</select></div>
+        <div class="check-row" style="display:${c.subTimingMode === 'checkpoints' ? 'flex' : 'none'};"><input type="checkbox" id="stHalfway" ${c.checkpointHalfway ? 'checked' : ''}><label for="stHalfway">Also halfway through each period</label></div>
+      </div>
+      <div class="config-row">
+        <div class="config-label"><span>Minimum time on before a sub</span><span class="val" id="stMinLabel"></span></div>
+        <input type="range" id="stMin" min="2" max="${maxLen}" step="1" value="${Math.min(c.minShiftLength, maxLen)}">
+        <div class="config-ends"><span>2' (very frequent)</span><span>${maxLen}' (no fairness subs)</span></div>
+      </div>
+      <div class="config-row">
+        <div class="config-label"><span>Maximum time off as a sub</span><span class="val" id="stMaxLabel"></span></div>
+        <input type="range" id="stMax" min="2" max="${maxLen}" step="1" value="${c.maxBenchLength ? Math.min(c.maxBenchLength, maxLen) : maxLen}">
+        <div class="config-ends"><span>2' (rarely sit out)</span><span>No limit</span></div>
+      </div>
+      <div class="config-note">Whether keeper time counts toward fairness is fixed for the match when it's created.</div>
+    </div>
+    ${history ? `<div class="config-note" style="margin-top:10px;"><strong>Changes this match</strong>${history}</div>` : ''}`;
+  const q = id => host.querySelector('#' + id);
+  const fairLbl = () => { q('stFairLabel').textContent = labelFor(parseFloat(q('stFair').value), 'Fewer subs', 'Balanced', 'Maximum fairness'); };
+  const strictLbl = () => { q('stStrictLabel').textContent = labelFor(parseFloat(q('stStrict').value), 'Stick to best position', 'Balanced', 'Fluid rotation'); };
+  const minLbl = () => { q('stMinLabel').textContent = q('stMin').value + "'"; };
+  const maxLbl = () => { q('stMaxLabel').textContent = parseInt(q('stMax').value, 10) >= maxLen ? 'No limit' : q('stMax').value + "'"; };
+  fairLbl(); strictLbl(); minLbl(); maxLbl();
+  const done = () => renderSettingsTab();
+  q('stFair').addEventListener('input', () => { fairLbl(); applyCfgChange({fairnessPriority: parseFloat(q('stFair').value)}); });
+  q('stStrict').addEventListener('input', () => { strictLbl(); applyCfgChange({positionStrictness: Math.round((1 - parseFloat(q('stStrict').value)) * 10) / 10}); });
+  q('stMin').addEventListener('input', () => { minLbl(); applyCfgChange({minShiftLength: parseInt(q('stMin').value, 10)}); });
+  q('stMax').addEventListener('input', () => { maxLbl(); const v = parseInt(q('stMax').value, 10); applyCfgChange({maxBenchLength: v >= maxLen ? 0 : v}); });
+  q('stTiming').addEventListener('click', e => {
+    const opt = e.target.closest('.radio-opt'); if (!opt) return;
+    applyCfgChange({subTimingMode: opt.dataset.timing}); done();
+  });
+  q('stInterval').addEventListener('change', () => { applyCfgChange({subIntervalMinutes: parseInt(q('stInterval').value, 10)}); });
+  q('stHalfway').addEventListener('change', () => { applyCfgChange({checkpointHalfway: q('stHalfway').checked}); });
+  // Slider drags re-plan on every step; refresh the history list once released.
+  ['stFair', 'stStrict', 'stMin', 'stMax'].forEach(id => q(id).addEventListener('change', done));
+  const presets = q('stPresets');
+  if (presets) presets.addEventListener('click', e => {
+    const opt = e.target.closest('.radio-opt'); if (!opt) return;
+    applyCfgChange(opt.dataset.preset === 'chase' ? {fairnessPriority: 0.2, positionStrictness: 0.9} : {fairnessPriority: 1, positionStrictness: 0.2});
+    done();
+  });
 }
 document.getElementById('detailsSubtabs').addEventListener('click', e => {
   const el = e.target.closest('.plan-subtab');
@@ -2363,71 +2880,148 @@ document.getElementById('forecastViewToggle').addEventListener('click', e => {
    the browser reclaiming it, which would lose the whole match. This
    snapshots everything needed to fully reconstruct live state and
    restores it on load, matching PRD Section 63 / Scenario H. ------- */
-const MATCH_STATE_KEY = 'rf_live_match_v1';
+const MATCH_STATE_KEY = 'rf_live_match_v1'; // legacy single-slot save; migrated into the library below
+const MATCHES_KEY = 'rf_matches_v1';        // the match library: every plan / live / finished match
+const MAX_SAVED_MATCHES = 40;
+let currentMatchId = null;      // which library record the on-screen match belongs to
+let finishedAtMinute = null;
+let persistTimer = null;
+let storageProblem = false;     // true once a save has failed (private mode, storage full)
 
-function saveLiveMatchState() {
-  if (!liveMode) return;
-  try {
-    const snapshot = {
-      v: 1,
-      // match format, needed to rebuild SLOTS/PERIOD_BOUNDS via applyMatchFormat
-      playersOnPitch: PLAYERS_ON_PITCH, hasGk: HAS_GK, duration: DURATION, periods: PERIODS, shape: confirmedShape,
-      // squad + GK plan
-      players: PLAYERS.map(p => ({...p})), // full snapshot, independent of later squad edits
-      gkMode, gkKeepers: [...gkKeepers],
-      // rotation settings
-      cfg: {...cfg},
-      // engine state
-      startingLineup: {...startingLineup},
-      lockedEvents: JSON.parse(JSON.stringify(lockedEvents)),
-      unavailableFrom: {...unavailableFrom},
-      // live clock / progress
-      matchStartTs, pausedAccumMs, pauseStartedAt,
-      currentPeriodIdx, halfTimeActive, matchFinished, pendingHalfTimeBoundaryIdx,
-      resolvedKeys: [...resolvedKeys], snoozes: {...snoozes},
-      dismissedDecisionKeys: [...dismissedDecisionKeys],
-      // score
-      score: {...score}, goalEvents: JSON.parse(JSON.stringify(goalEvents)),
-    };
-    localStorage.setItem(MATCH_STATE_KEY, JSON.stringify(snapshot));
-  } catch (e) { console.warn('Could not save live match state', e); }
+function newMatchId() { return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function matchTitle(ts) {
+  try { return new Date(ts).toLocaleString([], {weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}); }
+  catch (e) { return new Date(ts).toISOString().slice(0, 16).replace('T', ' '); }
 }
-function loadLiveMatchState() {
+function loadMatchLibrary() {
   try {
-    const raw = localStorage.getItem(MATCH_STATE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) { console.warn('Could not read saved live match state', e); }
-  return null;
+    const raw = localStorage.getItem(MATCHES_KEY);
+    if (raw) { const lib = JSON.parse(raw); if (Array.isArray(lib)) return lib; }
+  } catch (e) { console.warn('Could not read match library', e); }
+  return [];
+}
+function saveMatchLibrary(lib) {
+  try { localStorage.setItem(MATCHES_KEY, JSON.stringify(lib)); storageProblem = false; return true; }
+  catch (e) { console.warn('Could not save match library', e); storageProblem = true; return false; }
+}
+function matchStatus() { return matchFinished ? 'finished' : (liveMode ? 'live' : 'planned'); }
+
+function buildMatchSnapshot() {
+  return {
+    v: 2, status: matchStatus(), finishedAt: matchFinished ? finishedAtMinute : null,
+    // match format, needed to rebuild SLOTS/PERIOD_BOUNDS via applyMatchFormat
+    playersOnPitch: PLAYERS_ON_PITCH, hasGk: HAS_GK, duration: DURATION, periods: PERIODS, shape: confirmedShape,
+    // squad + GK plan
+    players: PLAYERS.map(p => ({...p})), // full snapshot, independent of later squad edits
+    gkMode, gkKeepers: [...gkKeepers],
+    // rotation settings (and any changes made mid-match)
+    cfg: {...cfg}, cfgEras: JSON.parse(JSON.stringify(cfgEras)),
+    // engine state
+    startingLineup: {...startingLineup},
+    lockedEvents: JSON.parse(JSON.stringify(lockedEvents)),
+    unavailableFrom: {...unavailableFrom},
+    // live clock / progress
+    matchStartTs, pausedAccumMs, pauseStartedAt,
+    currentPeriodIdx, halfTimeActive, matchFinished, pendingHalfTimeBoundaryIdx,
+    resolvedKeys: [...resolvedKeys], snoozes: {...snoozes},
+    dismissedDecisionKeys: [...dismissedDecisionKeys],
+    // score
+    score: {...score}, goalEvents: JSON.parse(JSON.stringify(goalEvents)),
+  };
+}
+
+// Writes the on-screen match into the library (creating its record on first
+// save). Called after every change that matters - plan edits, DONE/DELAY/SKIP,
+// goals, pauses, period changes, finishing - so quitting the app at any moment
+// loses nothing.
+function saveLiveMatchState() {
+  if (!PLAN || !currentMatchId) return false;
+  try {
+    const lib = loadMatchLibrary();
+    const snap = buildMatchSnapshot();
+    const now = Date.now();
+    let rec = lib.find(r => r.id === currentMatchId);
+    if (!rec) { rec = {id: currentMatchId, createdAt: now}; lib.push(rec); }
+    rec.updatedAt = now; rec.status = snap.status; rec.snapshot = snap;
+    rec.title = rec.title || matchTitle(rec.createdAt);
+    rec.format = `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH} · ${DURATION}' · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`;
+    rec.score = {...score};
+    rec.minute = snap.status === 'finished' ? finishedAtMinute : (snap.status === 'live' ? (halfTimeActive && pendingHalfTimeBoundaryIdx !== null ? PERIOD_BOUNDS[pendingHalfTimeBoundaryIdx] : liveElapsedMinute()) : 0);
+    // Keep the library bounded: drop the oldest finished matches first.
+    while (lib.length > MAX_SAVED_MATCHES) {
+      const victims = lib.filter(r => r.status === 'finished' && r.id !== currentMatchId).sort((a, b) => a.updatedAt - b.updatedAt);
+      if (!victims.length) break;
+      lib.splice(lib.indexOf(victims[0]), 1);
+    }
+    return saveMatchLibrary(lib);
+  } catch (e) { console.warn('Could not save match', e); storageProblem = true; return false; }
+}
+// Plan edits go through regeneratePlan(); saving there (debounced) means a
+// pre-match override or a mid-match tweak is never lost even if its own
+// handler forgot to call save.
+function schedulePersist() {
+  if (!currentMatchId) return;
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(saveLiveMatchState, 250);
 }
 function clearLiveMatchState() {
   try { localStorage.removeItem(MATCH_STATE_KEY); } catch (e) { /* ignore */ }
 }
+function deleteMatchRecord(id) {
+  const lib = loadMatchLibrary().filter(r => r.id !== id);
+  saveMatchLibrary(lib);
+}
+// A brand-new plan supersedes any earlier plan that was never kicked off, so
+// the library doesn't fill up with abandoned drafts. Live and finished
+// matches are never removed this way.
+function removeUnstartedPlans() {
+  const lib = loadMatchLibrary();
+  const kept = lib.filter(r => r.status !== 'planned');
+  if (kept.length !== lib.length) saveMatchLibrary(kept);
+}
+function migrateLegacyLiveMatch() {
+  try {
+    const raw = localStorage.getItem(MATCH_STATE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (saved && saved.v === 1 && !saved.matchFinished) {
+      const lib = loadMatchLibrary();
+      const created = saved.matchStartTs || Date.now();
+      lib.push({id: newMatchId(), createdAt: created, updatedAt: Date.now(), status: 'live', title: matchTitle(created),
+        format: `${saved.playersOnPitch}v${saved.playersOnPitch} · ${saved.duration}' · ${saved.periods} period${saved.periods > 1 ? 's' : ''}`,
+        score: saved.score || {us: 0, them: 0}, minute: 0, snapshot: {...saved, status: 'live', finishedAt: null}});
+      saveMatchLibrary(lib);
+    }
+    localStorage.removeItem(MATCH_STATE_KEY);
+  } catch (e) { console.warn('Could not migrate legacy match', e); }
+}
 
-function restoreLiveMatch(saved) {
+// Everything the plan screen needs that depends on the match format.
+function initPlanScreenForFormat() {
+  document.getElementById('scrub').max = DURATION;
+  document.getElementById('detailsFormatLine').textContent =
+    `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}${HAS_GK ? '' : ' (no GK)'} · ${DURATION} min · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`;
+  const marks = PERIOD_BOUNDS.map((b, i) => {
+    if (i === 0) return '<span>KO</span>';
+    if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
+    return `<span>P${i + 1} ${b}'</span>`;
+  }).join('');
+  document.getElementById('halfMarks').innerHTML = marks;
+  document.getElementById('detailHalfMarks').innerHTML = marks;
+}
+
+function restoreLiveMatch(saved, recordId) {
+  const status = saved.status || (saved.matchFinished ? 'finished' : 'live');
   confirmedShape = saved.shape;
   applyMatchFormat(saved.playersOnPitch, saved.hasGk, saved.duration, saved.periods, saved.shape);
-  syncMinShiftSliderMax();
 
   gkMode = saved.gkMode; gkKeepers = [...saved.gkKeepers];
   // Defaults cover snapshots saved before a given setting existed.
-  cfg = {gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false, ...saved.cfg};
-  fairnessSlider.value = cfg.fairnessPriority;
-  strictnessSlider.value = 1 - cfg.positionStrictness;
-  minShiftSlider.value = cfg.minShiftLength;
-  if (parseInt(minShiftSlider.value, 10) > parseInt(minShiftSlider.max, 10)) {
-    // An old snapshot's minShiftLength can exceed the new duration-based max
-    // (e.g. restored after the match format itself changed) - clamp both the
-    // slider and the actual cfg value so they stay in sync.
-    minShiftSlider.value = minShiftSlider.max;
-    cfg.minShiftLength = parseInt(minShiftSlider.max, 10);
-  }
-  gkCountsCheckbox.checked = cfg.gkCountsForFairness;
-  subTimingRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', o.dataset.timing === cfg.subTimingMode));
-  subIntervalSelect.value = cfg.subIntervalMinutes;
-  checkpointHalfwayCheckbox.checked = cfg.checkpointHalfway;
-  document.getElementById('subIntervalField').style.display = cfg.subTimingMode === 'interval' ? 'block' : 'none';
-  document.getElementById('subCheckpointHalfwayRow').style.display = cfg.subTimingMode === 'checkpoints' ? 'flex' : 'none';
-  updateConfigSummary();
+  cfg = {maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false, ...saved.cfg};
+  cfgEras = JSON.parse(JSON.stringify(saved.cfgEras || []));
+  syncMinShiftSliderMax();
+  if (cfg.minShiftLength > parseInt(minShiftSlider.max, 10)) cfg.minShiftLength = parseInt(minShiftSlider.max, 10);
+  syncConfigUIFromCfg();
 
   PLAYERS = saved.players.map(p => ({...p}));
   availableIds = new Set(PLAYERS.map(p => p.id));
@@ -2438,26 +3032,30 @@ function restoreLiveMatch(saved) {
   startingLineup = {...saved.startingLineup};
   lockedEvents = saved.lockedEvents;
   unavailableFrom = {...saved.unavailableFrom};
+  currentMatchId = null; // regenerate without writing until fully restored
   regeneratePlan();
+  currentMatchId = recordId || currentMatchId;
 
   matchStartTs = saved.matchStartTs; pausedAccumMs = saved.pausedAccumMs; pauseStartedAt = saved.pauseStartedAt;
-  currentPeriodIdx = saved.currentPeriodIdx; matchFinished = saved.matchFinished;
+  currentPeriodIdx = saved.currentPeriodIdx || 0; matchFinished = status === 'finished';
   pendingHalfTimeBoundaryIdx = saved.pendingHalfTimeBoundaryIdx;
+  finishedAtMinute = saved.finishedAt ?? null;
   resolvedKeys = new Set(saved.resolvedKeys || []); snoozes = {...(saved.snoozes || {})};
   dismissedDecisionKeys = new Set(saved.dismissedDecisionKeys || []);
-  liveMode = true;
+  liveMode = status !== 'planned';
+  halfTimeActive = false;
+  clearInterval(liveTicker);
 
-  document.getElementById('previewControls').style.display = 'none';
-  document.getElementById('liveStatusRow').style.display = 'flex';
-  document.getElementById('earlyFinishLink').style.display = 'block';
-  document.getElementById('nextSub').style.display = 'none';
+  initPlanScreenForFormat();
+  const preview = status === 'planned';
+  document.getElementById('previewControls').style.display = preview ? 'block' : 'none';
+  document.getElementById('liveStatusRow').style.display = preview ? 'none' : 'flex';
+  document.getElementById('earlyFinishLink').style.display = (preview || status === 'finished') ? 'none' : 'block';
+  document.getElementById('nextSub').style.display = preview ? 'flex' : 'none';
+  document.getElementById('subsPill').style.display = 'none';
+  document.getElementById('halfTimePanel').style.display = 'none';
+  document.getElementById('halfTimePanel').innerHTML = '';
   lastAutoPoppedKey = null;
-  document.getElementById('detailHalfMarks').innerHTML = PERIOD_BOUNDS.map((b,i) => {
-    if (i === 0) return '<span>KO</span>';
-    if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
-    return `<span>P${i+1} ${b}'</span>`;
-  }).join('');
-  document.getElementById('scrub').max = DURATION;
   document.getElementById('planTab').classList.remove('disabled');
   document.getElementById('livePauseBtn').textContent = pauseStartedAt ? '▶' : '❚❚';
 
@@ -2466,20 +3064,74 @@ function restoreLiveMatch(saved) {
   updateScoreDisplay();
 
   document.getElementById('regenBanner').classList.remove('show');
-  currentT = liveElapsedMinute(); openPicker = null;
+  openPicker = null;
   setPlanSubTab('live');
+  setDetailsSubTab('subs');
 
-  if (saved.halfTimeActive) {
-    // enterHalfTime rebuilds the half-time card from scratch off PLAN, which we've
-    // just regenerated - pauseStartedAt is already restored above, so it won't be
-    // overwritten with a fresh Date.now().
+  if (status === 'planned') {
+    currentT = 0; render(0);
+  } else if (status === 'finished') {
+    currentT = finishedAtMinute ?? DURATION; render(currentT);
+    finishMatch(finishedAtMinute ?? DURATION, {restoring: true});
+  } else if (saved.halfTimeActive) {
+    currentT = liveElapsedMinute(); render(currentT);
+    // The half-time card is rebuilt from the restored plan; pauseStartedAt is
+    // already restored above, so it isn't overwritten with a fresh Date.now().
     enterHalfTime(saved.pendingHalfTimeBoundaryIdx);
   } else {
-    clearInterval(liveTicker);
+    currentT = liveElapsedMinute();
     liveTicker = setInterval(liveTick, 1000);
     liveTick();
   }
   showScreen('plan');
+}
+
+// Open any saved match (from the Matches tab, or auto-resume on launch).
+// A match that can't be restored is KEPT and the problem reported - it is
+// never silently wiped, so nothing is lost to a bug.
+function openMatchFromLibrary(id) {
+  const rec = loadMatchLibrary().find(r => r.id === id);
+  if (!rec) return false;
+  if (currentMatchId && currentMatchId !== id) saveLiveMatchState();
+  try { restoreLiveMatch(rec.snapshot, rec.id); return true; }
+  catch (e) {
+    console.error('Could not restore match', e);
+    showAlert(`Couldn't open this match (${e && e.message ? e.message : 'unknown error'}). It's still saved - nothing has been deleted.`);
+    return false;
+  }
+}
+
+function renderMatchesScreen() {
+  const lib = loadMatchLibrary().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const note = document.getElementById('matchesStorageNote');
+  note.style.display = storageProblem ? 'block' : 'none';
+  note.textContent = storageProblem ? "This browser isn't letting the app save matches (private browsing or storage full), so they won't survive closing it." : '';
+  const list = document.getElementById('matchesList');
+  if (!lib.length) { list.innerHTML = '<div class="config-note">No matches yet - generate a match plan from the New Match tab and it will appear here.</div>'; return; }
+  list.innerHTML = lib.map(r => {
+    const badge = r.status === 'live' ? '<span class="badge live">LIVE</span>' : r.status === 'planned' ? '<span class="badge planned">PLANNED</span>' : '<span class="badge">FINISHED</span>';
+    const score = r.status === 'planned' ? '' : ` · ${r.score ? r.score.us : 0} – ${r.score ? r.score.them : 0}`;
+    const where = r.status === 'live' ? ` · at ${r.minute || 0}'` : r.status === 'finished' ? ` · full time ${r.minute || ''}'` : '';
+    const btn = r.status === 'live' ? 'Resume' : r.status === 'planned' ? 'Open' : 'View';
+    return `<div class="match-card" data-id="${r.id}">
+      <div class="mc-title">${r.title || matchTitle(r.createdAt)}</div>
+      <div class="mc-sub">${r.format || ''}${score}${where}</div>
+      <div class="mc-row">${badge}<span class="decision-link secondary" data-del="${r.id}">Delete</span><button class="btn btn-primary mc-btn" data-open="${r.id}" style="width:auto; padding:6px 16px; margin:0;">${btn}</button></div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openMatchFromLibrary(b.dataset.open)));
+  list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.del;
+    showConfirm('Delete this match from your history? This can\'t be undone.', () => {
+      deleteMatchRecord(id);
+      if (id === currentMatchId) {
+        clearInterval(liveTicker);
+        liveMode = false; halfTimeActive = false; matchFinished = false; currentMatchId = null; PLAN = null;
+        document.getElementById('planTab').classList.add('disabled');
+      }
+      renderMatchesScreen();
+    }, 'Delete');
+  }));
 }
 
 function liveElapsedMs() {
@@ -2490,7 +3142,9 @@ function liveElapsedMs() {
 function liveElapsedMinute() { return Math.min(DURATION, Math.floor(liveElapsedMs() / 60000)); }
 
 function startMatch() {
-  lockedEvents = []; unavailableFrom = {};
+  // NOTE: lockedEvents is deliberately NOT cleared here - any overrides made
+  // in the pre-match preview (a swapped sub, deleted sub, new starting
+  // player) are part of the plan the coach is kicking off with.
   matchStartTs = Date.now(); pausedAccumMs = 0; pauseStartedAt = null;
   currentPeriodIdx = 0; halfTimeActive = false; matchFinished = false;
   liveMode = true;
@@ -2561,6 +3215,67 @@ function dueRotations(mins) {
 }
 function isSnoozed(key, mins) { return snoozes[key] !== undefined && mins < snoozes[key]; }
 
+// Shared by the Substitutions popup and the between-periods prompt, so a sub
+// is resolved identically wherever the coach deals with it.
+function confirmDueSub(r, mins) {
+  resolvedKeys.add(rotationKey(r));
+  lockedEvents.push({time: mins, type: 'sub', slot: r.slot, on: r.on, reason: mins - r.time > 0 ? 'confirmed (actual time)' : 'coach override'});
+  delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
+  regeneratePlan(); render(mins); saveLiveMatchState();
+}
+function skipDueSub(r, mins) {
+  resolvedKeys.add(rotationKey(r));
+  lockedEvents.push({time: mins, type: 'skip', slot: r.slot});
+  delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
+  regeneratePlan(); render(mins); saveLiveMatchState();
+}
+function delayDueSub(r, mins, by) {
+  snoozes[rotationKey(r)] = mins + by;
+  lastAutoPoppedKey = null;
+  render(mins); saveLiveMatchState();
+}
+// One due sub as an action card (DONE / DELAY / SKIP + delay chips).
+function dueCardHtml(r, mins, i) {
+  const overdue = mins - r.time;
+  const moves = reshuffleMovesAt(r.time);
+  return `
+    <div class="action-panel" style="margin:0 0 10px;">
+      <div class="headline">${overdue > 0 ? `Due ${overdue}' ago` : 'Due now'}: <strong>${r.on}</strong> ON · <strong>${r.off}</strong> OFF <span style="color:var(--ink-soft); font-weight:400;">(${r.slot})</span></div>
+      ${moves.length ? `<div class="tl-moves" style="margin:-4px 0 8px;">⇄ Positions: ${moves.join(' · ')}</div>` : ''}
+      <div class="action-btn-row">
+        <button class="action-btn done" data-due-i="${i}" data-act="done">DONE</button>
+        <button class="action-btn delay" data-due-i="${i}" data-act="delay">DELAY</button>
+        <button class="action-btn skip" data-due-i="${i}" data-act="skip">SKIP</button>
+      </div>
+      <div class="delay-opts" data-delay-for="${i}" style="display:none;">
+        <span class="preset-chip" data-mins="1">+1'</span>
+        <span class="preset-chip" data-mins="2">+2'</span>
+        <span class="preset-chip" data-mins="5">+5'</span>
+      </div>
+    </div>`;
+}
+// Wires the buttons of dueCardHtml cards inside `root`.
+function wireDueCards(root, due, mins, after) {
+  root.querySelectorAll('[data-act="done"]').forEach(btn => {
+    const r = due[parseInt(btn.dataset.dueI, 10)];
+    btn.addEventListener('click', () => { confirmDueSub(r, mins); after(); });
+  });
+  root.querySelectorAll('[data-act="skip"]').forEach(btn => {
+    const r = due[parseInt(btn.dataset.dueI, 10)];
+    btn.addEventListener('click', () => { skipDueSub(r, mins); after(); });
+  });
+  root.querySelectorAll('[data-act="delay"]').forEach(btn => {
+    const i = btn.dataset.dueI;
+    btn.addEventListener('click', () => { root.querySelector(`[data-delay-for="${i}"]`).style.display = 'flex'; });
+  });
+  root.querySelectorAll('.delay-opts .preset-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const r = due[parseInt(chip.closest('.delay-opts').dataset.delayFor, 10)];
+      delayDueSub(r, mins, parseInt(chip.dataset.mins, 10)); after();
+    });
+  });
+}
+
 // Compact persistent indicator of the next/due rotation, always visible on the
 // primary live screen. Tapping it (or it auto-popping the first time a sub
 // becomes newly due) opens the full Substitutions popup with Do/Delay/Skip.
@@ -2613,24 +3328,10 @@ function openSubsPopup() {
       if (isSnoozed(key, mins)) {
         return `<div class="action-panel" style="border-color:var(--card-line); margin:0 0 10px;"><div class="headline" style="font-size:13px;">Snoozed — will ask again at ${snoozes[key]}' (${r.on} ON / ${r.off} OFF, ${r.slot})</div></div>`;
       }
-      const overdue = mins - r.time;
-      return `
-        <div class="action-panel" style="margin:0 0 10px;">
-          <div class="headline">${overdue > 0 ? `Due ${overdue}' ago` : 'Due now'}: <strong>${r.on}</strong> ON · <strong>${r.off}</strong> OFF <span style="color:var(--ink-soft); font-weight:400;">(${r.slot})</span></div>
-          <div class="action-btn-row">
-            <button class="action-btn done" data-due-i="${i}" data-act="done">DONE</button>
-            <button class="action-btn delay" data-due-i="${i}" data-act="delay">DELAY</button>
-            <button class="action-btn skip" data-due-i="${i}" data-act="skip">SKIP</button>
-          </div>
-          <div class="delay-opts" data-delay-for="${i}" style="display:none;">
-            <span class="preset-chip" data-mins="1">+1'</span>
-            <span class="preset-chip" data-mins="2">+2'</span>
-            <span class="preset-chip" data-mins="5">+5'</span>
-          </div>
-        </div>`;
+      return dueCardHtml(r, mins, i);
     }).join('');
 
-    const futureRows = future.map(r => `<div class="picker-opt" style="cursor:default;"><span>in ${r.time - mins}' · <strong>${r.on}</strong> ON / <strong>${r.off}</strong> OFF</span><span style="color:var(--ink-soft);">${r.slot}</span></div>`).join('');
+    const futureRows = future.map(r => `<div class="picker-opt" style="cursor:default; flex-wrap:wrap;"><span>in ${r.time - mins}' · <strong>${r.on}</strong> ON / <strong>${r.off}</strong> OFF</span><span style="color:var(--ink-soft);">${r.slot}</span>${movesHtml(r.time).replace('class="tl-moves"', 'class="tl-moves" style="width:100%;"')}</div>`).join('');
     const emptyRow = (!due.length && !future.length) ? '<div class="picker-opt" style="cursor:default;"><span>No further changes planned</span></div>' : '';
 
     card.innerHTML = `
@@ -2646,42 +3347,7 @@ function openSubsPopup() {
       const stillDue = dueRotations(liveElapsedMinute()).filter(r => !isSnoozed(rotationKey(r), liveElapsedMinute()));
       if (stillDue.length) refresh(); else overlay.remove();
     }
-    card.querySelectorAll('[data-act="done"]').forEach(btn => {
-      const r = due[parseInt(btn.dataset.dueI, 10)];
-      btn.addEventListener('click', () => {
-        resolvedKeys.add(rotationKey(r));
-        lockedEvents.push({time: mins, type: 'sub', slot: r.slot, on: r.on, reason: mins - r.time > 0 ? 'confirmed (actual time)' : 'coach override'});
-        delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
-        regeneratePlan(); render(mins); saveLiveMatchState();
-        closeIfNothingLeftDue();
-      });
-    });
-    card.querySelectorAll('[data-act="skip"]').forEach(btn => {
-      const r = due[parseInt(btn.dataset.dueI, 10)];
-      btn.addEventListener('click', () => {
-        resolvedKeys.add(rotationKey(r));
-        lockedEvents.push({time: mins, type: 'skip', slot: r.slot});
-        delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
-        regeneratePlan(); render(mins); saveLiveMatchState();
-        closeIfNothingLeftDue();
-      });
-    });
-    card.querySelectorAll('[data-act="delay"]').forEach(btn => {
-      const i = btn.dataset.dueI;
-      btn.addEventListener('click', () => {
-        card.querySelector(`[data-delay-for="${i}"]`).style.display = 'flex';
-      });
-    });
-    card.querySelectorAll('.delay-opts .preset-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const i = parseInt(chip.closest('.delay-opts').dataset.delayFor, 10);
-        const r = due[i];
-        snoozes[rotationKey(r)] = mins + parseInt(chip.dataset.mins, 10);
-        lastAutoPoppedKey = null;
-        render(mins); saveLiveMatchState();
-        refresh();
-      });
-    });
+    wireDueCards(card, due, mins, closeIfNothingLeftDue);
     card.querySelector('#subsPopupClose').addEventListener('click', () => overlay.remove());
   }
   refresh();
@@ -2703,7 +3369,7 @@ function openLiveChangePicker(slotId) {
     <div class="picker-cancel" id="lcCancel">Cancel</div>`);
   overlay.querySelectorAll('.picker-opt').forEach(el => {
     el.addEventListener('click', () => {
-      lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: el.dataset.on, reason: 'unplanned change'});
+      lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: el.dataset.on, reason: 'unplanned change', manual: true});
       // The coach just made this swap themselves - it must never immediately
       // reappear as a "due" rotation asking them to confirm the same swap.
       resolvedKeys.add(rotationKey({time: mins, slot: slotId}));
@@ -2769,21 +3435,44 @@ function enterHalfTime(periodIdx) {
   // the Live tab, so jump there now in case the coach was on Details when
   // the clock hit the boundary.
   setPlanSubTab('live');
+  renderHalfTimePanel(periodIdx);
+}
+
+// Subs due at (or before) this period boundary that the coach hasn't yet
+// confirmed, delayed or skipped. The next period can't be started until
+// there are none - the changes belong BEFORE kick-off of the new period,
+// not in a popup after the clock is already running.
+function pendingSubsAtBoundary(boundaryMinute) {
+  return dueRotations(boundaryMinute).filter(r => !isSnoozed(rotationKey(r), boundaryMinute));
+}
+
+function renderHalfTimePanel(periodIdx) {
   const isFullTime = periodIdx >= PERIOD_BOUNDS.length - 1;
   const boundaryMinute = PERIOD_BOUNDS[periodIdx];
   const panel = document.getElementById('halfTimePanel');
   panel.style.display = 'block';
+  const pending = isFullTime ? [] : pendingSubsAtBoundary(boundaryMinute);
+  const delayed = isFullTime ? [] : dueRotations(boundaryMinute).filter(r => isSnoozed(rotationKey(r), boundaryMinute));
+  const subsBlock = isFullTime ? '' : `
+      <div class="ht-subs" id="htSubs">
+        ${pending.length ? `<div class="ht-subs-title">Make these changes before period ${periodIdx + 1} kicks off - confirm, delay or skip each one to continue.</div>
+          ${pending.map((r, i) => dueCardHtml(r, boundaryMinute, i)).join('')}`
+          : `<div class="ht-subs-title">${delayed.length ? `${delayed.length} change${delayed.length === 1 ? '' : 's'} delayed into period ${periodIdx + 1} - you'll be asked again.` : 'No changes needed before the restart.'}</div>`}
+      </div>`;
   panel.innerHTML = `
     <div class="halftime-card">
       <h2>${isFullTime ? 'FULL TIME' : 'PERIOD ' + periodIdx + ' COMPLETE'}</h2>
       <div class="big">${boundaryMinute}'</div>
+      ${subsBlock}
       ${isFullTime
         ? `<button class="btn btn-primary" id="finishMatchBtn" style="background:var(--amber); color:var(--amber-ink);">Finish match</button>`
-        : `<button class="btn btn-primary" id="startNextPeriodBtn" style="background:var(--amber); color:var(--amber-ink);">Start period ${periodIdx + 1}</button>`}
+        : `<button class="btn btn-primary" id="startNextPeriodBtn" style="background:var(--amber); color:var(--amber-ink);" ${pending.length ? 'disabled' : ''}>${pending.length ? `Resolve ${pending.length} change${pending.length === 1 ? '' : 's'} to start period ${periodIdx + 1}` : `Start period ${periodIdx + 1}`}</button>`}
     </div>
     ${buildSummaryTable(boundaryMinute)}`;
   if (!isFullTime) {
+    wireDueCards(panel.querySelector('#htSubs'), pending, boundaryMinute, () => renderHalfTimePanel(periodIdx));
     document.getElementById('startNextPeriodBtn').addEventListener('click', () => {
+      if (pendingSubsAtBoundary(boundaryMinute).length) return;
       currentPeriodIdx = periodIdx;
       halfTimeActive = false;
       pendingHalfTimeBoundaryIdx = null;
@@ -2828,30 +3517,79 @@ function buildSummaryTable(atMinute) {
     <p class="config-note">Actual = total minutes played so far (GK time shown separately in brackets where it doesn't count toward fairness). Diff = Actual minus Target - positive means ahead of their fair share, negative means behind. Longest bench = their longest single unbroken spell off the pitch so far.</p>`;
 }
 
-function computeLongestBenchSpell(atMinute) {
-  const onPitchIntervals = Object.fromEntries(PLAYERS.map(p => [p.id, []]));
+// Every unbroken spell each player spends off the pitch up to `atMinute`,
+// as {start, end} (a player on the bench from kick-off has a spell from 0).
+function computeBenchSpells(atMinute) {
+  const out = {};
+  const intervals = computeOnPitchIntervals(atMinute);
+  PLAYERS.forEach(p => {
+    const ivs = intervals[p.id].sort((a, b) => a.start - b.start);
+    const spells = []; let cursor = 0;
+    for (const iv of ivs) { if (iv.start > cursor) spells.push({start: cursor, end: iv.start}); cursor = iv.end; }
+    if (atMinute > cursor) spells.push({start: cursor, end: atMinute});
+    out[p.id] = spells;
+  });
+  return out;
+}
+// "Maximum time off" flag: players whose forecast spell off the pitch is
+// longer than the limit in force when that spell began. Spells already
+// completed in a live match are history, not something the coach can fix.
+function benchLimitNote() {
+  if (!PLAN || !PLAYERS.length) return null;
+  const anyLimit = cfg.maxBenchLength || cfgEras.some(e => e.cfg.maxBenchLength);
+  if (!anyLimit) return null;
+  const spells = computeBenchSpells(DURATION);
+  const nowMin = liveMode ? liveElapsedMinute() : 0;
+  const over = [];
+  for (const p of PLAYERS) {
+    for (const sp of spells[p.id]) {
+      const limit = effectiveCfgAt(cfg, sp.start).maxBenchLength;
+      if (!limit || sp.end <= nowMin) continue;
+      const len = sp.end - sp.start;
+      if (len > limit) over.push({id: p.id, len, start: sp.start, end: sp.end, limit});
+    }
+  }
+  if (!over.length) return null;
+  over.sort((a, b) => (b.len - b.limit) - (a.len - a.limit));
+  const parts = over.slice(0, 5).map(o => `${o.id} ${o.len}' off (mins ${o.start}-${o.end})`);
+  const eff = effectiveCfgAt(cfg, liveMode ? liveElapsedMinute() : 0);
+  let cause = 'There may not be enough cover to bring them back sooner.';
+  if (eff.subTimingMode !== 'anytime') cause = `"Sub timing" (${subTimingSummary(eff)}) only allows changes at set moments, which can stop them coming back in time.`;
+  else if (eff.minShiftLength > 0.15 * DURATION) cause = `"Minimum time on before a sub" (${eff.minShiftLength}') is holding others on the pitch long enough that it can't free a place sooner.`;
+  return {text: `Some players sit out longer than your maximum time off the pitch: ${parts.join(' · ')}. ${cause}`, over};
+}
+
+function computeOnPitchIntervals(atMinute) {
+  // Replays the plan and, after each moment something changes, checks who is
+  // on the pitch. Robust to a single minute holding several linked changes
+  // (e.g. a keeper swap, where the new keeper was already on the pitch).
+  const out = Object.fromEntries(PLAYERS.map(p => [p.id, []]));
   let onPitch = {...startingLineup};
   const curStart = Object.fromEntries(PLAYERS.map(p => [p.id, Object.values(onPitch).includes(p.id) ? 0 : null]));
-  const events = [...PLAN.rotations].filter(e => e.time <= atMinute).sort((a,b) => a.time - b.time);
-  function closeInterval(pid, endTime) {
-    if (curStart[pid] !== null) { onPitchIntervals[pid].push({start: curStart[pid], end: endTime}); curStart[pid] = null; }
+  const events = [...PLAN.rotations].filter(e => e.time <= atMinute).sort((a, b) => a.time - b.time);
+  let i = 0;
+  while (i < events.length) {
+    const time = events[i].time;
+    while (i < events.length && events[i].time === time) {
+      const ev = events[i++];
+      if (ev.type === 'formation') onPitch = {...ev.remap};
+      else if (ev.type === 'reshuffle') Object.assign(onPitch, ev.assign);
+      else if (ev.type === 'skip' || ev.type === 'unavailable') { /* no change */ }
+      else onPitch[ev.slot] = ev.on;
+    }
+    const now = new Set(Object.values(onPitch));
+    for (const p of PLAYERS) {
+      if (now.has(p.id) && curStart[p.id] === null) curStart[p.id] = time;
+      else if (!now.has(p.id) && curStart[p.id] !== null) { out[p.id].push({start: curStart[p.id], end: time}); curStart[p.id] = null; }
+    }
   }
-  for (const ev of events) {
-    if (ev.type === 'formation') { onPitch = {...ev.remap}; continue; }
-    if (ev.type === 'skip' || ev.type === 'unavailable') continue;
-    closeInterval(ev.off, ev.time);
-    curStart[ev.on] = ev.time;
-    onPitch[ev.slot] = ev.on;
-  }
-  PLAYERS.forEach(p => { if (curStart[p.id] !== null) onPitchIntervals[p.id].push({start: curStart[p.id], end: atMinute}); });
+  PLAYERS.forEach(p => { if (curStart[p.id] !== null) out[p.id].push({start: curStart[p.id], end: atMinute}); });
+  return out;
+}
+function computeLongestBenchSpell(atMinute) {
+  const spells = computeBenchSpells(atMinute);
   const longest = {};
-  PLAYERS.forEach(p => {
-    const intervals = onPitchIntervals[p.id].sort((a,b) => a.start - b.start);
-    let max = 0, cursor = 0;
-    for (const iv of intervals) { max = Math.max(max, iv.start - cursor); cursor = iv.end; }
-    max = Math.max(max, atMinute - cursor);
-    longest[p.id] = max;
-  });
+  PLAYERS.forEach(p => { longest[p.id] = spells[p.id].reduce((m, sp) => Math.max(m, sp.end - sp.start), 0); });
   return longest;
 }
 
@@ -2866,9 +3604,11 @@ function requestEarlyFinish() {
   }, 'End match');
 }
 
-function finishMatch(atMinute) {
+function finishMatch(atMinute, opts) {
   matchFinished = true;
-  clearLiveMatchState(); // match is over - nothing left to restore
+  finishedAtMinute = atMinute;
+  clearInterval(liveTicker);
+  if (!(opts && opts.restoring)) saveLiveMatchState(); // kept in the Matches tab as a finished match
   // The full-time summary lives on the Live tab (inside #halfTimePanel) - jump
   // there now so it's actually visible even if the coach ended the match from
   // the Details tab (where the "End match now" button lives).
@@ -2895,15 +3635,19 @@ function finishMatch(atMinute) {
 /* ================= INIT ================= */
 renderSquadList();
 
-// If the page was reloaded (or the browser killed a backgrounded tab) while a
-// match was in progress, resume straight back into it with the correct
-// elapsed time, rather than losing it.
-(function tryRestoreLiveMatch() {
-  const saved = loadLiveMatchState();
-  if (saved && saved.v === 1) {
-    try { restoreLiveMatch(saved); }
-    catch (e) { console.warn('Could not restore in-progress match, starting fresh', e); clearLiveMatchState(); }
-  }
+// Save the instant the app is backgrounded or closed, and ask the browser not
+// to evict our storage.
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveLiveMatchState(); });
+window.addEventListener('pagehide', () => saveLiveMatchState());
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* best effort */ }
+
+// If the page was reloaded (or the app was quit) while a match was in
+// progress, resume straight back into it with the correct elapsed time.
+// Matches that haven't kicked off, and finished ones, live in the Matches tab.
+(function resumeLiveMatchOnLaunch() {
+  migrateLegacyLiveMatch();
+  const live = loadMatchLibrary().filter(r => r.status === 'live').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+  if (live) openMatchFromLibrary(live.id);
 })();
 </script>
 </body>
