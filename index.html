@@ -339,6 +339,15 @@
       <div class="config-note" style="margin-bottom:10px;"><span id="formatSummaryLine"></span> — <span id="changeFormatLink" style="text-decoration:underline; cursor:pointer; color:var(--turf-1);">change format</span></div>
 
       <section>
+        <h2>How do you want to plan this match?</h2>
+        <div class="radio-row" id="planModeRow">
+          <div class="radio-opt selected" data-planmode="auto">Auto-generate<br><small>Planner picks the team and suggests subs</small></div>
+          <div class="radio-opt" data-planmode="manual">Pick it myself<br><small>You choose the team and make every sub</small></div>
+        </div>
+        <div class="config-note" id="planModeNote"></div>
+      </section>
+
+      <section>
         <h2 id="availHeading">Available for this match</h2>
         <div id="availList"></div>
         <div class="avail-count" id="availCount"></div>
@@ -350,12 +359,12 @@
         <div class="radio-row" id="gkModeRow">
           <div class="radio-opt" data-mode="single">Same keeper all game</div>
           <div class="radio-opt selected" data-mode="rotate">Rotate by period</div>
-          <div class="radio-opt" data-mode="auto">Planner decides</div>
         </div>
+        <div class="check-row" id="gkAutoRow" style="margin-bottom:10px;"><input type="checkbox" id="gkAutoCheckbox"><label for="gkAutoCheckbox" id="gkAutoLabel"></label></div>
         <div id="gkPickers"></div>
       </section>
 
-      <div class="config-card">
+      <div class="config-card" id="rotationCard">
         <div class="config-header" id="configHeader">
           <div><h2>Rotation settings</h2><div class="config-summary" id="configSummary"></div></div>
           <div class="config-cog" id="configCog">⚙</div>
@@ -496,7 +505,9 @@
       </div>
 
       <div id="detailsViewSubs" style="margin-top:14px;">
-        <section><h2>Rotation timeline — tap a name to override</h2><div class="timeline" id="timeline"></div></section>
+        <section><h2>Rotation timeline — tap a name to override</h2>
+          <button class="btn btn-ghost" id="addSubBtn" style="margin-bottom:10px;">+ Add a substitution</button>
+          <div class="timeline" id="timeline"></div></section>
       </div>
 
       <div id="detailsViewForecast" style="display:none; margin-top:14px;">
@@ -923,6 +934,7 @@ document.getElementById('confirmFormatBtn').addEventListener('click', () => {
   syncMinShiftSliderMax();
   gkKeepers = new Array(PERIODS).fill(null);
   gkMode = PERIODS > 1 ? 'rotate' : 'single';
+  gkAuto = false;
 
   const shapeDesc = ['DEF', 'MID', 'ATT'].filter(g => shape[g] > 0).map(g => `${shape[g]} ${g}`).join('-');
   document.getElementById('formatSummaryLine').textContent =
@@ -942,6 +954,7 @@ updatePeriodPreview();
 /* ================= SETUP SCREEN — STEP 2: TEAM & GK PLANNING ================= */
 let availableIds = new Set();
 let gkMode = 'rotate';
+let gkAuto = false; // planner chooses the keeper(s) instead of the coach picking (works with either mode)
 let gkKeepers = []; // one chosen keeper id per period (rotate mode uses all; single mode uses only index 0)
 
 function renderSetupScreen() {
@@ -993,8 +1006,13 @@ function renderGkSection() {
     return;
   }
   modeRow.style.display = 'flex';
-  if (eligible.length === 1) gkMode = 'single';
+  if (eligible.length === 1) { gkMode = 'single'; gkAuto = false; }
   else if (PERIODS === 1 && gkMode === 'rotate') gkMode = 'single';
+  const autoRow = document.getElementById('gkAutoRow');
+  autoRow.style.display = eligible.length >= 2 ? 'flex' : 'none';
+  document.getElementById('gkAutoCheckbox').checked = gkAuto;
+  document.getElementById('gkAutoLabel').textContent = gkMode === 'single'
+    ? 'Let the planner choose the keeper' : 'Let the planner choose a different keeper each period';
 
   if (!gkKeepers.length || gkKeepers.length !== PERIODS) gkKeepers = new Array(PERIODS).fill(null);
   for (let i = 0; i < PERIODS; i++) {
@@ -1003,15 +1021,17 @@ function renderGkSection() {
 
   modeRow.querySelectorAll('.radio-opt').forEach(opt => {
     opt.classList.toggle('selected', opt.dataset.mode === gkMode);
-    opt.classList.toggle('disabled', ((eligible.length < 2 || PERIODS < 2) && opt.dataset.mode === 'rotate') || (eligible.length < 2 && opt.dataset.mode === 'auto'));
+    opt.classList.toggle('disabled', (eligible.length < 2 || PERIODS < 2) && opt.dataset.mode === 'rotate');
   });
 
   function selectHtml(selectedId) {
     return eligible.map(p => `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.id}</option>`).join('');
   }
 
-  if (gkMode === 'auto') {
-    pickersEl.innerHTML = `<div class="config-note">The planner picks who goes in goal each period from your ${eligible.length} keeper-capable players. It shares the gloves out and prefers whoever leaves the best set of players on the pitch - e.g. when one of your two preferred defenders is in goal, the other is kept on the pitch rather than the bench. You'll see who's in goal in each period in the plan.</div>`;
+  if (gkAuto) {
+    pickersEl.innerHTML = gkMode === 'single'
+      ? `<div class="config-note">The planner picks whichever of your ${eligible.length} keeper-capable players leaves the best set of outfield players, and they stay in goal all match.</div>`
+      : `<div class="config-note">The planner picks a different keeper for each period${eligible.length < PERIODS ? ` (you only have ${eligible.length} keeper-capable players for ${PERIODS} periods, so everyone gets a turn before anyone goes twice)` : ''}. It prefers whoever leaves the best set of players on the pitch - e.g. when one of your two preferred defenders is in goal, the other stays on the pitch rather than the bench. You'll see who's in goal each period in the plan.</div>`;
   } else if (gkMode === 'single') {
     pickersEl.innerHTML = `<div class="field"><label>Goalkeeper (whole match)</label><select id="gk-single">${selectHtml(gkKeepers[0])}</select></div>`;
     document.getElementById('gk-single').addEventListener('change', e => { gkKeepers = new Array(PERIODS).fill(e.target.value); validateSetup(); });
@@ -1025,6 +1045,7 @@ function renderGkSection() {
   }
 }
 
+document.getElementById('gkAutoCheckbox').addEventListener('change', e => { gkAuto = e.target.checked; renderGkSection(); validateSetup(); });
 document.getElementById('gkModeRow').addEventListener('click', e => {
   const opt = e.target.closest('.radio-opt');
   if (!opt || opt.classList.contains('disabled')) return;
@@ -1063,8 +1084,9 @@ function validateSetup() {
 // 'interval' (only consider subs every subIntervalMinutes, counted
 // continuously from kick-off regardless of period breaks), or 'checkpoints'
 // (only at period boundaries, optionally also halfway through each period).
-let cfg = {fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, maxBenchLength: 0, gkCountsForFairness: false,
+let cfg = {autoSubs: true, fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, maxBenchLength: 0, gkCountsForFairness: false,
   subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false};
+// autoSubs: false = coach plans/makes every change themselves; the planner suggests nothing.
 // maxBenchLength: the longest a player should sit off the pitch in one go
 // (0 = no limit). A soft target - the planner brings players back on in time
 // where it can, and Plan Health flags anywhere it couldn't.
@@ -1081,6 +1103,16 @@ const fairnessSlider = document.getElementById('fairnessSlider');
 const strictnessSlider = document.getElementById('strictnessSlider');
 const minShiftSlider = document.getElementById('minShiftSlider');
 const maxBenchSlider = document.getElementById('maxBenchSlider');
+const planModeRow = document.getElementById('planModeRow');
+function updatePlanModeUI() {
+  const auto = cfg.autoSubs !== false;
+  planModeRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', (o.dataset.planmode === 'auto') === auto));
+  document.getElementById('planModeNote').textContent = auto
+    ? 'The planner builds the best starting team and a substitution schedule, which you can still change.'
+    : "You'll start with a sensible team to adjust: tap players on the pitch to change who starts. Add substitutions in the plan, or make them on the fly during the match. The planner makes no suggestions (you can switch it on later in Details > Settings).";
+  document.getElementById('rotationCard').style.display = auto ? 'block' : 'none';
+  document.getElementById('generateBtn').textContent = auto ? 'Generate match plan' : 'Set up my team';
+}
 const gkCountsCheckbox = document.getElementById('gkCountsCheckbox');
 const subTimingRow = document.getElementById('subTimingRow');
 const subIntervalSelect = document.getElementById('subIntervalSelect');
@@ -1140,7 +1172,13 @@ function syncConfigUIFromCfg() {
   document.getElementById('subIntervalField').style.display = cfg.subTimingMode === 'interval' ? 'block' : 'none';
   document.getElementById('subCheckpointHalfwayRow').style.display = cfg.subTimingMode === 'checkpoints' ? 'flex' : 'none';
   updateConfigSummary();
+  updatePlanModeUI();
 }
+planModeRow.addEventListener('click', e => {
+  const opt = e.target.closest('.radio-opt'); if (!opt || liveMode) return;
+  cfg = {...cfg, autoSubs: opt.dataset.planmode === 'auto'};
+  updatePlanModeUI();
+});
 function onConfigInput() {
   // These sliders belong to the NEXT match. Once a match is running its
   // settings are only changed from the Details > Settings tab, which applies
@@ -1148,6 +1186,7 @@ function onConfigInput() {
   // rewrite the live plan.
   if (liveMode) { syncConfigUIFromCfg(); return; }
   cfg = {
+    autoSubs: cfg.autoSubs !== false,
     fairnessPriority: parseFloat(fairnessSlider.value),
     // The slider is drawn with "Fluid rotation" on the right so its direction
     // matches the Substitution style slider (fairness on the right in both) -
@@ -1192,6 +1231,7 @@ document.getElementById('configHeader').addEventListener('click', () => {
   document.getElementById('configCog').classList.toggle('open', open);
 });
 updateConfigSummary();
+updatePlanModeUI();
 
 /* ================= SIMULATION ENGINE ================= */
 let PLAYERS = [];          // active match squad (subset of `squad`)
@@ -1389,15 +1429,20 @@ function doKeeperChange(state, t, newKeeper) {
 // a weaker side out there) while sharing keeper duty fairly between them.
 function chooseAutoKeeper(state, t) {
   const gkSlot = state.activeSlots.find(s => s.group === 'GK');
-  const cands = PLAYERS.filter(p => p.gk && (unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]));
+  let cands = PLAYERS.filter(p => p.gk && (unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]));
   if (!cands.length) return state.onPitch[gkSlot.id];
+  // A different keeper each period: only those who've been in goal the
+  // fewest times so far are eligible, so everyone gets a turn before anyone
+  // goes twice.
+  const minUse = Math.min(...cands.map(p => state.gkPeriods[p.id] || 0));
+  cands = cands.filter(p => (state.gkPeriods[p.id] || 0) === minUse);
   const outSlots = outfieldSlotsOf(state);
   let best = null;
   for (const k of cands) {
     const tr = cloneStateLite(state);
     doKeeperChange(tr, t, k.id);
     const pl = bestOutfieldAssignment(outSlots, outSlots.map(s => tr.onPitch[s.id]), null);
-    const score = pl.score - 0.8 * (state.gkPeriods[k.id] || 0);
+    const score = pl.score;
     if (!best || score > best.score + 1e-9) best = {id: k.id, score};
   }
   return best.id;
@@ -1408,7 +1453,10 @@ function applyPeriodGKChange(state, t) {
   if (!HAS_GK) return;
   const seg = state.gkSegments.find(s => s.from === t);
   if (!seg) return;
-  if (seg.player === null || seg.player === undefined) seg.player = chooseAutoKeeper(state, t);
+  if (seg.player === null || seg.player === undefined) {
+    const idx = state.gkSegments.indexOf(seg);
+    seg.player = seg.keep && idx > 0 ? state.gkSegments[idx - 1].player : chooseAutoKeeper(state, t);
+  }
   state.gkPeriods[seg.player] = (state.gkPeriods[seg.player] || 0) + 1;
   doKeeperChange(state, t, seg.player);
 }
@@ -1475,7 +1523,7 @@ function placementIfSwapped(state, slotId, candPid, exclude) {
 function runFairnessPass(state, t, skipSlots) {
   const threshold = (1 - cfg.fairnessPriority) * 0.4 * TARGET;
   const basis = fairnessBasis(state);
-  if (!isSubTimingAllowed(t)) return;
+  if (cfg.autoSubs === false || !isSubTimingAllowed(t)) return;
   for (const slot of state.activeSlots) {
     if (slot.group === 'GK' || skipSlots.has(slot.id)) continue;
     const curPid = state.onPitch[slot.id];
@@ -1555,7 +1603,7 @@ function nextAllowedSubTime(t) {
 }
 function runBenchLimitPass(state, t, skipSlots) {
   const max = cfg.maxBenchLength;
-  if (!max || !isSubTimingAllowed(t)) return;
+  if (cfg.autoSubs === false || !max || !isSubTimingAllowed(t)) return;
   const nxt = nextAllowedSubTime(t);
   const wait = nxt === Infinity ? DURATION - t : nxt - t;
   const basis = fairnessBasis(state);
@@ -1616,6 +1664,17 @@ function applyEventsAt(state, t, events) {
       state.rotations.push({time:t, type:'skip', slot:ev.slot, reason: ev.deleted ? 'sub removed' : 'coach skipped',
         deleted: !!ev.deleted, off: ev.off, on: ev.on});
       skipSlots.add(ev.slot);
+    } else if (ev.type === 'swap') {
+      // Coach swapped two players already on the pitch. Nobody leaves or
+      // joins, so minutes and fairness clocks are untouched.
+      const pa = state.onPitch[ev.a], pb = state.onPitch[ev.b];
+      if (pa !== undefined && pb !== undefined && pa !== pb) {
+        state.onPitch[ev.a] = pb; state.onPitch[ev.b] = pa;
+        state.rotations.push({time:t, type:'reshuffle', assign: {[ev.a]: pb, [ev.b]: pa},
+          moves: [{pid: pb, from: ev.b, to: ev.a}, {pid: pa, from: ev.a, to: ev.b}], reason:'coach swap', edited: true});
+      }
+      skipSlots.add(ev.a); skipSlots.add(ev.b);
+      skipSlots.manual.add(ev.a); skipSlots.manual.add(ev.b);
     } else if (ev.type === 'unavailable') {
       state.rotations.push({time:t, type:'unavailable', player: ev.player, reason:'marked unavailable'});
     } else { // substitution override
@@ -1642,7 +1701,7 @@ function simulate(lineup, lockedEvents) {
     // the per-minute loop below, which only considers t=1..DURATION.
     cfg = effectiveCfgAt(baseCfg, 0);
     const skip0 = applyEventsAt(state, 0, events);
-    if (state.rotations.some(r => !r.type)) reshuffleOutfield(state, 0, skip0.manual, 'better positions');
+    if (cfg.autoSubs !== false && state.rotations.some(r => !r.type)) reshuffleOutfield(state, 0, skip0.manual, 'better positions');
 
     for (let t = 1; t <= DURATION; t++) {
       for (const [slotId, pid] of Object.entries(state.onPitch)) {
@@ -1656,7 +1715,7 @@ function simulate(lineup, lockedEvents) {
       const skipSlots = applyEventsAt(state, t, events);
       runBenchLimitPass(state, t, skipSlots);
       runFairnessPass(state, t, skipSlots);
-      if (state.rotations.slice(before).some(r => !r.type)) reshuffleOutfield(state, t, skipSlots.manual, 'better positions');
+      if (cfg.autoSubs !== false && state.rotations.slice(before).some(r => !r.type)) reshuffleOutfield(state, t, skipSlots.manual, 'better positions');
     }
     return state;
   } finally { cfg = baseCfg; }
@@ -1721,7 +1780,8 @@ function computeTargets() {
 function computeGkSegments() {
   if (!HAS_GK) return [];
   return PERIOD_BOUNDS.slice(0, -1).map((start, i) => ({
-    player: gkMode === 'auto' ? null : (gkMode === 'single' ? gkKeepers[0] : gkKeepers[i]),
+    player: gkAuto ? null : (gkMode === 'single' ? gkKeepers[0] : gkKeepers[i]),
+    keep: gkAuto && gkMode === 'single' && i > 0, // single keeper: reuse period 1's choice
     from: start, to: PERIOD_BOUNDS[i + 1],
   }));
 }
@@ -1795,7 +1855,7 @@ function render(t) {
   document.getElementById('scrub').value = t;
   document.getElementById('editHint').textContent = liveMode
     ? "Tap a player on the pitch for an unplanned change"
-    : (t === 0 ? "At kick-off (0') — tap a player to change the starting line-up" : "Tap a substitution below to override who comes on");
+    : (t === 0 ? (cfg.autoSubs === false ? "Pick your team: tap a player to swap with the bench or another player on the pitch" : "At kick-off (0') — tap a player to change the starting line-up") : "Tap a substitution below to override who comes on");
 
   const now = computeStateAt(t);
   const forecast = computeStateAt(DURATION); // for GK-minutes split in the forecast bars
@@ -1927,6 +1987,7 @@ function renderTimeline(t, upcoming) {
     const status = time < t ? 'past' : (time === (upcoming ? upcoming.time : -1) ? 'next' : 'future');
     div.className = `tl-event ${status}`;
     let inner = `<span class="tl-time">${time}'</span>`;
+    let shownMoves = false;
     grouped[time].forEach(r => {
       if (r.type === 'formation') {
         const shapeDesc = ['DEF','MID','ATT'].map(g => r.slots.filter(s => s.group === g).length).filter(n => n > 0).join('-');
@@ -1940,7 +2001,7 @@ function renderTimeline(t, upcoming) {
         return;
       }
       if (r.type === 'reshuffle') {
-        inner += movesHtml(time);
+        if (!shownMoves) { inner += movesHtml(time); shownMoves = true; }
         return;
       }
       if (r.type === 'unavailable') {
@@ -1967,6 +2028,42 @@ function renderTimeline(t, upcoming) {
     el.addEventListener('click', e => { e.stopPropagation(); deletePlannedSub(parseInt(el.dataset.delTime, 10), el.dataset.delSlot); });
   });
 }
+
+// Manual substitution: pick the minute, who comes off and who comes on.
+function openAddSubModal() {
+  const lo = liveMode ? Math.min(DURATION - 1, liveElapsedMinute()) : 0;
+  const overlay = openModal(`
+    <div class="picker-title">Add a substitution</div>
+    <div class="field"><label>Minute</label><input type="number" id="asMin" min="${lo}" max="${DURATION - 1}" value="${Math.max(lo, Math.min(currentT, DURATION - 1))}" style="width:100%; padding:10px; border-radius:9px; border:1px solid var(--card-line); background:var(--card); color:var(--ink);"></div>
+    <div class="field"><label>Comes off</label><select id="asOff"></select></div>
+    <div class="field"><label>Comes on</label><select id="asOn"></select></div>
+    <div class="config-note" id="asNote"></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="asCancel">Cancel</button><button class="btn btn-primary" id="asOk">Add</button></div>`, {wide: true});
+  const q = id => overlay.querySelector('#' + id);
+  function refill() {
+    const t = Math.max(lo, Math.min(DURATION - 1, parseInt(q('asMin').value, 10) || 0));
+    const st = computeStateAt(t);
+    const onIds = new Set(Object.values(st.onPitch));
+    q('asOff').innerHTML = st.activeSlots.filter(sl => sl.group !== 'GK').map(sl => `<option value="${sl.id}">${st.onPitch[sl.id]} (${sl.label})</option>`).join('');
+    q('asOn').innerHTML = PLAYERS.filter(p => !onIds.has(p.id) && (unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id])).map(p => `<option value="${p.id}">${p.id}</option>`).join('');
+    const sl = st.activeSlots.find(x => x.id === q('asOff').value);
+    const on = playersById[q('asOn').value];
+    q('asNote').textContent = sl && on ? `${on.id} would play ${sl.label}: ${TIER_NAMES[on.positions[sl.group] ?? 0]}` : '';
+  }
+  q('asMin').addEventListener('input', refill); q('asOff').addEventListener('change', refill); q('asOn').addEventListener('change', refill);
+  refill();
+  q('asCancel').addEventListener('click', () => overlay.remove());
+  q('asOk').addEventListener('click', () => {
+    const t = Math.max(lo, Math.min(DURATION - 1, parseInt(q('asMin').value, 10) || 0));
+    const slot = q('asOff').value, on = q('asOn').value;
+    if (!slot || !on) return;
+    lockedEvents.push({time: t, type: 'sub', slot, on, reason: 'coach planned', manual: true});
+    resolvedKeys.add(rotationKey({time: t, slot}));
+    overlay.remove(); openPicker = null;
+    regeneratePlan(); render(currentT); saveLiveMatchState();
+  });
+}
+document.getElementById('addSubBtn').addEventListener('click', openAddSubModal);
 
 function buildFormationRemap(currentOnPitch, newSlots) {
   const remap = {};
@@ -2132,6 +2229,26 @@ function buildPicker(slotId, time) {
     });
     wrap.appendChild(row);
   });
+  if (openPicker.kind === 'start') {
+    const swapTitle = document.createElement('div'); swapTitle.className = 'picker-title'; swapTitle.style.marginTop = '10px';
+    swapTitle.textContent = `Or swap ${currentOccupant} with a player on the pitch:`;
+    wrap.appendChild(swapTitle);
+    Object.entries(startingLineup).filter(([sid]) => sid !== slotId).forEach(([sid, pid]) => {
+      const other = SLOTS.find(x => x.id === sid);
+      const tierHere = other.group === 'GK' ? null : (playersById[currentOccupant].positions[other.group] ?? 0);
+      const tierThere = slot.group === 'GK' ? null : (playersById[pid].positions[slot.group] ?? 0);
+      const bad = (tierHere === 0 || tierThere === 0);
+      const row = document.createElement('div'); row.className = 'picker-opt';
+      row.innerHTML = `<span>${pid} (${other.label})</span><span class="tier ${bad ? 'warn' : ''}">${currentOccupant} → ${other.label}: ${tierHere === null ? 'GK' : TIER_NAMES[tierHere]} · ${pid} → ${slot.label}: ${tierThere === null ? 'GK' : TIER_NAMES[tierThere]}</span>`;
+      row.addEventListener('click', () => {
+        startingLineup = {...startingLineup, [slotId]: pid, [sid]: currentOccupant};
+        regeneratePlan(); openPicker = null;
+        const holder = document.getElementById('startPickerHolder'); if (holder) holder.innerHTML = '';
+        render(currentT);
+      });
+      wrap.appendChild(row);
+    });
+  }
   const cancel = document.createElement('div'); cancel.className = 'picker-cancel'; cancel.textContent = 'Cancel';
   cancel.addEventListener('click', () => { openPicker = null; render(currentT); const holder = document.getElementById('startPickerHolder'); if (holder) holder.innerHTML=''; });
   wrap.appendChild(cancel);
@@ -2261,8 +2378,9 @@ function computeFairnessBasisGroups() {
   ];
   return {basis, groups};
 }
+function plannerIsOff() { return effectiveCfgAt(cfg, liveMode ? liveElapsedMinute() : 0).autoSubs === false; }
 function fairnessSpreadNote() {
-  if (!PLAN || !PLAYERS.length || !TARGET) return null;
+  if (!PLAN || !PLAYERS.length || !TARGET || plannerIsOff()) return null;
   const {basis, groups: peerGroups} = computeFairnessBasisGroups();
   // Lowered from a flat 3' floor: in a small-sided, short match (low
   // TARGET), even a couple of minutes is a meaningful share of a player's
@@ -2766,6 +2884,7 @@ function applyCfgChange(partial) {
 const CFG_LABELS = {fairnessPriority: 'Fairness', positionStrictness: 'Position', minShiftLength: 'Min time on', maxBenchLength: 'Max time off', subTimingMode: 'Sub timing', subIntervalMinutes: 'Sub interval', checkpointHalfway: 'Halfway checkpoints'};
 function describeCfgChange(c) {
   return Object.entries(c).map(([k, v]) => {
+    if (k === 'autoSubs') return v ? 'planner suggestions on' : 'planner suggestions off (manual)';
     if (k === 'fairnessPriority') return `fairness ${labelFor(v, 'fewer subs', 'balanced', 'maximum').toLowerCase()}`;
     if (k === 'positionStrictness') return `position ${labelFor(v, 'fluid', 'balanced', 'stick to position')}`;
     if (k === 'minShiftLength') return `min ${v}' on`;
@@ -2788,6 +2907,7 @@ function renderSettingsTab() {
     <div class="config-note" style="margin:0 0 10px;">${matchFinished ? 'This match has finished - settings are read-only.' : live
       ? `Changes apply from <strong>${from}'</strong> onward. Everything already played stays exactly as it was.`
       : 'Match not started yet - changes re-plan the whole match.'}</div>
+    ${matchFinished ? '' : `<div class="check-row" style="margin-bottom:10px;"><input type="checkbox" id="stAuto" ${c.autoSubs !== false ? 'checked' : ''}><label for="stAuto">Planner suggests substitutions (untick to make every change yourself)</label></div>`}
     ${matchFinished ? '' : `<div class="radio-row" id="stPresets">
       <div class="radio-opt" data-preset="chase">Chasing the game</div>
       <div class="radio-opt" data-preset="protect">Comfortable lead</div>
@@ -2847,6 +2967,8 @@ function renderSettingsTab() {
   q('stHalfway').addEventListener('change', () => { applyCfgChange({checkpointHalfway: q('stHalfway').checked}); });
   // Slider drags re-plan on every step; refresh the history list once released.
   ['stFair', 'stStrict', 'stMin', 'stMax'].forEach(id => q(id).addEventListener('change', done));
+  const autoBox = q('stAuto');
+  if (autoBox) autoBox.addEventListener('change', () => { applyCfgChange({autoSubs: autoBox.checked}); done(); });
   const presets = q('stPresets');
   if (presets) presets.addEventListener('click', e => {
     const opt = e.target.closest('.radio-opt'); if (!opt) return;
@@ -2913,7 +3035,7 @@ function buildMatchSnapshot() {
     playersOnPitch: PLAYERS_ON_PITCH, hasGk: HAS_GK, duration: DURATION, periods: PERIODS, shape: confirmedShape,
     // squad + GK plan
     players: PLAYERS.map(p => ({...p})), // full snapshot, independent of later squad edits
-    gkMode, gkKeepers: [...gkKeepers],
+    gkMode, gkAuto, gkKeepers: [...gkKeepers],
     // rotation settings (and any changes made mid-match)
     cfg: {...cfg}, cfgEras: JSON.parse(JSON.stringify(cfgEras)),
     // engine state
@@ -3016,8 +3138,10 @@ function restoreLiveMatch(saved, recordId) {
   applyMatchFormat(saved.playersOnPitch, saved.hasGk, saved.duration, saved.periods, saved.shape);
 
   gkMode = saved.gkMode; gkKeepers = [...saved.gkKeepers];
+  gkAuto = !!saved.gkAuto;
+  if (gkMode === 'auto') { gkMode = 'rotate'; gkAuto = true; } // saved by the first version of this feature
   // Defaults cover snapshots saved before a given setting existed.
-  cfg = {maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false, ...saved.cfg};
+  cfg = {autoSubs: true, maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false, ...saved.cfg};
   cfgEras = JSON.parse(JSON.stringify(saved.cfgEras || []));
   syncMinShiftSliderMax();
   if (cfg.minShiftLength > parseInt(minShiftSlider.max, 10)) cfg.minShiftLength = parseInt(minShiftSlider.max, 10);
@@ -3382,6 +3506,31 @@ function openLiveChangePicker(slotId) {
   overlay.querySelector('#lcCancel').addEventListener('click', () => overlay.remove());
 }
 
+// Swap two players who are both on the pitch (e.g. move the striker back to
+// midfield and a midfielder up front). No substitution - minutes unchanged.
+function openSwapPicker(slotId) {
+  const mins = liveElapsedMinute();
+  const state = computeStateAt(mins);
+  const slot = state.activeSlots.find(s => s.id === slotId);
+  const pid = state.onPitch[slotId];
+  const tierFor = (p, sl) => sl.group === 'GK' ? null : (playersById[p].positions[sl.group] ?? 0);
+  const label = t => t === null ? 'GK' : TIER_NAMES[t];
+  const others = state.activeSlots.filter(s => s.id !== slotId);
+  const overlay = openModal(`
+    <div class="picker-title">Swap ${pid} (${slot.label}) with:</div>
+    ${others.map(o => {
+      const op = state.onPitch[o.id];
+      const t1 = tierFor(pid, o), t2 = tierFor(op, slot);
+      return `<div class="picker-opt" data-slot="${o.id}"><span>${op} (${o.label})</span><span class="tier ${(t1 === 0 || t2 === 0) ? 'warn' : ''}">${pid} → ${o.label}: ${label(t1)} · ${op} → ${slot.label}: ${label(t2)}</span></div>`;
+    }).join('')}
+    <div class="picker-cancel" id="swapCancel">Cancel</div>`, {wide: true});
+  overlay.querySelectorAll('.picker-opt').forEach(el => el.addEventListener('click', () => {
+    lockedEvents.push({time: mins, type: 'swap', a: slotId, b: el.dataset.slot, manual: true});
+    regeneratePlan(); overlay.remove(); render(mins); saveLiveMatchState();
+  }));
+  overlay.querySelector('#swapCancel').addEventListener('click', () => overlay.remove());
+}
+
 // Tapping any player (on the pitch or bench) during live play opens this small
 // menu instead of dedicated toolbar buttons - Substitute / Mark unavailable /
 // Cancel - with only the options that make sense for that player.
@@ -3390,6 +3539,7 @@ function openPlayerActionMenu(pid, slotId) {
   const slot = slotId ? computeStateAt(mins).activeSlots.find(s => s.id === slotId) : null;
   const rows = [];
   if (slotId && slot.group !== 'GK') rows.push({label: 'Substitute off', run: () => openLiveChangePicker(slotId)});
+  if (slotId) rows.push({label: 'Swap positions with another player on the pitch', run: () => openSwapPicker(slotId)});
   rows.push({label: 'Mark unavailable', run: () => markPlayerUnavailable(pid)});
   const overlay = openModal(`
     <div class="picker-title">${pid}${slot ? ' · ' + slot.label : ' · Bench'}</div>
@@ -3535,7 +3685,7 @@ function computeBenchSpells(atMinute) {
 // longer than the limit in force when that spell began. Spells already
 // completed in a live match are history, not something the coach can fix.
 function benchLimitNote() {
-  if (!PLAN || !PLAYERS.length) return null;
+  if (!PLAN || !PLAYERS.length || plannerIsOff()) return null;
   const anyLimit = cfg.maxBenchLength || cfgEras.some(e => e.cfg.maxBenchLength);
   if (!anyLimit) return null;
   const spells = computeBenchSpells(DURATION);
