@@ -692,15 +692,19 @@ function buildFormation(counts, hasGoalkeeper) {
   if (hasGoalkeeper) slots.push({id: 'GK', label: 'GK', group: 'GK', x: 150, y: 362});
 
   const presentRows = groupOrder.filter(g => counts[g] > 0); // bottom-to-top: DEF, MID, ATT
-  const yTop = 54, yBottom = 312;
+  // Rows (and the keeper) sit on equally spaced lines from the top of the
+  // pitch down to the goal, so a defender is never crowded onto the keeper
+  // and the attackers aren't pinned to the top edge.
+  const yTop = 70, yGk = 350, yBottomNoGk = 312;
+  const levels = presentRows.length + (hasGoalkeeper ? 1 : 0);
+  const yEnd = hasGoalkeeper ? yGk : yBottomNoGk;
+  const rowY = i => levels <= 1 ? (yTop + yEnd) / 2 : yEnd - (yEnd - yTop) * ((hasGoalkeeper ? i + 1 : i) / (levels - 1));
+  if (hasGoalkeeper) slots[0].y = yGk;
   // Rows are centred on the pitch and spread across most of its width - wide
-  // enough to look like a real line-up (not two players huddled in the
-  // middle), but capped short of the touchlines so tokens never crowd the
-  // edge, similar to how FPL's pitch UI spaces out a line.
+  // enough to look like a real line-up, but capped short of the touchlines.
   const centerX = 150, maxRowWidth = 270, idealGap = 85;
   presentRows.forEach((group, rowIndex) => {
-    const y = presentRows.length === 1 ? (yTop + yBottom) / 2
-      : yBottom - (yBottom - yTop) * (rowIndex / (presentRows.length - 1));
+    const y = rowY(rowIndex);
     const n = counts[group];
     const rowWidth = n > 1 ? Math.min(maxRowWidth, idealGap * (n - 1)) : 0;
     for (let i = 0; i < n; i++) {
@@ -4231,11 +4235,17 @@ function finishMatch(atMinute, opts) {
 function renderLineupCanvas() {
   const W = 1080, PAD = 40, FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
   const C = {bg: '#F7F5EC', ink: '#12241A', soft: '#56675B', line: '#DAD6C6', turf: '#1F4A33', turf2: '#215A3B', amber: '#E3A23C', coral: '#C1503F', green: '#2E7D4F', chalk: '#F4F1E6'};
-  const grouped = {};
-  PLAN.rotations.forEach(r => { if (r.type === 'skip' || r.type === 'unavailable') return; (grouped[r.time] = grouped[r.time] || []).push(r); });
+  const grouped = {}, groupedAll = {};
+  PLAN.rotations.forEach(r => {
+    (groupedAll[r.time] = groupedAll[r.time] || []).push(r);
+    if (r.type === 'skip' || r.type === 'unavailable') return;
+    (grouped[r.time] = grouped[r.time] || []).push(r);
+  });
   const times = Object.keys(grouped).map(Number).sort((a, b) => a - b);
-  const moments = [{time: 0, rows: []}, ...times.map(t => ({time: t, rows: grouped[t]}))];
-  const c = document.createElement('canvas'); c.width = W; c.height = 2200 + Math.ceil(moments.length / 2) * 1000 + PLAYERS.length * 52;
+  const allTimes = Object.keys(groupedAll).map(Number).sort((a, b) => a - b);
+  const moments = times.map(t => ({time: t, rows: grouped[t]}));
+  const c = document.createElement('canvas'); c.width = W;
+  c.height = 3600 + Math.ceil(moments.length / 2) * 1000 + allTimes.length * 180 + PLAYERS.length * 52;
   const g = c.getContext('2d');
   g.fillStyle = C.bg; g.fillRect(0, 0, W, c.height);
   const font = (size, weight) => `${weight || 400} ${size}px ${FONT}`;
@@ -4294,56 +4304,39 @@ function renderLineupCanvas() {
   y += 30;
   rule(y); y += 28;
 
-  // ---- in goal summary
+  // ---- starting line-up (pitch + bench)
+  const pw = (W - 2 * PAD - 40) / 2;
+  txt('Starting line-up', PAD, y, {size: 32, weight: 800}); y += 30;
   {
-    const segs = activeGkSegments();
-    if (HAS_GK && segs.length) {
-      y = wrap('In goal: ' + segs.map((sg, i) => `${PERIODS > 1 ? 'P' + (i + 1) + ' ' : ''}${sg.player}`).join('  ·  '), PAD, y - 6, W - 2 * PAD, 30, {size: 24, weight: 600});
-      y += 10;
-    }
+    const s0 = computeStateAt(0);
+    const shapeTxt = ['DEF', 'MID', 'ATT'].map(gp => s0.activeSlots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-');
+    const bottom = pitch(PAD, y, pw, s0, 'Kick-off', null, shapeTxt);
+    const onIds = new Set(Object.values(s0.onPitch));
+    const bench = PLAYERS.filter(q => !onIds.has(q.id));
+    const bx = PAD + pw + 40;
+    txt('Bench', bx, y + 30, {size: 32, weight: 800, color: C.turf});
+    let by = y + 48 + 40;
+    if (!bench.length) txt('Nobody - everyone starts', bx, by, {size: 24, color: C.soft});
+    bench.forEach(q => { txt(q.id, bx, by, {size: 28, weight: 600}); by += 46; });
+    y = bottom + 20;
   }
-  rule(y); y += 34;
-
-  // ---- one pitch per moment: kick-off, then the line-up after every change
-  txt('Line-up at each change', PAD, y, {size: 32, weight: 800}); y += 14;
-  const pw = (W - 2 * PAD - 40) / 2, ph = pw * 4 / 3;
-  function changeLines(x, ly, w, time, rows) {
-    for (const r of rows) {
-      if (r.type === 'formation') {
-        const shape = ['DEF', 'MID', 'ATT'].map(gp => r.slots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-');
-        txt(`Formation changes to ${shape}`, x, ly, {size: 21, color: C.soft}); ly += 32; continue;
-      }
-      if (r.type === 'reshuffle') continue;
-      let cx = x;
-      cx += txt('ON ', cx, ly, {size: 19, weight: 700, color: C.green}) + 2;
-      cx += txt(r.on, cx, ly, {size: 23, weight: 700}) + 14;
-      cx += txt('OFF ', cx, ly, {size: 19, weight: 700, color: C.coral}) + 2;
-      cx += txt(r.off, cx, ly, {size: 23, weight: 700}) + 12;
-      txt(`(${slotLabelAt(time, r.slot)})`, cx, ly, {size: 19, color: C.soft});
-      ly += 32;
-    }
-    const moves = reshuffleMovesAt(time);
-    if (moves.length) ly = wrap('Positions: ' + moves.join(' · '), x, ly, w, 26, {size: 19, color: C.soft});
-    return ly;
-  }
-  function momentCard(x, top, m) {
-    const periodIdx = PERIOD_BOUNDS.indexOf(m.time);
-    const sub = m.time === 0 ? 'starting line-up' : (periodIdx > 0 && periodIdx < PERIOD_BOUNDS.length - 1 ? `start of period ${periodIdx + 1}` : '');
-    const hl = new Set(m.rows.filter(r => r.type !== 'formation' && r.type !== 'reshuffle' && r.on).map(r => r.on));
-    let by = pitch(x, top, pw, computeStateAt(m.time), `${m.time}'`, hl, sub);
-    by += 34;
-    if (m.time === 0) { txt(PLAN.rotations.some(r => r.type !== 'skip' && r.type !== 'unavailable') ? 'Starters shown - changes follow' : 'No changes planned - same eleven play the whole match', x, by, {size: 19, color: C.soft}); by += 14; }
-    else by = changeLines(x, by, pw, m.time, m.rows);
-    return by;
-  }
-  for (let i = 0; i < moments.length; i += 2) {
-    y += 16;
-    const b1 = momentCard(PAD, y, moments[i]);
-    const b2 = moments[i + 1] ? momentCard(PAD + pw + 40, y, moments[i + 1]) : 0;
-    y = Math.max(b1, b2) + 18;
-  }
-  y += 10;
   rule(y); y += 38;
+
+  // ---- goalkeeper by period
+  if (HAS_GK) {
+    const segs = activeGkSegments();
+    if (segs.length) {
+      txt('In goal', PAD, y, {size: 32, weight: 800}); y += 8;
+      segs.forEach((sg, i) => {
+        y += 44;
+        const lab = PERIODS > 1 ? `Period ${i + 1}  (${PERIOD_BOUNDS[i]}'-${PERIOD_BOUNDS[i + 1]}')` : `Whole match  (0'-${DURATION}')`;
+        txt(lab, PAD, y, {size: 24, color: C.soft});
+        txt(sg.player || '-', PAD + 330, y, {size: 28, weight: 700});
+      });
+      y += 30;
+      rule(y); y += 38;
+    }
+  }
 
   // ---- forecast
   txt('Forecast playing time', PAD, y, {size: 32, weight: 800}); y += 14;
@@ -4374,6 +4367,88 @@ function renderLineupCanvas() {
   y += 34;
   txt('Green = outfield minutes, amber = in goal, black tick = fair share (outfield). Target and "longest off" are outfield-based.', PAD, y, {size: 17, color: C.soft});
   y += 40;
+  y += 10; rule(y); y += 38;
+
+  // ---- substitutions, as in the Subs tab
+  txt('Substitutions', PAD, y, {size: 32, weight: 800}); y += 20;
+  if (!allTimes.length) { y += 34; txt('No changes planned - the starting line-up plays the whole match.', PAD, y, {size: 24, color: C.soft}); y += 20; }
+  for (const time of allTimes) {
+    y += 14;
+    const rows = groupedAll[time];
+    const periodIdx = PERIOD_BOUNDS.indexOf(time);
+    const lineH = 36, rowTop = y;
+    let ry = y + 28;
+    txt(`${time}'`, PAD, ry, {size: 30, weight: 800, color: C.turf});
+    if (periodIdx > 0 && periodIdx < PERIOD_BOUNDS.length - 1) txt(`start of period ${periodIdx + 1}`, PAD, ry + 26, {size: 16, color: C.soft});
+    const X0 = PAD + 150;
+    let movesDone = false;
+    for (const r of rows) {
+      if (r.type === 'formation') {
+        const shape = ['DEF', 'MID', 'ATT'].map(gp => r.slots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-');
+        txt(`Formation changed (${shape}${HAS_GK ? ' + GK' : ''})`, X0, ry, {size: 23, color: C.soft}); ry += lineH; continue;
+      }
+      if (r.type === 'skip') {
+        txt(r.deleted ? `Planned sub removed (${r.on} for ${r.off}, ${r.slot})` : `Sub at ${r.slot} skipped`, X0, ry, {size: 23, color: C.soft}); ry += lineH; continue;
+      }
+      if (r.type === 'unavailable') { txt(`${r.player} marked unavailable`, X0, ry, {size: 23, color: C.coral}); ry += lineH; continue; }
+      if (r.type === 'reshuffle') {
+        if (!movesDone) { movesDone = true; const mv = reshuffleMovesAt(time); if (mv.length) ry = wrap('Positions: ' + mv.join(' · '), X0, ry, W - PAD - X0, 28, {size: 21, color: C.soft}) + 4; }
+        continue;
+      }
+      let x = X0;
+      x += txt('\u2191 ', x, ry, {size: 26, weight: 800, color: C.green});
+      x += txt(r.on, x, ry, {size: 27, weight: 700}) + 18;
+      x += txt('\u2193 ', x, ry, {size: 26, weight: 800, color: C.coral});
+      x += txt(r.off, x, ry, {size: 27, weight: 700}) + 18;
+      txt(`(${r.slot})`, x, ry, {size: 22, color: C.soft});
+      ry += lineH;
+    }
+    y = Math.max(ry, rowTop + 60) - 6;
+    g.fillStyle = C.line; g.fillRect(X0, y + 6, W - 2 * PAD - 150, 1);
+  }
+  y += 34;
+  rule(y); y += 38;
+
+  // ---- one pitch per moment: kick-off, then the line-up after every change
+  txt('Line-up at each change', PAD, y, {size: 32, weight: 800}); y += 14;
+  if (!moments.length) { y += 34; txt('No changes planned - the starting line-up plays the whole match.', PAD, y, {size: 24, color: C.soft}); y += 20; }
+  function changeLines(x, ly, w, time, rows) {
+    for (const r of rows) {
+      if (r.type === 'formation') {
+        const shape = ['DEF', 'MID', 'ATT'].map(gp => r.slots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-');
+        txt(`Formation changes to ${shape}`, x, ly, {size: 21, color: C.soft}); ly += 32; continue;
+      }
+      if (r.type === 'reshuffle') continue;
+      let cx = x;
+      cx += txt('ON ', cx, ly, {size: 19, weight: 700, color: C.green}) + 2;
+      cx += txt(r.on, cx, ly, {size: 23, weight: 700}) + 14;
+      cx += txt('OFF ', cx, ly, {size: 19, weight: 700, color: C.coral}) + 2;
+      cx += txt(r.off, cx, ly, {size: 23, weight: 700}) + 12;
+      txt(`(${slotLabelAt(time, r.slot)})`, cx, ly, {size: 19, color: C.soft});
+      ly += 32;
+    }
+    const moves = reshuffleMovesAt(time);
+    if (moves.length) ly = wrap('Positions: ' + moves.join(' · '), x, ly, w, 26, {size: 19, color: C.soft});
+    return ly;
+  }
+  function momentCard(x, top, m) {
+    const periodIdx = PERIOD_BOUNDS.indexOf(m.time);
+    const sub = m.time === 0 ? 'starting line-up' : (periodIdx > 0 && periodIdx < PERIOD_BOUNDS.length - 1 ? `start of period ${periodIdx + 1}` : '');
+    const hl = new Set(m.rows.filter(r => r.type !== 'formation' && r.type !== 'reshuffle' && r.on).map(r => r.on));
+    let by = pitch(x, top, pw, computeStateAt(m.time), `${m.time}'`, hl, sub);
+    by += 34;
+    by = changeLines(x, by, pw, m.time, m.rows);
+    return by;
+  }
+  for (let i = 0; i < moments.length; i += 2) {
+    y += 16;
+    const b1 = momentCard(PAD, y, moments[i]);
+    const b2 = moments[i + 1] ? momentCard(PAD + pw + 40, y, moments[i + 1]) : 0;
+    y = Math.max(b1, b2) + 18;
+  }
+  y += 10;
+  rule(y); y += 38;
+
   txt(`Made with the Squad & Rotation Planner · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, y, {size: 17, color: C.soft});
   y += PAD;
 
