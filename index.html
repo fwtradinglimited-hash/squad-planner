@@ -2198,7 +2198,7 @@ function render(t) {
   document.getElementById('scrub').value = t;
   document.getElementById('editHint').textContent = liveMode
     ? "Tap a player on the pitch for an unplanned change"
-    : (t === 0 ? (cfg.autoSubs === false ? "Pick your team: tap a player to swap with the bench or another player on the pitch" : "At kick-off (0') — tap a player to change the starting line-up") : "Tap a substitution below to override who comes on");
+    : (t === 0 ? (cfg.autoSubs === false ? "Pick your team: tap a player to swap with the bench or another player on the pitch" : "At kick-off (0') — tap a player to change the starting line-up") : (matchFinished ? "" : `At ${t}' - tap a player on the pitch to sub them off, swap positions or mark them unavailable from this minute`));
 
   const now = computeStateAt(t);
   const forecast = computeStateAt(DURATION); // for GK-minutes split in the forecast bars
@@ -2210,7 +2210,8 @@ function render(t) {
   for (const slot of now.activeSlots) {
     const pid = onPitch[slot.id];
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.setAttribute('class', t === 0 ? 'token-hit' : '');
+    const previewEdit = !liveMode && !matchFinished;
+    g.setAttribute('class', (previewEdit || (liveMode && !halfTimeActive && !matchFinished)) ? 'token-hit' : '');
     const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
     circle.setAttribute('cx', slot.x); circle.setAttribute('cy', slot.y);
     circle.setAttribute('r', 22); circle.setAttribute('fill', '#F4F1E6');
@@ -2222,7 +2223,8 @@ function render(t) {
     posLabel.setAttribute('x', slot.x); posLabel.setAttribute('y', slot.y - 28);
     posLabel.setAttribute('class', 'token-label'); posLabel.textContent = slot.label;
     g.appendChild(circle); g.appendChild(label); g.appendChild(posLabel);
-    if (t === 0 && !liveMode) g.addEventListener('click', () => togglePicker({kind:'start', slotId: slot.id, time: 0}));
+    if (previewEdit && t === 0) g.addEventListener('click', () => togglePicker({kind:'start', slotId: slot.id, time: 0}));
+    else if (previewEdit) g.addEventListener('click', () => openPlayerActionMenu(pid, slot.id));
     if (liveMode && !halfTimeActive && !matchFinished) g.addEventListener('click', () => openPlayerActionMenu(pid, slot.id));
     tokensG.appendChild(g);
   }
@@ -2232,7 +2234,7 @@ function render(t) {
   benchRow.innerHTML = '';
   for (const p of PLAYERS) if (!onPitchSet.has(p.id)) {
     const el = document.createElement('div'); el.className = 'bench-card'; el.textContent = p.id;
-    if (liveMode && !halfTimeActive && !matchFinished) el.addEventListener('click', () => openPlayerActionMenu(p.id, null));
+    if ((liveMode && !halfTimeActive && !matchFinished) || (!liveMode && !matchFinished && t > 0)) el.addEventListener('click', () => openPlayerActionMenu(p.id, null));
     benchRow.appendChild(el);
   }
 
@@ -3922,8 +3924,11 @@ function openSubsPopup() {
   refresh();
 }
 
+// The minute a pitch-tap change applies at: the live clock during a match,
+// otherwise whichever minute the coach has scrubbed to in the preview.
+function editMinute() { return liveMode ? liveElapsedMinute() : currentT; }
 function openLiveChangePicker(slotId) {
-  const mins = liveElapsedMinute();
+  const mins = editMinute();
   const state = computeStateAt(mins);
   const slot = state.activeSlots.find(s => s.id === slotId);
   const currentPid = state.onPitch[slotId];
@@ -3938,7 +3943,7 @@ function openLiveChangePicker(slotId) {
     <div class="picker-cancel" id="lcCancel">Cancel</div>`);
   overlay.querySelectorAll('.picker-opt').forEach(el => {
     el.addEventListener('click', () => {
-      lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: el.dataset.on, reason: 'unplanned change', manual: true});
+      lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: el.dataset.on, reason: liveMode ? 'unplanned change' : 'coach planned', manual: true});
       // The coach just made this swap themselves - it must never immediately
       // reappear as a "due" rotation asking them to confirm the same swap.
       resolvedKeys.add(rotationKey({time: mins, slot: slotId}));
@@ -3954,7 +3959,7 @@ function openLiveChangePicker(slotId) {
 // Swap two players who are both on the pitch (e.g. move the striker back to
 // midfield and a midfielder up front). No substitution - minutes unchanged.
 function openSwapPicker(slotId) {
-  const mins = liveElapsedMinute();
+  const mins = editMinute();
   const state = computeStateAt(mins);
   const slot = state.activeSlots.find(s => s.id === slotId);
   const pid = state.onPitch[slotId];
@@ -3980,7 +3985,7 @@ function openSwapPicker(slotId) {
 // menu instead of dedicated toolbar buttons - Substitute / Mark unavailable /
 // Cancel - with only the options that make sense for that player.
 function openPlayerActionMenu(pid, slotId) {
-  const mins = liveElapsedMinute();
+  const mins = editMinute();
   const slot = slotId ? computeStateAt(mins).activeSlots.find(s => s.id === slotId) : null;
   const rows = [];
   if (slotId && slot.group !== 'GK') rows.push({label: 'Substitute off', run: () => openLiveChangePicker(slotId)});
@@ -3995,7 +4000,7 @@ function openPlayerActionMenu(pid, slotId) {
 }
 
 function markPlayerUnavailable(pid) {
-  const mins = liveElapsedMinute();
+  const mins = editMinute();
   const state = computeStateAt(mins);
   const onPitchSet = new Set(Object.values(state.onPitch));
   showConfirm(`Mark ${pid} unavailable for the rest of the match?`, () => {
