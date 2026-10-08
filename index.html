@@ -255,13 +255,35 @@
   .summary-table .diff-pos { color: var(--turf-1); }
   .summary-table .diff-neg { color: var(--coral); }
   :root[data-theme="dark"] .summary-table .diff-pos, :root:not([data-theme="light"]) .summary-table .diff-pos { color: #6FD98F; }
+  .team-title { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .team-title .caret { font-size: 13px; color: var(--ink-soft); }
+  .wiz-dots { display: flex; gap: 6px; margin: 4px 0 14px; }
+  .wiz-dots span { flex: 1; height: 5px; border-radius: 3px; background: var(--card-line); }
+  .wiz-dots span.on { background: var(--amber); }
+  .wiz-dots span.done { background: var(--turf-1); }
+  .wiz-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--card-line); }
+  .wiz-row .nm { flex: 1; font-weight: 600; font-size: 14px; }
+  .wiz-row select { padding: 6px; border-radius: 8px; border: 1px solid var(--card-line); background: var(--card); color: var(--ink); font-size: 13px; }
+  .wiz-row label { font-size: 12px; color: var(--ink-soft); display: flex; align-items: center; gap: 3px; }
+  .wiz-rm { color: var(--coral); cursor: pointer; padding: 4px 6px; font-size: 15px; }
+  .wiz-card { text-align: left; padding: 11px 12px; border: 1px solid var(--card-line); border-radius: 10px; margin-bottom: 8px; cursor: pointer; background: var(--card); }
+  .wiz-card.selected { border-color: var(--turf-1); box-shadow: inset 0 0 0 1px var(--turf-1); }
+  .wiz-card b { display: block; font-size: 14px; }
+  .wiz-card small { color: var(--ink-soft); }
+  .wiz-card.selected small { color: var(--ink-soft); }
+  .wiz-hero { font-family: "Oswald", sans-serif; font-size: 26px; font-weight: 600; margin: 6px 0 4px; }
+  textarea.wiz-ta { width: 100%; min-height: 84px; padding: 10px; border-radius: 9px; border: 1px solid var(--card-line); background: var(--card); color: var(--ink); font: inherit; font-size: 14px; box-sizing: border-box; }
+  .team-row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--card-line); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+  .team-row.active { border-color: var(--turf-1); background: var(--bench-card); }
+  .team-row .tn { flex: 1; font-weight: 600; font-size: 14px; }
+  .team-row small { color: var(--ink-soft); }
 </style>
 </head>
 <body>
 <div class="shell">
 
   <div class="scoreboard">
-    <h1>Riverside U10s</h1>
+    <h1 class="team-title" id="teamTitle"><span id="teamTitleText">My team</span><span class="caret">▾</span></h1>
     <span class="meta" id="squadCountMeta"></span>
   </div>
 
@@ -269,6 +291,11 @@
     <div class="tab active" data-tab="squad">Squad</div>
     <div class="tab" data-tab="matches">Matches</div>
     <div class="tab disabled" data-tab="plan" id="planTab">Match Plan</div>
+  </div>
+
+  <!-- REGISTRATION / TEAM SET-UP WIZARD -->
+  <div class="screen" id="screen-onboard">
+    <div id="wizBody"></div>
   </div>
 
   <!-- SQUAD SCREEN -->
@@ -283,6 +310,11 @@
       <div class="config-note" style="margin-bottom:8px;">Save your go-to line-ups (strongest, defensive, attacking...) and drop one in when you plan a fixture.</div>
       <div id="presetList"></div>
       <button class="btn btn-ghost" id="addPresetBtn">+ New preset</button>
+    </section>
+    <section>
+      <h2>Rotation presets</h2>
+      <div class="config-note" style="margin-bottom:8px;">Your regular rotation styles. The default one is used for every new fixture; you can pick another when planning.</div>
+      <div id="rotList"></div>
     </section>
     <section>
       <h2>Default match type</h2>
@@ -398,6 +430,15 @@
         </div>
         <div class="check-row" id="gkAutoRow" style="margin-bottom:10px;"><input type="checkbox" id="gkAutoCheckbox"><label for="gkAutoCheckbox" id="gkAutoLabel"></label></div>
         <div id="gkPickers"></div>
+      </section>
+
+      <section id="rotPresetSection">
+        <h2>Rotation style</h2>
+        <div class="radio-row" id="rotChips" style="flex-wrap:wrap;"></div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap;">
+          <span class="decision-link" id="rotSaveLink">Save current settings as a preset</span>
+          <span class="decision-link secondary" id="rotDefaultLink">Make this my default</span>
+        </div>
       </section>
 
       <div class="config-card" id="rotationCard">
@@ -649,8 +690,39 @@ function openModal(innerHtml, opts) {
   return overlay;
 }
 
+/* ================= COACH PROFILE & TEAMS =================
+   Each coach has a local profile (this device) with one or more teams.
+   Everything team-specific (squad, matches, presets, defaults, rotation
+   styles) is stored under keys suffixed with the team, so teams never mix.
+   The first team keeps the original un-suffixed keys, which is how an
+   existing install keeps all its data. */
+const PROFILE_KEY = 'rf_profile_v1';
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+function newTeamId() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+function loadProfile() {
+  let p = null;
+  try { const r = lsGet(PROFILE_KEY); if (r) p = JSON.parse(r); } catch (e) { p = null; }
+  if (p && Array.isArray(p.teams) && p.teams.length) {
+    if (!p.teams.some(t => t.id === p.activeTeamId)) p.activeTeamId = p.teams[0].id;
+    return p;
+  }
+  // No profile yet. Data from before profiles existed becomes the first team.
+  const legacy = ['rf_squad_v1', 'rf_matches_v1', 'rf_live_match_v1'].some(k => lsGet(k));
+  const id = newTeamId();
+  p = {v: 1, coach: {name: ''}, activeTeamId: id, tourDone: false,
+    teams: [{id, name: legacy ? 'Riverside U10s' : '', suffix: '', setupDone: legacy, legacy, created: Date.now()}]};
+  lsSet(PROFILE_KEY, JSON.stringify(p));
+  return p;
+}
+let profile = loadProfile();
+function saveProfile() { lsSet(PROFILE_KEY, JSON.stringify(profile)); }
+function activeTeam() { return profile.teams.find(t => t.id === profile.activeTeamId) || profile.teams[0]; }
+function teamKey(base, team) { return base + ((team || activeTeam()).suffix || ''); }
+const K = base => teamKey(base);
+
 /* ================= PERSISTENCE ================= */
-const STORAGE_KEY = 'rf_squad_v1';
+const STORAGE_KEY = K('rf_squad_v1');
 const DEFAULT_SQUAD = [
   {id:'Harry',   number:1,  positions:{DEF:2, MID:2, ATT:1}, gk:true},
   {id:'Archie',  number:12, positions:{DEF:2, MID:2, ATT:1}, gk:true},
@@ -669,7 +741,8 @@ function loadSquad() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) { console.warn('Could not read saved squad, using defaults', e); }
-  return DEFAULT_SQUAD.map(p => ({...p}));
+  // Only an install that pre-dates profiles keeps the demo squad; every new team starts empty.
+  return activeTeam().legacy ? DEFAULT_SQUAD.map(p => ({...p})) : [];
 }
 function saveSquad() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(squad)); }
@@ -825,7 +898,7 @@ function showScreen(name) {
   // The Plan screen has its own compact back button + Live/Details sub-tabs,
   // so the top scoreboard and Squad/New Match/Match Plan bar just eat space
   // there without adding anything - hide them while it's active.
-  const onPlan = name === 'plan';
+  const onPlan = name === 'plan' || name === 'onboard';
   document.querySelector('.scoreboard').style.display = onPlan ? 'none' : 'flex';
   document.querySelector('.tabs').style.display = onPlan ? 'none' : 'flex';
 }
@@ -1161,6 +1234,7 @@ function updatePlanModeUI() {
     ? 'The planner builds the best starting team and a substitution schedule, which you can still change.'
     : "You'll start with a sensible team to adjust: tap players on the pitch to change who starts. Add substitutions in the plan, or make them on the fly during the match. The planner makes no suggestions (you can switch it on later in Details > Settings).";
   document.getElementById('rotationCard').style.display = auto ? 'block' : 'none';
+  document.getElementById('rotPresetSection').style.display = auto ? 'block' : 'none';
   document.getElementById('generateBtn').textContent = auto ? 'Generate match plan' : 'Set up my team';
 }
 const gkCountsCheckbox = document.getElementById('gkCountsCheckbox');
@@ -1930,7 +2004,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
 });
 
 /* ================= DEFAULT MATCH TYPE ================= */
-const DEFAULTS_KEY = 'rf_defaults_v1';
+const DEFAULTS_KEY = K('rf_defaults_v1');
 const FACTORY_DEFAULTS = {players: 7, duration: 50, periods: 2, hasGk: true, formation: 'auto'};
 function loadDefaults() {
   try { const r = localStorage.getItem(DEFAULTS_KEY); if (r) return {...FACTORY_DEFAULTS, ...JSON.parse(r)}; } catch (e) { /* use factory */ }
@@ -1977,6 +2051,7 @@ renderDefaultsUI();
 /* ================= NEW FIXTURE (lives under the Matches tab) ================= */
 function startNewFixture() {
   const d = matchDefaults;
+  applyDefaultRotation();
   document.getElementById('fmt-players').value = d.players;
   document.getElementById('fmt-duration').value = d.duration;
   document.getElementById('fmt-periods').value = d.periods;
@@ -2008,7 +2083,7 @@ function requestNewFixture() {
 document.getElementById('setupBackLink').addEventListener('click', () => { renderMatchesScreen(); showScreen('matches'); });
 
 /* ================= LINE-UP PRESETS ================= */
-const PRESETS_KEY = 'rf_presets_v1';
+const PRESETS_KEY = K('rf_presets_v1');
 function loadPresets() { try { const r = localStorage.getItem(PRESETS_KEY); if (r) return JSON.parse(r); } catch (e) { /* none */ } return []; }
 let presets = loadPresets();
 function savePresets() { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); } catch (e) { console.warn('Could not save presets', e); } }
@@ -3391,8 +3466,8 @@ function fmtFixtureDate(iso) {
 function fixtureTitle(fx, fallback) { return fx && fx.opponent ? `vs ${fx.opponent}` : (fallback || 'Match'); }
 function fixtureLine(fx) { return [fmtFixtureDate(fx && fx.date), fx && fx.venue, fx && fx.competition].filter(Boolean).join(' · '); }
 
-const MATCH_STATE_KEY = 'rf_live_match_v1'; // legacy single-slot save; migrated into the library below
-const MATCHES_KEY = 'rf_matches_v1';        // the match library: every plan / live / finished match
+const MATCH_STATE_KEY = K('rf_live_match_v1'); // legacy single-slot save; migrated into the library below
+const MATCHES_KEY = K('rf_matches_v1');        // the match library: every plan / live / finished match
 const MAX_SAVED_MATCHES = 40;
 let currentMatchId = null;      // which library record the on-screen match belongs to
 let finishedAtMinute = null;
@@ -4512,6 +4587,337 @@ function openExportModal() {
 }
 document.getElementById('exportImageLink').addEventListener('click', openExportModal);
 
+/* ================= ROTATION PRESETS (per team) ================= */
+const ROT_KEY = K('rf_rotation_v1');
+const ROT_FIELDS = ['fairnessPriority', 'positionStrictness', 'minShiftLength', 'maxBenchLength', 'gkCountsForFairness', 'subTimingMode', 'subIntervalMinutes', 'checkpointHalfway'];
+const STARTER_ROTATIONS = [
+  {id: 'bal', name: 'Balanced', blurb: 'Fair playing time with sensible gaps between changes.',
+    cfg: {fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false}},
+  {id: 'few', name: 'Fewer subs', blurb: 'Less chopping and changing - players get longer spells on the pitch.',
+    cfg: {fairnessPriority: 0.2, positionStrictness: 0.5, minShiftLength: 12, maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false}},
+  {id: 'max', name: 'Maximum fairness', blurb: 'The tightest split of minutes, with more frequent changes.',
+    cfg: {fairnessPriority: 0.9, positionStrictness: 0.2, minShiftLength: 5, maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false}},
+];
+function loadRotations() {
+  try { const r = lsGet(ROT_KEY); if (r) { const o = JSON.parse(r); if (o && Array.isArray(o.presets) && o.presets.length) return o; } } catch (e) { /* defaults */ }
+  return {defaultId: 'bal', presets: STARTER_ROTATIONS.map(x => ({id: x.id, name: x.name, blurb: x.blurb, cfg: {...x.cfg}}))};
+}
+let rotations = loadRotations();
+function saveRotations() { lsSet(ROT_KEY, JSON.stringify(rotations)); }
+function rotById(id) { return rotations.presets.find(x => x.id === id); }
+function defaultRotation() { return rotById(rotations.defaultId) || rotations.presets[0]; }
+function rotMatches(pr) { return ROT_FIELDS.every(f => cfg[f] === pr.cfg[f]); }
+function applyRotation(pr) {
+  if (!pr || liveMode) return;
+  cfg = {...cfg, ...pr.cfg, autoSubs: cfg.autoSubs !== false};
+  syncMinShiftSliderMax();
+  syncConfigUIFromCfg();
+  renderRotChips();
+}
+function applyDefaultRotation() { cfg = {...cfg, autoSubs: true}; applyRotation(defaultRotation()); }
+function renderRotChips() {
+  const wrap = document.getElementById('rotChips'); if (!wrap) return;
+  const sel = rotations.presets.find(rotMatches);
+  wrap.innerHTML = rotations.presets.map(pr => `<div class="radio-opt ${sel && sel.id === pr.id ? 'selected' : ''}" data-rot="${pr.id}">${esc(pr.name)}${pr.id === rotations.defaultId ? '<br><small>default</small>' : ''}</div>`).join('');
+  const dl = document.getElementById('rotDefaultLink');
+  if (dl) dl.style.display = sel && sel.id !== rotations.defaultId ? 'inline' : 'none';
+}
+document.getElementById('rotChips').addEventListener('click', e => {
+  const o = e.target.closest('[data-rot]'); if (!o) return;
+  applyRotation(rotById(o.dataset.rot));
+});
+document.getElementById('rotDefaultLink').addEventListener('click', () => {
+  const sel = rotations.presets.find(rotMatches); if (!sel) return;
+  rotations.defaultId = sel.id; saveRotations(); renderRotChips(); renderRotList();
+});
+document.getElementById('rotSaveLink').addEventListener('click', () => {
+  const overlay = openModal(`<div class="picker-title">Save rotation preset</div>
+    <div class="field"><label>Name</label><input type="text" id="rpName" placeholder="e.g. Cup games"></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="rpCancel">Cancel</button><button class="btn btn-primary" id="rpSave">Save</button></div>`);
+  overlay.querySelector('#rpCancel').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#rpSave').addEventListener('click', () => {
+    const name = overlay.querySelector('#rpName').value.trim();
+    if (!name) return;
+    const c = {}; ROT_FIELDS.forEach(f => { c[f] = cfg[f]; });
+    const ex = rotations.presets.find(x => x.name.toLowerCase() === name.toLowerCase());
+    if (ex) ex.cfg = c; else rotations.presets.push({id: 'r' + Date.now().toString(36), name, cfg: c});
+    saveRotations(); overlay.remove(); renderRotChips(); renderRotList();
+  });
+});
+function renderRotList() {
+  const el = document.getElementById('rotList'); if (!el) return;
+  el.innerHTML = rotations.presets.map(pr => `<div class="match-card"><div class="mc-title">${esc(pr.name)}${pr.id === rotations.defaultId ? ' <span class="badge planned">DEFAULT</span>' : ''}</div>
+    ${pr.blurb ? `<div class="mc-sub">${esc(pr.blurb)}</div>` : ''}
+    <div class="mc-row">${pr.id !== rotations.defaultId ? `<button class="btn btn-ghost mc-small" data-rdef="${pr.id}">Make default</button>` : ''}
+    ${rotations.presets.length > 1 ? `<button class="btn btn-ghost mc-small mc-del" data-rdel="${pr.id}">Delete</button>` : ''}</div></div>`).join('');
+  el.querySelectorAll('[data-rdef]').forEach(b => b.addEventListener('click', () => { rotations.defaultId = b.dataset.rdef; saveRotations(); renderRotList(); renderRotChips(); }));
+  el.querySelectorAll('[data-rdel]').forEach(b => b.addEventListener('click', () => {
+    const pr = rotById(b.dataset.rdel);
+    showConfirm(`Delete the "${pr.name}" rotation preset?`, () => {
+      rotations.presets = rotations.presets.filter(x => x.id !== pr.id);
+      if (rotations.defaultId === pr.id) rotations.defaultId = rotations.presets[0].id;
+      saveRotations(); renderRotList(); renderRotChips();
+    }, 'Delete');
+  }));
+}
+renderRotList();
+// settings changes on the sliders update which chip is highlighted
+const _origUpdateConfigSummary = updateConfigSummary;
+updateConfigSummary = function () { _origUpdateConfigSummary(); renderRotChips(); };
+
+/* ================= TEAM HEADER, SWITCHER, BACKUP ================= */
+function teamDisplayName(t) { return (t && t.name) || 'My team'; }
+function refreshTeamHeader() {
+  const t = activeTeam();
+  document.getElementById('teamTitleText').textContent = teamDisplayName(t);
+  document.title = `${teamDisplayName(t)} - Squad & Match Planner`;
+}
+function squadSizeOf(t) { try { const r = lsGet(teamKey('rf_squad_v1', t)); return r ? JSON.parse(r).length : (t.legacy ? DEFAULT_SQUAD.length : 0); } catch (e) { return 0; } }
+function matchCountOf(t) { try { const r = lsGet(teamKey('rf_matches_v1', t)); return r ? JSON.parse(r).length : 0; } catch (e) { return 0; } }
+function switchToTeam(id) {
+  const go = () => {
+    if (currentMatchId) { try { detachOpenMatch(); } catch (e) { /* best effort */ } }
+    profile.activeTeamId = id; saveProfile();
+    location.reload();
+  };
+  if (currentMatchId && liveMode && !matchFinished) {
+    showConfirm('A match is live. It keeps its clock - resume it from the Matches tab when you switch back. Switch team now?', go, 'Switch team');
+  } else go();
+}
+function addTeam() {
+  const t = {id: newTeamId(), name: '', suffix: '', setupDone: false, legacy: false, wizStep: 0, created: Date.now()};
+  t.suffix = ':' + t.id;
+  profile.teams.push(t); profile.activeTeamId = t.id; saveProfile();
+  location.reload();
+}
+function deleteTeam(id) {
+  const t = profile.teams.find(x => x.id === id); if (!t || profile.teams.length < 2) return;
+  ['rf_squad_v1', 'rf_matches_v1', 'rf_defaults_v1', 'rf_presets_v1', 'rf_rotation_v1', 'rf_live_match_v1'].forEach(b => { try { localStorage.removeItem(teamKey(b, t)); } catch (e) { /* ignore */ } });
+  profile.teams = profile.teams.filter(x => x.id !== id);
+  if (profile.activeTeamId === id) profile.activeTeamId = profile.teams[0].id;
+  saveProfile(); location.reload();
+}
+function renameModal(title, current, onSave) {
+  const overlay = openModal(`<div class="picker-title">${title}</div>
+    <div class="field"><input type="text" id="rnVal" value="${esc(current || '')}"></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="rnCancel">Cancel</button><button class="btn btn-primary" id="rnSave">Save</button></div>`);
+  overlay.querySelector('#rnCancel').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#rnSave').addEventListener('click', () => { const v = overlay.querySelector('#rnVal').value.trim(); if (!v) return; overlay.remove(); onSave(v); });
+}
+function openTeamMenu() {
+  const overlay = openModal(`
+    <div class="picker-title">Your teams${profile.coach.name ? ' · ' + esc(profile.coach.name) : ''}</div>
+    ${profile.teams.map(t => `<div class="team-row ${t.id === profile.activeTeamId ? 'active' : ''}" data-team="${t.id}">
+      <div class="tn">${esc(teamDisplayName(t))}<br><small>${squadSizeOf(t)} players · ${matchCountOf(t)} matches</small></div>${t.id === profile.activeTeamId ? '<small>current</small>' : ''}</div>`).join('')}
+    <button class="btn btn-ghost" id="tmAdd" style="margin-top:4px;">+ Add another team</button>
+    <div style="display:flex; gap:16px; flex-wrap:wrap; margin:12px 0 4px;">
+      <span class="decision-link" id="tmRename">Rename this team</span>
+      <span class="decision-link" id="tmCoach">${profile.coach.name ? 'Change my name' : 'Add my name'}</span>
+      <span class="decision-link" id="tmBackup">Backup &amp; restore</span>
+      ${profile.teams.length > 1 ? '<span class="decision-link" id="tmDelete" style="color:var(--coral);">Delete this team</span>' : ''}
+    </div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="tmClose">Close</button></div>`, {wide: true});
+  overlay.querySelector('#tmClose').addEventListener('click', () => overlay.remove());
+  overlay.querySelectorAll('[data-team]').forEach(r => r.addEventListener('click', () => { if (r.dataset.team !== profile.activeTeamId) { overlay.remove(); switchToTeam(r.dataset.team); } }));
+  overlay.querySelector('#tmAdd').addEventListener('click', () => { overlay.remove(); if (currentMatchId && liveMode && !matchFinished) showConfirm('A match is live. It keeps its clock - resume it from the Matches tab later. Add a team now?', addTeam, 'Add team'); else { if (currentMatchId) { try { detachOpenMatch(); } catch (e) { /* ignore */ } } addTeam(); } });
+  overlay.querySelector('#tmRename').addEventListener('click', () => renameModal('Rename team', activeTeam().name, v => { activeTeam().name = v; saveProfile(); refreshTeamHeader(); }));
+  overlay.querySelector('#tmCoach').addEventListener('click', () => renameModal('Your name', profile.coach.name, v => { profile.coach.name = v; saveProfile(); }));
+  overlay.querySelector('#tmBackup').addEventListener('click', openBackupModal);
+  const del = overlay.querySelector('#tmDelete');
+  if (del) del.addEventListener('click', () => {
+    const t = activeTeam();
+    overlay.remove();
+    showConfirm(`Delete ${teamDisplayName(t)} and all of its players, matches and presets? This can't be undone.`, () => deleteTeam(t.id), 'Delete team');
+  });
+}
+document.getElementById('teamTitle').addEventListener('click', openTeamMenu);
+
+function collectBackup() {
+  const data = {};
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('rf_')) data[k] = localStorage.getItem(k); } } catch (e) { /* ignore */ }
+  return {app: 'squad-planner', format: 1, exportedAt: new Date().toISOString(), data};
+}
+function openBackupModal() {
+  const overlay = openModal(`<div class="picker-title">Backup &amp; restore</div>
+    <div class="config-note" style="margin-bottom:10px;">Your teams, squads and matches are saved on this device only. Download a backup to keep them safe or to move to a new phone.</div>
+    <button class="btn btn-primary" id="bkExport">Download backup</button>
+    <button class="btn btn-ghost" id="bkImport" style="margin-top:8px;">Restore from a backup file</button>
+    <input type="file" id="bkFile" accept="application/json,.json" style="display:none;">
+    <div class="warn-box" id="bkMsg" style="display:none; margin-top:10px;"></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="bkClose">Close</button></div>`);
+  const msg = t => { const m = overlay.querySelector('#bkMsg'); m.style.display = 'block'; m.textContent = t; };
+  overlay.querySelector('#bkClose').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#bkExport').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(collectBackup(), null, 1)], {type: 'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `squad-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+  overlay.querySelector('#bkImport').addEventListener('click', () => overlay.querySelector('#bkFile').click());
+  overlay.querySelector('#bkFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    let obj; try { obj = JSON.parse(await f.text()); } catch (er) { return msg("That file isn't a valid backup."); }
+    if (!obj || obj.app !== 'squad-planner' || !obj.data || typeof obj.data !== 'object') return msg("That file isn't a Squad Planner backup.");
+    overlay.remove();
+    showConfirm('Restore this backup? It replaces everything currently saved on this device.', () => {
+      try {
+        const rm = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('rf_')) rm.push(k); }
+        rm.forEach(k => localStorage.removeItem(k));
+        Object.entries(obj.data).forEach(([k, v]) => { if (k.startsWith('rf_') && typeof v === 'string') localStorage.setItem(k, v); });
+      } catch (er) { showAlert("Couldn't restore the backup: " + er.message); return; }
+      location.reload();
+    }, 'Restore');
+  });
+}
+
+/* ================= REGISTRATION WIZARD ================= */
+const WIZ_STEPS = ['team', 'format', 'squad', 'rotation', 'lineup', 'done'];
+let wizStep = 0;
+function posKind(p) { const t = p.positions || {}; return t.DEF === 3 ? 'DEF' : t.MID === 3 ? 'MID' : t.ATT === 3 ? 'ATT' : 'ALL'; }
+const KIND_TIERS = {DEF: {DEF: 3, MID: 2, ATT: 1}, MID: {DEF: 2, MID: 3, ATT: 2}, ATT: {DEF: 1, MID: 2, ATT: 3}, ALL: {DEF: 2, MID: 2, ATT: 2}};
+function openWizard(step) {
+  wizStep = step != null ? step : (activeTeam().wizStep || 0);
+  showScreen('onboard'); renderWizard();
+}
+function wizGo(step) { wizStep = step; activeTeam().wizStep = step; saveProfile(); renderWizard(); window.scrollTo(0, 0); }
+function suggestLineupFor(players, hasGk, shape) {
+  const slots = buildFormation(shape, hasGk);
+  const oldP = PLAYERS, oldById = playersById;
+  PLAYERS = players; playersById = Object.fromEntries(players.map(q => [q.id, q]));
+  try {
+    const out = slots.filter(sl => sl.group !== 'GK'); const lineup = {}; let gk = null;
+    if (hasGk) { gk = autoStartingKeeper(players, out); lineup.GK = gk; }
+    const pool = players.filter(q => q.id !== gk).map(q => q.id);
+    const res = bestOutfieldAssignment(out, pool, null);
+    out.forEach(sl => { lineup[sl.id] = res.assign[sl.id]; });
+    return lineup;
+  } catch (e) { return {}; } finally { PLAYERS = oldP; playersById = oldById; }
+}
+function wizFormatSummary() {
+  const d = matchDefaults;
+  return `${d.players}v${d.players}${d.hasGk ? '' : ' (no GK)'} · ${d.duration}' · ${d.periods} period${d.periods > 1 ? 's' : ''}`;
+}
+function renderWizard() {
+  const body = document.getElementById('wizBody'); const t = activeTeam();
+  const step = WIZ_STEPS[wizStep];
+  const dots = `<div class="wiz-dots">${WIZ_STEPS.map((_, i) => `<span class="${i === wizStep ? 'on' : i < wizStep ? 'done' : ''}"></span>`).join('')}</div>`;
+  const nav = (backTo, nextLabel, nextId) => `<div style="display:flex; gap:8px; margin-top:14px;">${backTo != null ? `<button class="btn btn-ghost" id="wizBack" style="flex:0 0 90px;">Back</button>` : ''}<button class="btn btn-primary" id="${nextId || 'wizNext'}" style="flex:1;">${nextLabel || 'Next'}</button></div>`;
+  const err = `<div class="warn-box" id="wizErr" style="display:none; margin-top:10px;"></div>`;
+  const fail = m => { const e = body.querySelector('#wizErr'); e.style.display = 'block'; e.textContent = m; };
+  const first = profile.teams.length === 1;
+  if (step === 'team') {
+    body.innerHTML = `${dots}<div class="form-card">
+      <div class="wiz-hero">${first ? 'Welcome' : 'Add a team'}</div>
+      <div class="config-note" style="margin-bottom:12px;">${first ? "Let's set up your team in a few quick steps - your squad, your usual match format, how you like to rotate, and your strongest line-up." : 'A few quick steps and this team is ready. Teams are kept completely separate.'}</div>
+      ${profile.coach.name ? '' : '<div class="field"><label>Your name (optional)</label><input type="text" id="wzCoach" placeholder="e.g. Sam"></div>'}
+      <div class="field"><label>Team name</label><input type="text" id="wzTeam" placeholder="e.g. Riverside U10s" value="${esc(t.name)}"></div>
+      ${err}${nav(null, 'Next')}</div>`;
+    body.querySelector('#wizNext').addEventListener('click', () => {
+      const name = body.querySelector('#wzTeam').value.trim();
+      if (!name) return fail('Give your team a name.');
+      t.name = name;
+      const c = body.querySelector('#wzCoach'); if (c && c.value.trim()) profile.coach.name = c.value.trim();
+      saveProfile(); refreshTeamHeader(); wizGo(1);
+    });
+  } else if (step === 'format') {
+    const d = matchDefaults;
+    const opt = (vals, sel) => vals.map(v => `<option ${v === sel ? 'selected' : ''}>${v}</option>`).join('');
+    const oc = Math.max(0, d.hasGk ? d.players - 1 : d.players); const combos = formationCombos(oc);
+    body.innerHTML = `${dots}<div class="form-card">
+      <div class="wiz-hero">Your usual match</div>
+      <div class="config-note" style="margin-bottom:12px;">New fixtures start with this format. You can change it for any single match.</div>
+      <div class="pos-row">
+        <div class="field"><label>Players per side</label><select id="wzPlayers">${opt(Array.from({length: 9}, (_, i) => i + 3), d.players)}</select></div>
+        <div class="field"><label>Duration (min)</label><select id="wzDur">${opt(Array.from({length: 17}, (_, i) => (i + 2) * 5), d.duration)}</select></div>
+        <div class="field"><label>Periods</label><select id="wzPer">${opt(Array.from({length: 9}, (_, i) => i + 1), d.periods)}</select></div>
+      </div>
+      <div class="check-row" style="margin:4px 0 10px;"><input type="checkbox" id="wzGk" ${d.hasGk ? 'checked' : ''}><label for="wzGk">Uses a goalkeeper</label></div>
+      <div class="field"><label>Formation</label><select id="wzForm"><option value="auto">Balanced (planner suggests)</option>${combos.map(c => `<option value="${formationLabel(c)}" ${formationLabel(c) === d.formation ? 'selected' : ''}>${formationLabel(c)}</option>`).join('')}</select></div>
+      ${nav(0, 'Next')}</div>`;
+    const read = () => {
+      const pp = matchDefaults.players, gg = matchDefaults.hasGk;
+      matchDefaults = {players: parseInt(body.querySelector('#wzPlayers').value, 10), duration: parseInt(body.querySelector('#wzDur').value, 10), periods: parseInt(body.querySelector('#wzPer').value, 10), hasGk: body.querySelector('#wzGk').checked, formation: body.querySelector('#wzForm').value};
+      if (matchDefaults.players !== pp || matchDefaults.hasGk !== gg) matchDefaults.formation = 'auto';
+      saveDefaults(); renderDefaultsUI();
+    };
+    ['#wzPlayers', '#wzDur', '#wzPer', '#wzGk', '#wzForm'].forEach(sel => body.querySelector(sel).addEventListener('change', () => { const rebuild = sel === '#wzPlayers' || sel === '#wzGk'; read(); if (rebuild) renderWizard(); }));
+    body.querySelector('#wizBack').addEventListener('click', () => wizGo(0));
+    body.querySelector('#wizNext').addEventListener('click', () => { read(); wizGo(2); });
+  } else if (step === 'squad') {
+    body.innerHTML = `${dots}<div class="form-card">
+      <div class="wiz-hero">Your squad</div>
+      <div class="config-note" style="margin-bottom:10px;">Add your players, tell us where each plays best and who can go in goal. The planner uses this to build the team and rotations. You can fine-tune everyone later in the Squad tab.</div>
+      <div id="wzList">${squad.length ? squad.map((p, i) => `<div class="wiz-row"><span class="nm">${esc(p.id)}${p.number ? ' <small style="color:var(--ink-soft);">#' + p.number + '</small>' : ''}</span>
+        <select data-pos="${i}"><option value="ALL" ${posKind(p) === 'ALL' ? 'selected' : ''}>All-rounder</option><option value="DEF" ${posKind(p) === 'DEF' ? 'selected' : ''}>Defender</option><option value="MID" ${posKind(p) === 'MID' ? 'selected' : ''}>Midfielder</option><option value="ATT" ${posKind(p) === 'ATT' ? 'selected' : ''}>Attacker</option></select>
+        <label><input type="checkbox" data-gk="${i}" ${p.gk ? 'checked' : ''}>GK</label><span class="wiz-rm" data-rm="${i}">✕</span></div>`).join('') : '<div class="config-note">No players yet.</div>'}</div>
+      <div class="field" style="margin-top:12px;"><label>Add players - one per line (optionally start with a shirt number, e.g. "7 Oliver")</label><textarea class="wiz-ta" id="wzNames" placeholder="Oliver&#10;7 Harry&#10;Noah"></textarea></div>
+      <button class="btn btn-ghost" id="wzAdd">Add these players</button>
+      <div class="config-note" style="margin-top:8px;">${squad.length} added · you need at least ${matchDefaults.players}${matchDefaults.hasGk ? ' including a goalkeeper' : ''} for ${wizFormatSummary()}.</div>
+      ${err}${nav(1, 'Next')}</div>`;
+    body.querySelector('#wzAdd').addEventListener('click', () => {
+      const lines = body.querySelector('#wzNames').value.split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
+      for (const ln of lines) {
+        let num = null, name = ln; const m = ln.match(/^(\d{1,2})[\s.\-:]+(.+)$/); if (m) { num = parseInt(m[1], 10); name = m[2].trim(); }
+        if (!name || squad.some(q => q.id.toLowerCase() === name.toLowerCase())) continue;
+        squad.push({id: name, number: num, positions: {DEF: 2, MID: 2, ATT: 2}, gk: false});
+      }
+      saveSquad(); renderSquadList(); renderWizard();
+    });
+    body.querySelectorAll('[data-pos]').forEach(sel => sel.addEventListener('change', () => { squad[+sel.dataset.pos].positions = {...KIND_TIERS[sel.value]}; saveSquad(); renderSquadList(); }));
+    body.querySelectorAll('[data-gk]').forEach(cb => cb.addEventListener('change', () => { squad[+cb.dataset.gk].gk = cb.checked; saveSquad(); renderSquadList(); }));
+    body.querySelectorAll('[data-rm]').forEach(x => x.addEventListener('click', () => { squad.splice(+x.dataset.rm, 1); saveSquad(); renderSquadList(); renderWizard(); }));
+    body.querySelector('#wizBack').addEventListener('click', () => wizGo(1));
+    body.querySelector('#wizNext').addEventListener('click', () => {
+      const pending = body.querySelector('#wzNames').value.trim();
+      if (pending) return fail('You have names typed in the box - tap "Add these players" first.');
+      if (squad.length < matchDefaults.players) return fail(`Add at least ${matchDefaults.players} players for ${wizFormatSummary()} (you have ${squad.length}).`);
+      if (matchDefaults.hasGk && !squad.some(q => q.gk)) return fail('Tick GK for at least one player who can go in goal.');
+      wizGo(3);
+    });
+  } else if (step === 'rotation') {
+    body.innerHTML = `${dots}<div class="form-card">
+      <div class="wiz-hero">How do you like to rotate?</div>
+      <div class="config-note" style="margin-bottom:10px;">Pick your usual style. It becomes your default for new fixtures. You can tweak the detail, and save your own rotation presets, whenever you plan a match.</div>
+      ${rotations.presets.map(pr => `<div class="wiz-card ${pr.id === rotations.defaultId ? 'selected' : ''}" data-rot="${pr.id}"><b>${esc(pr.name)}</b><small>${esc(pr.blurb || '')}</small></div>`).join('')}
+      ${nav(2, 'Next')}</div>`;
+    body.querySelectorAll('[data-rot]').forEach(c => c.addEventListener('click', () => { rotations.defaultId = c.dataset.rot; saveRotations(); renderRotList(); renderWizard(); }));
+    body.querySelector('#wizBack').addEventListener('click', () => wizGo(2));
+    body.querySelector('#wizNext').addEventListener('click', () => wizGo(4));
+  } else if (step === 'lineup') {
+    const d = matchDefaults; const shape = defaultShapeFor(d.players, d.hasGk, d.formation);
+    const mine = presets.filter(pr => pr.players === d.players && !!pr.hasGk === !!d.hasGk);
+    body.innerHTML = `${dots}<div class="form-card">
+      <div class="wiz-hero">Your strongest line-up</div>
+      <div class="config-note" style="margin-bottom:10px;">Save the team you'd pick for a big game. We'll suggest one from your squad - change anyone you like. Later you can add more (defensive, attacking...) and drop any of them into a fixture in one tap.</div>
+      ${mine.length ? mine.map(pr => `<div class="wiz-card selected"><b>${esc(pr.name)}</b><small>${shapeLabel(pr.shape)}${pr.hasGk && pr.lineup.GK ? ' · GK ' + esc(pr.lineup.GK) : ''}</small></div>`).join('') : ''}
+      <button class="btn btn-primary" id="wzStrong" style="margin-bottom:8px;">${mine.length ? '+ Add another line-up' : 'Pick my strongest team'}</button>
+      ${mine.length ? '<div style="display:flex; gap:8px;"><button class="btn btn-ghost" id="wzDef" style="flex:1;">+ Defensive</button><button class="btn btn-ghost" id="wzAtt" style="flex:1;">+ Attacking</button></div>' : ''}
+      ${nav(3, mine.length ? 'Next' : 'Skip for now')}</div>`;
+    const open = nm => openPresetEditor({from: {name: nm, players: d.players, hasGk: d.hasGk, shape, lineup: suggestLineupFor(squad, d.hasGk, shape)}});
+    const watch = () => { const iv = setInterval(() => { if (!document.querySelector('.modal-overlay')) { clearInterval(iv); renderWizard(); } }, 300); };
+    body.querySelector('#wzStrong').addEventListener('click', () => { open(mine.length ? '' : 'Strongest'); watch(); });
+    const df = body.querySelector('#wzDef'), at = body.querySelector('#wzAtt');
+    if (df) df.addEventListener('click', () => { open('Defensive'); watch(); });
+    if (at) at.addEventListener('click', () => { open('Attacking'); watch(); });
+    body.querySelector('#wizBack').addEventListener('click', () => wizGo(3));
+    body.querySelector('#wizNext').addEventListener('click', () => wizGo(5));
+  } else {
+    body.innerHTML = `${dots}<div class="form-card" style="text-align:center;">
+      <div class="wiz-hero">${esc(teamDisplayName(t))} is ready</div>
+      <div class="config-note" style="margin:6px 0 14px;">${squad.length} players · ${wizFormatSummary()} · ${esc((defaultRotation() || {}).name || '')} rotation · ${presets.length} saved line-up${presets.length === 1 ? '' : 's'}.<br>Head to Matches to plan your first fixture. Everything here can be changed later from the Squad tab.</div>
+      <button class="btn btn-primary" id="wizFinish">Go to my team</button></div>`;
+    body.querySelector('#wizFinish').addEventListener('click', () => {
+      t.setupDone = true; saveProfile();
+      refreshTeamHeader(); renderSquadList(); renderPresetList(); renderRotList(); renderDefaultsUI();
+      showScreen('squad');
+    });
+  }
+}
+
+/* ---- boot: header, and the wizard for a team that hasn't been set up ---- */
+refreshTeamHeader();
+
 /* ================= INIT ================= */
 renderSquadList();
 
@@ -4526,6 +4932,7 @@ try { if (navigator.storage && navigator.storage.persist) navigator.storage.pers
 // Matches that haven't kicked off, and finished ones, live in the Matches tab.
 (function resumeLiveMatchOnLaunch() {
   migrateLegacyLiveMatch();
+  if (!activeTeam().setupDone) { openWizard(); return; }
   const live = loadMatchLibrary().filter(r => r.status === 'live').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
   if (live) openMatchFromLibrary(live.id);
 })();
