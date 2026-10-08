@@ -309,7 +309,8 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="squad">Squad</div>
+    <div class="tab active" data-tab="home">Home</div>
+    <div class="tab" data-tab="squad">Squad</div>
     <div class="tab" data-tab="matches">Matches</div>
     <div class="tab disabled" data-tab="plan" id="planTab">Match Plan</div>
   </div>
@@ -320,7 +321,12 @@
   </div>
 
   <!-- SQUAD SCREEN -->
-  <div class="screen active" id="screen-squad">
+  <div class="screen active" id="screen-home">
+    <div id="homeBody"></div>
+  </div>
+
+  <!-- SQUAD SCREEN -->
+  <div class="screen" id="screen-squad">
     <section>
       <h2>Squad</h2>
       <div id="squadList"></div>
@@ -4768,6 +4774,90 @@ function renderPlayerProfile() {
 }
 document.getElementById('psBack').addEventListener('click', () => showScreen('squad'));
 
+/* ================= HOME DASHBOARD ================= */
+function homeCard(inner, extra) { return `<div class="form-card" ${extra || ''}>${inner}</div>`; }
+function resultBadge(r) {
+  const c = r === 'W' ? '#2F7D52' : r === 'L' ? '#C1503F' : '#E3A23C';
+  return `<span style="display:inline-block; min-width:22px; text-align:center; padding:2px 7px; border-radius:6px; background:${c}; color:#fff; font-family:Oswald,sans-serif; font-size:12px;">${r}</span>`;
+}
+function renderHome() {
+  const el = document.getElementById('homeBody'); if (!el) return;
+  const lib = loadMatchLibrary(); const agg = aggregateStats(); const T = agg.team;
+  const today = todayISO();
+  const planned = lib.filter(r => r.status === 'planned').sort((a, b) => {
+    const da = (a.fixture && a.fixture.date) || '', db = (b.fixture && b.fixture.date) || '';
+    if (da && db) return da < db ? -1 : da > db ? 1 : 0; if (!da !== !db) return da ? -1 : 1; return (a.createdAt || 0) - (b.createdAt || 0); });
+  const upcoming = planned.filter(r => !(r.fixture && r.fixture.date) || r.fixture.date >= today);
+  const next = upcoming[0] || null;
+  const live = lib.filter(r => r.status === 'live').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+  const last = agg.matches.length ? agg.matches[agg.matches.length - 1] : null;
+  let html = '';
+  if (live) {
+    html += homeCard(`<div style="display:flex; align-items:center; gap:10px;"><div style="flex:1;"><span class="badge live">LIVE</span><div class="mc-title" style="margin-top:4px;">${esc(fixtureTitle(live.fixture, live.title))}</div><div class="mc-sub">${live.score ? live.score.us : 0} - ${live.score ? live.score.them : 0} · at ${live.minute || 0}'</div></div><button class="btn btn-primary" id="homeResume" style="width:auto; padding:10px 16px;">Resume</button></div>`);
+  }
+  // next fixture
+  if (next) {
+    const line = fixtureLine(next.fixture);
+    const days = next.fixture && next.fixture.date ? Math.round((new Date(next.fixture.date + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000) : null;
+    html += homeCard(`<div style="font-size:11px; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:4px;">NEXT FIXTURE${days !== null ? ' · ' + (days === 0 ? 'TODAY' : days === 1 ? 'TOMORROW' : 'IN ' + days + ' DAYS') : ''}</div>
+      <div style="font-family:Oswald,sans-serif; font-size:21px; font-weight:600;">${esc(fixtureTitle(next.fixture, next.title))}</div>
+      ${line ? `<div style="font-size:13px; color:var(--ink-soft); margin-top:2px;">${esc(line)}</div>` : ''}
+      <div style="font-size:12px; color:var(--ink-soft); margin-top:2px;">${esc(next.format || '')} · line-up planned</div>
+      <button class="btn btn-primary" id="homeNextOpen" style="margin-top:10px;">Open plan</button>`, 'id="homeNext"');
+  } else {
+    html += homeCard(`<div style="font-size:11px; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:4px;">NEXT FIXTURE</div>
+      <div class="config-note">No upcoming fixture planned yet.</div><button class="btn btn-primary" id="homePlan" style="margin-top:10px;">+ Plan a fixture</button>`, 'id="homeNext"');
+  }
+  // last result
+  if (last) {
+    const s = last.stats; const sc = {};
+    ((last.snapshot && last.snapshot.goalEvents) || []).forEach(g => { if (g.forUs && s.players[g.scorer]) sc[g.scorer] = (sc[g.scorer] || 0) + 1; });
+    const scorers = Object.entries(sc).map(([k, v]) => v > 1 ? `${esc(k)} ×${v}` : esc(k)).join(', ');
+    html += homeCard(`<div style="font-size:11px; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:4px;">LAST RESULT</div>
+      <div style="display:flex; align-items:center; gap:10px;"><div style="flex:1;"><div class="mc-title">${esc(fixtureTitle(last.fixture, last.title))}</div><div class="mc-sub">${esc(fmtFixtureDate(recDate(last)))}${last.fixture && last.fixture.competition ? ' · ' + esc(last.fixture.competition) : ''}</div></div>
+      <div style="text-align:right;"><div style="font-family:Oswald,sans-serif; font-size:26px; font-weight:600; line-height:1;">${s.gf} - ${s.ga}</div>${resultBadge(s.result)}</div></div>
+      ${scorers ? `<div style="font-size:12.5px; margin-top:6px;">⚽ ${scorers}</div>` : ''}
+      <button class="btn btn-ghost" id="homeLastOpen" style="margin-top:8px;">View match</button>`);
+  }
+  if (!T.played) {
+    html += homeCard(`<div class="wiz-hero" style="font-size:20px;">Your season will appear here</div><div class="config-note">Play and finish a match and this page fills with results, form, top scorers, minutes played and where each player has played. Add goals and scorers during the match to see them in the stats.</div>`);
+  } else {
+    const pct = Math.round((T.w * 3 + T.d) / (T.played * 3) * 100);
+    const tile = (v, l) => `<div style="background:var(--bench-card); border-radius:10px; padding:10px 4px; text-align:center;"><div style="font-family:Oswald,sans-serif; font-size:21px; font-weight:600;">${v}</div><div style="font-size:10.5px; color:var(--ink-soft);">${l}</div></div>`;
+    html += homeCard(`<h2 style="margin-top:0;">Season so far</h2>
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">${tile(T.played, 'Played')}${tile(T.w + '-' + T.d + '-' + T.l, 'W-D-L')}${tile(T.gf, 'Scored')}${tile(T.ga, 'Conceded')}</div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px;">${tile((T.gf / T.played).toFixed(1), 'Goals / game')}${tile(T.cs, 'Clean sheets')}${tile(pct + '%', 'Points won')}</div>
+      <div style="display:flex; align-items:center; gap:6px; margin-top:10px;"><span style="font-size:12px; color:var(--ink-soft);">Form</span>${agg.matches.slice(-5).map(m => resultBadge(m.stats.result)).join(' ')}</div>`);
+    // scorers
+    const scorers = Object.values(agg.players).filter(a => a.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 5);
+    if (scorers.length) {
+      const mx = scorers[0].goals;
+      html += homeCard(`<h2 style="margin-top:0;">Top scorers</h2>${scorers.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer;"><span style="width:84px; font-size:13.5px; font-weight:600;">${esc(a.id)}</span><div style="flex:1; background:var(--card-line); border-radius:5px; height:10px;"><div style="width:${a.goals / mx * 100}%; height:10px; border-radius:5px; background:var(--amber);"></div></div><b style="width:22px; text-align:right;">${a.goals}</b></div>`).join('')}`);
+    }
+    // minutes
+    const squadIds = new Set(squad.map(p => p.id));
+    const rows = Object.values(agg.players).filter(a => squadIds.has(a.id) || a.apps > 0).sort((a, b) => b.mins - a.mins);
+    const played = rows.filter(a => a.avail > 0);
+    const mn = played.length ? played[played.length - 1].mins : 0, mxm = played.length ? played[0].mins : 0;
+    const totals = {gk: 0, def: 0, mid: 0, att: 0}; rows.forEach(a => POS_KEYS.forEach(k => { totals[k] += a[k]; }));
+    const tt = POS_KEYS.reduce((t, k) => t + totals[k], 0);
+    html += homeCard(`<h2 style="margin-top:0;">Minutes played</h2>
+      <div class="config-note" style="margin-bottom:8px;">Gap between most and least: <b>${mxm - mn}'</b> over ${T.played} match${T.played === 1 ? '' : 'es'}. Tap a player for their profile.</div>
+      <div style="display:flex; gap:10px; font-size:11px; color:var(--ink-soft); margin-bottom:4px;">${POS_KEYS.map(k => `<span><span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:${POS_COLORS[k.toUpperCase()]};"></span> ${k.toUpperCase()}</span>`).join('')}</div>
+      ${rows.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="padding:6px 0; border-bottom:1px solid var(--card-line); cursor:pointer;"><div style="display:flex; gap:8px; font-size:13.5px;"><b style="flex:1;">${esc(a.id)}</b><span style="color:var(--ink-soft);">${a.apps}/${a.avail} games</span><b style="width:44px; text-align:right;">${a.mins}'</b></div><div style="margin-top:4px;">${posBar(a)}</div></div>`).join('')}`, 'id="homeMinutes"');
+    if (tt) {
+      html += homeCard(`<h2 style="margin-top:0;">Where the team's minutes go</h2><div style="display:flex; align-items:center; gap:14px;"><div style="flex:0 0 auto;">${donutSvg(POS_KEYS.map(k => ({label: k, value: totals[k], color: POS_COLORS[k.toUpperCase()]})), 130)}</div><div style="flex:1;">${posLegend(totals, tt)}</div></div>`);
+    }
+  }
+  el.innerHTML = html;
+  const g = id => document.getElementById(id);
+  if (g('homeResume')) g('homeResume').addEventListener('click', () => openMatchFromLibrary(live.id));
+  if (g('homeNextOpen')) g('homeNextOpen').addEventListener('click', () => openMatchFromLibrary(next.id));
+  if (g('homePlan')) g('homePlan').addEventListener('click', requestNewFixture);
+  if (g('homeLastOpen')) g('homeLastOpen').addEventListener('click', () => openMatchFromLibrary(last.id));
+  el.querySelectorAll('.home-row').forEach(r => r.addEventListener('click', () => { if (squad.some(p => p.id === r.dataset.pid)) openPlayerProfile(r.dataset.pid); }));
+}
+
 /* ================= ROTATION PRESETS (per team) ================= */
 const ROT_KEY = K('rf_rotation_v1');
 const ROT_FIELDS = ['fairnessPriority', 'positionStrictness', 'minShiftLength', 'maxBenchLength', 'gkCountsForFairness', 'subTimingMode', 'subIntervalMinutes', 'checkpointHalfway'];
@@ -5106,8 +5196,9 @@ function renderWizard() {
 const TOUR_STEPS = [
   {title: 'Welcome to your team hub', text: "A quick tour of the app. It takes about a minute and you can skip it at any time - replay it from the team menu (tap your team name).",
     bullets: ['Squad - your players, line-up presets and defaults', 'Matches - every fixture, planned, live and finished', 'Match Plan - the plan and live match mode for the fixture you open']},
+  {screen: 'home', sel: '#homeNext', title: 'Your dashboard', text: 'Home shows your next fixture and last result. As you finish matches it also builds your season: form, top scorers, and how many minutes each player has had.'},
   {screen: 'squad', sel: '#teamTitle', title: 'Your teams', text: 'Tap your team name to switch teams, add another side, rename a team, or back up your data. Each team has its own squad, fixtures and presets.'},
-  {screen: 'squad', sel: '#squadList', title: 'Your squad', text: "Everyone in the team. Each player has where they play best (Defence, Midfield, Attack) and whether they can go in goal. The planner uses this to choose the team and fair rotations. Tap a player to edit them."},
+  {screen: 'squad', sel: '#squadList', title: 'Your squad', text: "Everyone in the team. Each player has where they play best (Defence, Midfield, Attack) and whether they can go in goal. The planner uses this to choose the team and fair rotations. Tap a player to see their stats - matches, minutes, goals and a chart of where they have played - or to edit them."},
   {screen: 'squad', sel: '#addPlayerBtn', title: 'Add players', text: 'Add new players any time, or tweak how comfortable each is in each position.'},
   {screen: 'squad', sel: '#secPresets', title: 'Line-up presets', text: 'Save your go-to line-ups - strongest, defensive, attacking - and drop one into a fixture in a single tap.'},
   {screen: 'squad', sel: '#secRotations', title: 'Rotation presets', text: 'Your regular rotation styles, like "Fewer subs" or "Maximum fairness". The default one is used for every new fixture.'},
@@ -5132,7 +5223,7 @@ function startTour(returnTo) {
   document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
   tourSteps = tourAvailableSteps(); tourIdx = 0;
   tourReturn = returnTo || (document.querySelector('.screen.active') ? document.querySelector('.screen.active').id.replace('screen-', '') : 'squad');
-  if (['plan', 'onboard', 'setup', 'playerForm'].includes(tourReturn)) tourReturn = 'squad';
+  if (['plan', 'onboard', 'setup', 'playerForm', 'playerStats'].includes(tourReturn)) tourReturn = 'squad';
   showTourBanner();
   tourShow();
 }
@@ -5202,7 +5293,7 @@ document.getElementById('tourBannerGo').addEventListener('click', () => startTou
 document.getElementById('tourBannerX').addEventListener('click', () => { profile.tourDone = true; saveProfile(); showTourBanner(); });
 // keep the banner in step with navigation
 const _origShowScreen = showScreen;
-showScreen = function (name) { _origShowScreen(name); if (name === 'squad') { try { renderSquadList(); } catch (e) { /* ignore */ } } showTourBanner(); };
+showScreen = function (name) { _origShowScreen(name); if (name === 'home') { try { renderHome(); } catch (e) { console.warn(e); } } if (name === 'squad') { try { renderSquadList(); } catch (e) { /* ignore */ } } showTourBanner(); };
 
 /* ---- boot: header, and the wizard for a team that hasn't been set up ---- */
 refreshTeamHeader(); showTourBanner();
@@ -5224,7 +5315,7 @@ try { if (navigator.storage && navigator.storage.persist) navigator.storage.pers
   if (!activeTeam().setupDone) { openWizard(); return; }
   try { backfillMatchStats(); renderSquadList(); } catch (e) { console.warn(e); }
   const live = loadMatchLibrary().filter(r => r.status === 'live').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
-  if (live) openMatchFromLibrary(live.id);
+  if (live) openMatchFromLibrary(live.id); else showScreen('home');
 })();
 </script>
 </body>
