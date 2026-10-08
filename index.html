@@ -343,6 +343,11 @@
       <div class="config-note" style="margin-bottom:8px;">Your regular rotation styles. The default one is used for every new fixture; you can pick another when planning.</div>
       <div id="rotList"></div>
     </section>
+    <section id="secAwards">
+      <h2>Match awards</h2>
+      <div class="config-note" style="margin-bottom:8px;">The awards you give out after a match - Player of the Match, the opposition manager's pick, parents' choice... Set as many as you like; you pick the winners when a match ends (or later from the finished match).</div>
+      <div id="awardsEditor"></div>
+    </section>
     <section id="secDefaults">
       <h2>Default match type</h2>
       <div class="config-note" style="margin-bottom:8px;">New fixtures start with this format, so you don't have to set it every time.</div>
@@ -559,6 +564,7 @@
         <span class="score-val" id="scoreUs">0</span><span class="score-sep">–</span><span class="score-val" id="scoreThem">0</span>
       </div>
       <span class="score-add" id="addGoalBtn">+ Goal</span>
+      <span class="score-add" id="addNoteBtn" aria-label="Match notes" style="padding:7px 9px;">📝</span>
     </div>
 
     <div class="banner" id="regenBanner"></div>
@@ -2017,7 +2023,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   lastAutoPoppedKey = null;
   resolvedKeys = new Set(); snoozes = {};
   dismissedDecisionKeys = new Set();
-  score = {us: 0, them: 0}; goalEvents = [];
+  score = {us: 0, them: 0}; goalEvents = []; matchAwards = []; matchNotes = [];
   setPlanSubTab('live');
   currentMatchId = newMatchId();
   matchFixture = {...draftFixture};
@@ -3247,19 +3253,22 @@ function openDecisionOverridePicker(g) {
 let halfTimeActive = false, matchFinished = false;
 let pendingHalfTimeBoundaryIdx = null; // which period boundary triggered the current half-time pause (disambiguates a mid-halftime reload)
 let score = {us: 0, them: 0};
-let goalEvents = []; // {time, scorer: playerId | 'OPP' | 'OG' | 'UNKNOWN', forUs}
+let goalEvents = []; // {time, scorer: playerId | 'OPP' | 'OG' | 'UNKNOWN', forUs, assist?: playerId}
+let matchAwards = []; // [{id, name, pid}] winners of this match's awards
+let matchNotes = []; // [{id, minute|null, text, ts}]
 
 /* ================= SCORE TRACKING ================= */
 function updateScoreDisplay() {
   document.getElementById('scoreUs').textContent = score.us;
   document.getElementById('scoreThem').textContent = score.them;
 }
-function recordGoal(scorer, mins) {
+function recordGoal(scorer, mins, assist) {
   // OG is only ever reached via the "Goal for us" flow (an opponent's own
   // goal, crediting us), so it counts for us just like a named scorer.
   const forUs = scorer !== 'OPP';
   if (forUs) score.us++; else score.them++;
-  goalEvents.push({time: mins, scorer, forUs});
+  const ev = {time: mins, scorer, forUs}; if (assist) ev.assist = assist;
+  goalEvents.push(ev);
   updateScoreDisplay();
   saveLiveMatchState();
 }
@@ -3305,9 +3314,27 @@ function openGoalScorerPicker(mins) {
     <div class="picker-opt" data-scorer="UNKNOWN"><span>Unsure who</span></div>
     <div class="picker-cancel" id="goalCancel">Cancel</div>`);
   overlay.querySelectorAll('.picker-opt').forEach(el => {
-    el.addEventListener('click', () => { recordGoal(el.dataset.scorer, mins); overlay.remove(); });
+    el.addEventListener('click', () => {
+      overlay.remove();
+      const sc = el.dataset.scorer;
+      if (sc === 'OG' || sc === 'UNKNOWN' || onPitchPlayers.length < 2) recordGoal(sc, mins);
+      else openAssistPicker(sc, mins, onPitchPlayers);
+    });
   });
   overlay.querySelector('#goalCancel').addEventListener('click', () => overlay.remove());
+  return overlay;
+}
+// Step 3 of a goal for us: who set it up (optional). Dismissing the popup
+// still logs the goal - the scorer has already been chosen.
+function openAssistPicker(scorer, mins, onPitchPlayers) {
+  let done = false;
+  const finish = a => { if (done) return; done = true; recordGoal(scorer, mins, a); };
+  const overlay = openModal(`
+    <div class="picker-title">${esc(scorer)} scored (${mins}') - assist?</div>
+    ${onPitchPlayers.filter(p => p.id !== scorer).map(p => `<div class="picker-opt" data-assist="${esc(p.id)}"><span>${esc(p.id)}</span></div>`).join('')}
+    <div class="picker-opt" data-assist=""><span>No assist / not sure</span></div>`);
+  overlay.querySelectorAll('[data-assist]').forEach(el => el.addEventListener('click', () => { finish(el.dataset.assist); overlay.remove(); }));
+  overlay.addEventListener('click', e => { if (e.target === overlay) finish(''); });
   return overlay;
 }
 document.getElementById('addGoalBtn').addEventListener('click', openGoalPicker);
@@ -3549,6 +3576,7 @@ function buildMatchSnapshot() {
     dismissedDecisionKeys: [...dismissedDecisionKeys],
     // score
     score: {...score}, goalEvents: JSON.parse(JSON.stringify(goalEvents)),
+    awards: JSON.parse(JSON.stringify(matchAwards)), notes: JSON.parse(JSON.stringify(matchNotes)),
   };
 }
 
@@ -3573,7 +3601,7 @@ function saveLiveMatchState() {
     rec.fixture = {...matchFixture};
     rec.format = `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH} · ${DURATION}' · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`;
     rec.score = {...score};
-    if (snap.status === 'finished' && !rec.stats) { try { rec.stats = computeMatchStats(finishedAtMinute ?? DURATION, goalEvents, score); } catch (e) { console.warn('Could not compute match stats', e); } }
+    if (snap.status === 'finished') { try { rec.stats = computeMatchStats(finishedAtMinute ?? DURATION, goalEvents, score); } catch (e) { console.warn('Could not compute match stats', e); } }
     if (snap.status !== 'finished') delete rec.stats;
     rec.minute = snap.status === 'finished' ? finishedAtMinute : (snap.status === 'live' ? (halfTimeActive && pendingHalfTimeBoundaryIdx !== null ? PERIOD_BOUNDS[pendingHalfTimeBoundaryIdx] : liveElapsedMinute()) : 0);
     // Keep the library bounded: drop the oldest finished matches first.
@@ -3730,6 +3758,8 @@ function restoreLiveMatch(saved, recordId) {
 
   score = saved.score ? {...saved.score} : {us: 0, them: 0};
   goalEvents = saved.goalEvents ? JSON.parse(JSON.stringify(saved.goalEvents)) : [];
+  matchAwards = saved.awards ? JSON.parse(JSON.stringify(saved.awards)) : [];
+  matchNotes = saved.notes ? JSON.parse(JSON.stringify(saved.notes)) : [];
   updateScoreDisplay();
 
   document.getElementById('regenBanner').classList.remove('show');
@@ -3861,7 +3891,7 @@ function startMatch() {
     if (i === PERIOD_BOUNDS.length - 1) return `<span>FT ${b}'</span>`;
     return `<span>P${i+1} ${b}'</span>`;
   }).join('');
-  score = {us: 0, them: 0}; goalEvents = [];
+  score = {us: 0, them: 0}; goalEvents = []; matchAwards = []; matchNotes = [];
   updateScoreDisplay();
   setPlanSubTab('live');
   regeneratePlan();
@@ -4348,12 +4378,29 @@ function finishMatch(atMinute, opts) {
   // there now so it's actually visible even if the coach ended the match from
   // the Details tab (where the "End match now" button lives).
   setPlanSubTab('live');
+  renderFullTime();
+}
+
+/* ---- full-time panel: result, goals, awards, notes, summary ---- */
+function noteMinuteLabel(n) { return n.minute != null ? `${n.minute}'` : ''; }
+function renderFullTime() {
+  const atMinute = finishedAtMinute ?? DURATION;
   const proRated = atMinute < DURATION;
   const subCount = PLAN.rotations.filter(r => !r.type && r.time <= atMinute).length;
+  const stats = computeMatchStats(atMinute, goalEvents, score);
   const scorerNames = { OPP: 'Opponent goal', OG: 'Own goal (opponent)', UNKNOWN: 'Unsure who' };
-  const scorerLines = goalEvents.length
-    ? goalEvents.map(g => `<div>${g.time}' — ${g.forUs ? '⚽' : '⚑'} ${scorerNames[g.scorer] || g.scorer}${(!g.forUs && g.scorer !== 'OPP') ? ' (opponent)' : ''}</div>`).join('')
-    : '';
+  const goalLines = goalEvents.map((g, i) => ({g, i})).sort((a, b) => a.g.time - b.g.time || a.i - b.i).map(({g, i}) =>
+    `<div style="display:flex; gap:8px; align-items:baseline; padding:3px 0;"><span style="flex:1;">${g.time}' — ${g.forUs ? '⚽' : '⚑'} ${esc(scorerNames[g.scorer] || g.scorer)}${(!g.forUs && g.scorer !== 'OPP') ? ' (opponent)' : ''}${g.assist ? ` <span style="color:var(--ink-soft);">· assist ${esc(g.assist)}</span>` : ''}</span>${g.forUs ? `<span data-goaledit="${i}" style="color:var(--ink-soft); cursor:pointer; padding:2px 6px;" aria-label="Edit goal">✎</span>` : ''}</div>`).join('');
+  const awardRows = teamAwards.map(a => ({id: a.id, name: a.name})).concat(matchAwards.filter(m => !teamAwards.some(a => a.id === m.id)).map(m => ({id: m.id, name: m.name})));
+  const playedIds = PLAYERS.filter(p => (stats.players[p.id] || {}).mins > 0).map(p => p.id);
+  const awardHtml = awardRows.length ? awardRows.map(a => {
+    const cur = (matchAwards.find(m => m.id === a.id) || {}).pid || '';
+    const ids = playedIds.includes(cur) || !cur ? playedIds : playedIds.concat(cur);
+    return `<div class="wiz-row"><span class="nm">🏆 ${esc(a.name)}</span><select data-award="${esc(a.id)}" data-aname="${esc(a.name)}" style="max-width:48%;"><option value="">Not awarded</option>${ids.map(id => `<option value="${esc(id)}" ${id === cur ? 'selected' : ''}>${esc(id)}</option>`).join('')}</select></div>`;
+  }).join('') : '<div class="config-note">No awards set up. Add some in the Squad tab under Match awards.</div>';
+  const notesHtml = matchNotes.length
+    ? matchNotes.slice().sort((a, b) => a.ts - b.ts).map(n => `<div style="padding:5px 0; border-bottom:1px solid var(--card-line); font-size:13.5px;">${n.minute != null ? `<b>${n.minute}'</b> ` : ''}${esc(n.text)}</div>`).join('')
+    : '<div class="config-note">No notes yet. Jot down what went well, what to work on, or anything to remember.</div>';
   const panel = document.getElementById('halfTimePanel');
   panel.style.display = 'block';
   panel.innerHTML = `
@@ -4362,10 +4409,65 @@ function finishMatch(atMinute, opts) {
       <div class="big">${atMinute}'</div>
       <div class="big" style="font-size:26px; margin-top:2px;">${score.us} – ${score.them}</div>
     </div>
-    ${scorerLines ? `<div class="config-note" style="margin-bottom:12px;">${scorerLines}</div>` : ''}
+    ${goalLines ? `<div class="config-note" style="margin-bottom:12px;" id="ftGoals">${goalLines}</div>` : ''}
+    <div class="form-card" id="ftAwards"><h2 style="margin-top:0;">Awards</h2>${awardHtml}</div>
+    <div class="form-card" id="ftNotes"><h2 style="margin-top:0;">Match notes</h2>${notesHtml}<button class="btn btn-ghost" id="ftNotesBtn" style="margin-top:8px;">${matchNotes.length ? 'Add / edit notes' : '+ Add a note'}</button></div>
+    <button class="btn btn-primary" id="ftSummaryBtn" style="margin-bottom:12px;">Post-game summary image</button>
     ${buildSummaryTable(atMinute)}
     <p class="config-note">${subCount} substitution${subCount === 1 ? '' : 's'} made.</p>`;
+  panel.querySelectorAll('[data-award]').forEach(sel => sel.addEventListener('change', () => {
+    matchAwards = matchAwards.filter(m => m.id !== sel.dataset.award);
+    if (sel.value) matchAwards.push({id: sel.dataset.award, name: sel.dataset.aname, pid: sel.value});
+    saveLiveMatchState();
+  }));
+  panel.querySelectorAll('[data-goaledit]').forEach(b => b.addEventListener('click', () => openGoalEditor(+b.dataset.goaledit)));
+  panel.querySelector('#ftNotesBtn').addEventListener('click', () => openNotesModal());
+  panel.querySelector('#ftSummaryBtn').addEventListener('click', openSummaryModal);
 }
+// Fix a goal after the final whistle: who scored and who made it.
+function openGoalEditor(i) {
+  const g = goalEvents[i]; if (!g) return;
+  const stats = computeMatchStats(finishedAtMinute ?? DURATION, goalEvents, score);
+  const ids = PLAYERS.map(p => p.id).filter(id => (stats.players[id] || {}).mins > 0 || id === g.scorer || id === g.assist);
+  const opts = (sel, extra) => extra + ids.map(id => `<option value="${esc(id)}" ${id === sel ? 'selected' : ''}>${esc(id)}</option>`).join('');
+  const overlay = openModal(`<div class="picker-title">Goal at ${g.time}'</div>
+    <div class="field"><label>Scored by</label><select id="geScorer">${opts(g.scorer, `<option value="OG" ${g.scorer === 'OG' ? 'selected' : ''}>Own goal (opponent)</option><option value="UNKNOWN" ${g.scorer === 'UNKNOWN' ? 'selected' : ''}>Unsure who</option>`)}</select></div>
+    <div class="field"><label>Assist</label><select id="geAssist">${opts(g.assist, '<option value="">No assist / not sure</option>')}</select></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="geCancel">Cancel</button><button class="btn btn-primary" id="geSave">Save</button></div>`);
+  overlay.querySelector('#geCancel').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#geSave').addEventListener('click', () => {
+    g.scorer = overlay.querySelector('#geScorer').value;
+    const a = overlay.querySelector('#geAssist').value;
+    if (a && a !== g.scorer && g.scorer !== 'OG' && g.scorer !== 'UNKNOWN') g.assist = a; else delete g.assist;
+    overlay.remove(); saveLiveMatchState(); renderFullTime();
+  });
+}
+
+/* ---- match notes: jot during the game, edit any time afterwards ---- */
+function openNotesModal() {
+  const live = liveMode && !matchFinished;
+  let editing = null;
+  const overlay = openModal(`<div class="picker-title">Match notes</div><div id="nmList" style="max-height:38vh; overflow:auto;"></div>
+    <div class="field" style="margin-top:8px;"><textarea id="nmText" rows="3" placeholder="${live ? 'e.g. Good press in the first half...' : 'Add a note about the match...'}" style="width:100%; box-sizing:border-box;"></textarea></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="nmClose">Close</button><button class="btn btn-primary" id="nmAdd">Add note</button></div>`);
+  const list = overlay.querySelector('#nmList'), ta = overlay.querySelector('#nmText'), addBtn = overlay.querySelector('#nmAdd');
+  const changed = () => { saveLiveMatchState(); if (matchFinished) renderFullTime(); };
+  function draw() {
+    list.innerHTML = matchNotes.length ? matchNotes.slice().sort((a, b) => a.ts - b.ts).map(n => `<div style="display:flex; gap:8px; align-items:flex-start; padding:6px 0; border-bottom:1px solid var(--card-line); font-size:13.5px;"><span style="flex:1; white-space:pre-wrap;">${n.minute != null ? `<b>${n.minute}'</b> ` : ''}${esc(n.text)}</span><span data-ned="${n.id}" style="cursor:pointer; color:var(--ink-soft); padding:2px 5px;" aria-label="Edit note">✎</span><span data-ndel="${n.id}" class="wiz-rm" aria-label="Delete note">✕</span></div>`).join('') : '<div class="config-note">No notes yet.</div>';
+    addBtn.textContent = editing ? 'Save changes' : 'Add note';
+    list.querySelectorAll('[data-ned]').forEach(x => x.addEventListener('click', () => { editing = x.dataset.ned; ta.value = (matchNotes.find(n => n.id === editing) || {}).text || ''; draw(); ta.focus(); }));
+    list.querySelectorAll('[data-ndel]').forEach(x => x.addEventListener('click', () => { matchNotes = matchNotes.filter(n => n.id !== x.dataset.ndel); if (editing === x.dataset.ndel) { editing = null; ta.value = ''; } draw(); changed(); }));
+  }
+  addBtn.addEventListener('click', () => {
+    const text = ta.value.trim(); if (!text) return;
+    if (editing) { const n = matchNotes.find(x => x.id === editing); if (n) n.text = text; editing = null; }
+    else matchNotes.push({id: 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4), minute: live ? liveElapsedMinute() : null, text, ts: Date.now()});
+    ta.value = ''; draw(); changed();
+  });
+  overlay.querySelector('#nmClose').addEventListener('click', () => overlay.remove());
+  draw();
+}
+document.getElementById('addNoteBtn').addEventListener('click', openNotesModal);
 
 /* ================= EXPORT: line-up sheet as an image ================= */
 // Draws the whole match sheet straight onto a canvas (no libraries, works
@@ -4625,6 +4727,142 @@ function openExportModal() {
 }
 document.getElementById('exportImageLink').addEventListener('click', openExportModal);
 
+/* ================= EXPORT: post-game summary as an image ================= */
+function renderSummaryCanvas(opts) {
+  opts = opts || {};
+  const W = 1080, PAD = 40, FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  const C = {bg: '#F7F5EC', ink: '#12241A', soft: '#56675B', line: '#DAD6C6', turf: '#1F4A33', amber: '#E3A23C', coral: '#C1503F', green: '#2E7D4F', chalk: '#F4F1E6', card: '#FFFFFF'};
+  const at = finishedAtMinute ?? DURATION;
+  const st = computeMatchStats(at, goalEvents, score);
+  const rows = PLAYERS.map(p => ({id: p.id, ...st.players[p.id]})).sort((a, b) => b.mins - a.mins || a.id.localeCompare(b.id));
+  const notes = opts.notes ? matchNotes.slice().sort((a, b) => a.ts - b.ts) : [];
+  const c = document.createElement('canvas'); c.width = W;
+  c.height = 1500 + goalEvents.length * 56 + matchAwards.length * 100 + (opts.minutes ? rows.length * 72 + 160 : 0) + notes.length * 140;
+  const g = c.getContext('2d');
+  g.fillStyle = C.bg; g.fillRect(0, 0, W, c.height);
+  const font = (size, weight) => `${weight || 400} ${size}px ${FONT}`;
+  function txt(str, x, y, o) { o = o || {}; g.font = font(o.size || 24, o.weight); g.fillStyle = o.color || C.ink; g.textAlign = o.align || 'left'; g.textBaseline = 'alphabetic'; g.fillText(str, x, y); return g.measureText(str).width; }
+  function wrap(str, x, y, maxW, lineH, o) {
+    o = o || {}; g.font = font(o.size || 22, o.weight); const words = String(str).split(/\s+/); let line = '';
+    for (const w of words) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line) { txt(line, x, y, o); y += lineH; line = w; } else line = t; }
+    if (line) { txt(line, x, y, o); y += lineH; }
+    return y;
+  }
+  const fit = (str, maxW, size, weight) => { g.font = font(size, weight); let t = String(str); while (g.measureText(t).width > maxW && t.length > 3) t = t.slice(0, -2); return t === String(str) ? t : t.trim() + '…'; };
+  function heading(label, y) { txt(label.toUpperCase(), PAD, y, {size: 22, weight: 800, color: C.soft}); g.fillStyle = C.line; g.fillRect(PAD, y + 14, W - 2 * PAD, 2); return y + 50; }
+
+  const teamName = teamDisplayName(activeTeam());
+  let y = PAD + 24;
+  txt(teamName, PAD, y, {size: 24, weight: 700, color: C.soft});
+  txt('POST-GAME SUMMARY', W - PAD, y, {size: 20, weight: 800, color: C.soft, align: 'right'});
+  y += 62;
+  y = wrap(matchFixture.opponent ? `vs ${matchFixture.opponent}` : 'Match summary', PAD, y, W - 2 * PAD, 64, {size: 58, weight: 800}) - 18;
+  const fl = fixtureLine(matchFixture); if (fl) { txt(fl, PAD, y, {size: 26, color: C.soft}); y += 40; }
+  y += 18;
+  // score panel
+  const res = st.result, resCol = res === 'W' ? C.green : res === 'L' ? C.coral : C.amber, resWord = res === 'W' ? 'WIN' : res === 'L' ? 'DEFEAT' : 'DRAW';
+  g.fillStyle = C.turf; g.beginPath(); g.roundRect(PAD, y, W - 2 * PAD, 260, 24); g.fill();
+  txt(fit(teamName, 300, 28, 700), PAD + 40, y + 140, {size: 28, weight: 700, color: C.chalk});
+  txt(fit(matchFixture.opponent || 'Opposition', 300, 28, 700), W - PAD - 40, y + 140, {size: 28, weight: 700, color: C.chalk, align: 'right'});
+  txt(`${score.us} – ${score.them}`, W / 2, y + 160, {size: 118, weight: 800, color: C.chalk, align: 'center'});
+  txt(at < DURATION ? `Full time · ended at ${at}'` : `Full time · ${at}'`, W / 2, y + 40, {size: 22, weight: 600, color: 'rgba(244,241,230,0.8)', align: 'center'});
+  g.fillStyle = resCol; g.beginPath(); g.roundRect(W / 2 - 70, y + 190, 140, 44, 22); g.fill();
+  txt(resWord, W / 2, y + 222, {size: 24, weight: 800, color: '#fff', align: 'center'});
+  y += 260 + 50;
+
+  // goals
+  if (goalEvents.length) {
+    y = heading('Goals', y);
+    goalEvents.map((e, i) => ({e, i})).sort((a, b) => a.e.time - b.e.time || a.i - b.i).forEach(({e}) => {
+      g.fillStyle = e.forUs ? C.amber : C.coral; g.beginPath(); g.arc(PAD + 14, y - 9, 10, 0, Math.PI * 2); g.fill();
+      txt(`${e.time}'`, PAD + 44, y, {size: 28, weight: 800, color: C.soft});
+      const nm = e.scorer === 'OPP' ? 'Opposition goal' : e.scorer === 'OG' ? 'Own goal (opposition)' : e.scorer === 'UNKNOWN' ? 'Goal' : e.scorer;
+      const w = txt(fit(nm, 560, 30, 700), PAD + 130, y, {size: 30, weight: 700, color: e.forUs ? C.ink : C.soft});
+      if (e.assist) txt(`assist ${fit(e.assist, 300, 24, 400)}`, PAD + 130 + w + 18, y, {size: 24, color: C.soft});
+      y += 56;
+    });
+    y += 14;
+  }
+  // awards
+  if (matchAwards.length) {
+    y = heading('Awards', y) + 14;
+    matchAwards.forEach(a => {
+      g.fillStyle = C.card; g.strokeStyle = C.line; g.lineWidth = 2; g.beginPath(); g.roundRect(PAD, y - 34, W - 2 * PAD, 84, 16); g.fill(); g.stroke();
+      txt('★', PAD + 24, y + 22, {size: 44, weight: 800, color: C.amber});
+      txt(fit(a.name, 560, 22, 600), PAD + 84, y - 2, {size: 22, weight: 600, color: C.soft});
+      txt(fit(a.pid, 700, 32, 800), PAD + 84, y + 34, {size: 32, weight: 800});
+      y += 100;
+    });
+    y += 14;
+  }
+  // minutes
+  if (opts.minutes) {
+    y = heading('Minutes & positions', y);
+    let lx = PAD; POS_KEYS.forEach(k => { const G = k.toUpperCase(); g.fillStyle = POS_COLORS[G]; g.beginPath(); g.roundRect(lx, y - 18, 20, 20, 5); g.fill(); lx += 30 + txt(POS_NAMES[G], lx + 30, y, {size: 20, color: C.soft}) + 26; });
+    y += 44;
+    const mx = Math.max(1, ...rows.map(r => r.mins)), bx = 330, bw = W - PAD - 120 - bx;
+    rows.forEach(r => {
+      txt(fit(r.id, 270, 28, 700), PAD, y, {size: 28, weight: 700});
+      const extra = [r.goals ? `${r.goals} goal${r.goals === 1 ? '' : 's'}` : '', r.assists ? `${r.assists} assist${r.assists === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+      if (extra) txt(extra, PAD, y + 24, {size: 17, color: C.soft});
+      g.fillStyle = C.line; g.beginPath(); g.roundRect(bx, y - 22, bw, 26, 8); g.fill();
+      if (r.mins > 0) {
+        let x = bx; const tot = bw * r.mins / mx;
+        g.save(); g.beginPath(); g.roundRect(bx, y - 22, bw, 26, 8); g.clip();
+        POS_KEYS.forEach(k => { if (!r[k]) return; const w = tot * r[k] / r.mins; g.fillStyle = POS_COLORS[k.toUpperCase()]; g.fillRect(x, y - 22, w, 26); x += w; });
+        g.restore();
+      }
+      txt(`${r.mins}'`, W - PAD, y, {size: 28, weight: 800, align: 'right', color: r.mins ? C.ink : C.soft});
+      y += 72;
+    });
+    y += 10;
+  }
+  // notes
+  if (notes.length) {
+    y = heading('Coach notes', y);
+    notes.forEach(n => { y = wrap((n.minute != null ? `${n.minute}'  ` : '') + n.text, PAD, y, W - 2 * PAD, 34, {size: 25}) + 16; });
+    y += 10;
+  }
+  g.fillStyle = C.line; g.fillRect(PAD, y, W - 2 * PAD, 2); y += 38;
+  txt(`Made with the Squad & Rotation Planner · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, y, {size: 17, color: C.soft});
+  y += PAD;
+  const out = document.createElement('canvas'); out.width = W; out.height = y;
+  out.getContext('2d').drawImage(c, 0, 0, W, y, 0, 0, W, y);
+  return out;
+}
+function openSummaryModal() {
+  if (!PLAN || !matchFinished) return;
+  const opts = {minutes: true, notes: false};
+  const slug = x => (x || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const name = `summary-${slug(matchFixture.opponent) || 'match'}${matchFixture.date ? '-' + matchFixture.date : ''}.png`;
+  const overlay = openModal(`
+    <div class="picker-title">Post-game summary</div>
+    <div class="check-row" style="margin:2px 0;"><input type="checkbox" id="smMin" checked><label for="smMin">Include minutes &amp; positions</label></div>
+    ${matchNotes.length ? '<div class="check-row" style="margin:2px 0 8px;"><input type="checkbox" id="smNotes"><label for="smNotes">Include my match notes</label></div>' : ''}
+    <div class="config-note" style="margin-bottom:8px;">Tap and hold the image to save it, or use the buttons.</div>
+    <img id="summaryImg" alt="Post-game summary" style="width:100%; border-radius:8px; border:1px solid var(--card-line);">
+    <div class="modal-btn-row" style="margin-top:12px;"><button class="btn btn-ghost" id="smClose">Close</button><button class="btn btn-ghost" id="smDownload">Download</button><button class="btn btn-primary" id="smShare">Share / save</button></div>`, {wide: true});
+  let canvas, url;
+  const build = () => {
+    opts.minutes = overlay.querySelector('#smMin').checked; const nb = overlay.querySelector('#smNotes'); opts.notes = !!(nb && nb.checked);
+    try { canvas = renderSummaryCanvas(opts); url = canvas.toDataURL('image/png'); overlay.querySelector('#summaryImg').src = url; }
+    catch (e) { console.error(e); showAlert(`Couldn't build the image (${e.message}).`); }
+  };
+  overlay.querySelector('#smMin').addEventListener('change', build);
+  const nb = overlay.querySelector('#smNotes'); if (nb) nb.addEventListener('change', build);
+  const save = () => { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); };
+  overlay.querySelector('#smClose').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#smDownload').addEventListener('click', save);
+  overlay.querySelector('#smShare').addEventListener('click', async () => {
+    try {
+      const f = await new Promise(res => canvas.toBlob(b => res(b ? new File([b], name, {type: 'image/png'}) : null), 'image/png'));
+      if (f && navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f], title: fixtureTitle(matchFixture, 'Match summary')}); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    save();
+  });
+  build();
+}
+
 /* ================= MATCH STATS & PLAYER PROFILES ================= */
 const POS_COLORS = {GK: '#E3A23C', DEF: '#2F7D52', MID: '#4A86C5', ATT: '#C1503F'};
 const POS_NAMES = {GK: 'Goalkeeper', DEF: 'Defence', MID: 'Midfield', ATT: 'Attack'};
@@ -4634,7 +4872,7 @@ const POS_KEYS = ['gk', 'def', 'mid', 'att'];
 // from the match as it was actually played (the plan up to full time).
 function computeMatchStats(finishedAt, goals, sc) {
   const players = {};
-  PLAYERS.forEach(p => { players[p.id] = {mins: 0, gk: 0, def: 0, mid: 0, att: 0, started: false, goals: 0}; });
+  PLAYERS.forEach(p => { players[p.id] = {mins: 0, gk: 0, def: 0, mid: 0, att: 0, started: false, goals: 0, assists: 0}; });
   Object.values(startingLineup).forEach(id => { if (players[id]) players[id].started = true; });
   for (let m = 0; m < finishedAt; m++) {
     const st = computeStateAt(m);
@@ -4643,7 +4881,7 @@ function computeMatchStats(finishedAt, goals, sc) {
       pl.mins++; pl[sl.group.toLowerCase()]++;
     }
   }
-  (goals || []).forEach(g => { if (g.forUs && players[g.scorer]) players[g.scorer].goals++; });
+  (goals || []).forEach(g => { if (g.forUs && players[g.scorer]) players[g.scorer].goals++; if (g.forUs && g.assist && players[g.assist]) players[g.assist].assists++; });
   const us = sc ? sc.us : 0, them = sc ? sc.them : 0;
   return {v: 1, minutes: finishedAt, duration: DURATION, gf: us, ga: them, result: us > them ? 'W' : us < them ? 'L' : 'D',
     subs: PLAN.rotations.filter(r => !r.type && r.time <= finishedAt).length, players};
@@ -4696,18 +4934,21 @@ function aggregateStats() {
   for (const r of fin) {
     const s = r.stats; team[s.result.toLowerCase()]++; team.gf += s.gf; team.ga += s.ga; if (s.ga === 0) team.cs++; team.mins += s.minutes;
     for (const [pid, ps] of Object.entries(s.players)) {
-      const a = pl[pid] || (pl[pid] = {id: pid, avail: 0, apps: 0, starts: 0, mins: 0, gk: 0, def: 0, mid: 0, att: 0, goals: 0, availMins: 0, log: []});
+      const a = pl[pid] || (pl[pid] = {id: pid, avail: 0, apps: 0, starts: 0, mins: 0, gk: 0, def: 0, mid: 0, att: 0, goals: 0, assists: 0, availMins: 0, awards: [], log: []});
       a.avail++; a.availMins += s.minutes;
       if (ps.mins > 0) { a.apps++; if (ps.started) a.starts++; POS_KEYS.forEach(k => { a[k] += ps[k]; }); a.mins += ps.mins; }
-      a.goals += ps.goals;
+      a.goals += ps.goals; a.assists += ps.assists || 0;
       a.log.push({rec: r, date: recDate(r), opp: r.fixture && r.fixture.opponent, mins: ps.mins, ps, result: s.result, gf: s.gf, ga: s.ga});
     }
+  }
+  for (const r of fin) {
+    ((r.snapshot && r.snapshot.awards) || []).forEach(aw => { const a = pl[aw.pid]; if (a && aw.name) a.awards.push({name: aw.name, opp: r.fixture && r.fixture.opponent, date: recDate(r)}); });
   }
   return {matches: fin, team, players: pl};
 }
 function statsLineFor(a) {
   if (!a || !a.avail) return '';
-  return `${a.apps} app${a.apps === 1 ? '' : 's'} · ${a.mins}'${a.goals ? ` · ${a.goals} goal${a.goals === 1 ? '' : 's'}` : ''}`;
+  return `${a.apps} app${a.apps === 1 ? '' : 's'} · ${a.mins}'${a.goals ? ` · ${a.goals} goal${a.goals === 1 ? '' : 's'}` : ''}${a.assists ? ` · ${a.assists} assist${a.assists === 1 ? '' : 's'}` : ''}${a.awards && a.awards.length ? ` · 🏆 ${a.awards.length}` : ''}`;
 }
 
 // Donut chart as inline SVG. parts: [{label, value, color}]
@@ -4756,9 +4997,10 @@ function renderPlayerProfile() {
   } else {
     const pct = a.availMins ? Math.round(a.mins / a.availMins * 100) : 0;
     const diff = Math.round(a.mins - squadAvgMins);
-    html += `<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0;">
+    html += `<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:10px 0;">
       ${tile(a.apps + '<span style="font-size:13px; color:var(--ink-soft);"> / ' + a.avail + '</span>', 'Matches played')}${tile(a.starts, 'Starts')}${tile(a.mins + "'", 'Minutes')}
-      ${tile(a.apps ? Math.round(a.mins / a.apps) + "'" : '-', 'Avg per match')}${tile(pct + '%', 'Of match time')}${tile(a.goals, 'Goals')}</div>
+      ${tile(a.apps ? Math.round(a.mins / a.apps) + "'" : '-', 'Avg per match')}${tile(pct + '%', 'Of match time')}${tile(a.goals, 'Goals')}${tile(a.assists, 'Assists')}${tile(a.awards.length, 'Awards')}</div>
+      ${a.awards.length ? `<div class="form-card" style="margin-bottom:12px;"><h2 style="margin-top:0;">Awards</h2>${a.awards.slice().reverse().map(w => `<div style="font-size:13.5px; padding:4px 0;">🏆 <b>${esc(w.name)}</b>${w.opp ? ' <span style="color:var(--ink-soft);">vs ' + esc(w.opp) + '</span>' : ''}</div>`).join('')}</div>` : ''}
       <div class="config-note" style="margin-bottom:12px;">${diff === 0 ? 'Exactly the squad average for minutes.' : `${Math.abs(diff)}' ${diff > 0 ? 'above' : 'below'} the squad average for minutes played.`}</div>`;
     const posTotal = POS_KEYS.reduce((t, k) => t + a[k], 0);
     html += `<div class="form-card"><h2 style="margin-top:0;">Minutes by position</h2>
@@ -4767,7 +5009,7 @@ function renderPlayerProfile() {
     html += `<div class="form-card"><h2 style="margin-top:0;">Match log</h2>${a.log.slice().reverse().map(l => {
       const where = POS_KEYS.filter(k => l.ps[k] > 0).map(k => `${k.toUpperCase()} ${l.ps[k]}'`).join(' · ');
       return `<div style="padding:8px 0; border-bottom:1px solid var(--card-line);"><div style="display:flex; gap:8px; align-items:baseline;"><b style="flex:1; font-size:14px;">${l.opp ? 'vs ' + esc(l.opp) : 'Match'}</b><span style="font-size:12px; color:var(--ink-soft);">${esc(fmtFixtureDate(l.date))}</span></div>
-        <div style="font-size:12.5px; color:var(--ink-soft);">${l.result} ${l.gf}-${l.ga} · ${l.mins > 0 ? `${l.mins}' played${l.ps.started ? ' (started)' : ' (sub)'}${where ? ' · ' + where : ''}` : 'Did not play'}${l.ps.goals ? ` · ⚽ ${l.ps.goals}` : ''}</div></div>`; }).join('')}</div>`;
+        <div style="font-size:12.5px; color:var(--ink-soft);">${l.result} ${l.gf}-${l.ga} · ${l.mins > 0 ? `${l.mins}' played${l.ps.started ? ' (started)' : ' (sub)'}${where ? ' · ' + where : ''}` : 'Did not play'}${l.ps.goals ? ` · ⚽ ${l.ps.goals}` : ''}${l.ps.assists ? ` · 🅰 ${l.ps.assists}` : ''}</div></div>`; }).join('')}</div>`;
   }
   body.innerHTML = html;
   document.getElementById('psEdit').addEventListener('click', () => openPlayerForm(p.id));
@@ -4817,6 +5059,7 @@ function renderHome() {
       <div style="display:flex; align-items:center; gap:10px;"><div style="flex:1;"><div class="mc-title">${esc(fixtureTitle(last.fixture, last.title))}</div><div class="mc-sub">${esc(fmtFixtureDate(recDate(last)))}${last.fixture && last.fixture.competition ? ' · ' + esc(last.fixture.competition) : ''}</div></div>
       <div style="text-align:right;"><div style="font-family:Oswald,sans-serif; font-size:26px; font-weight:600; line-height:1;">${s.gf} - ${s.ga}</div>${resultBadge(s.result)}</div></div>
       ${scorers ? `<div style="font-size:12.5px; margin-top:6px;">⚽ ${scorers}</div>` : ''}
+      ${((last.snapshot && last.snapshot.awards) || []).map(aw => `<div style="font-size:12.5px; margin-top:3px;">🏆 ${esc(aw.name)}: <b>${esc(aw.pid)}</b></div>`).join('')}
       <button class="btn btn-ghost" id="homeLastOpen" style="margin-top:8px;">View match</button>`);
   }
   if (!T.played) {
@@ -4833,6 +5076,19 @@ function renderHome() {
     if (scorers.length) {
       const mx = scorers[0].goals;
       html += homeCard(`<h2 style="margin-top:0;">Top scorers</h2>${scorers.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer;"><span style="width:84px; font-size:13.5px; font-weight:600;">${esc(a.id)}</span><div style="flex:1; background:var(--card-line); border-radius:5px; height:10px;"><div style="width:${a.goals / mx * 100}%; height:10px; border-radius:5px; background:var(--amber);"></div></div><b style="width:22px; text-align:right;">${a.goals}</b></div>`).join('')}`);
+    }
+    // assists
+    const assisters = Object.values(agg.players).filter(a => a.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 5);
+    if (assisters.length) {
+      const mxa = assisters[0].assists;
+      html += homeCard(`<h2 style="margin-top:0;">Top assists</h2>${assisters.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer;"><span style="width:84px; font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(a.id)}</span><div style="flex:1; height:12px; border-radius:6px; background:var(--card-line);"><div style="height:100%; width:${a.assists / mxa * 100}%; border-radius:6px; background:#4A86C5;"></div></div><b style="width:22px; text-align:right;">${a.assists}</b></div>`).join('')}`);
+    }
+    // awards
+    const awardTally = {};
+    agg.matches.forEach(m => ((m.snapshot && m.snapshot.awards) || []).forEach(aw => { if (!aw.name || !aw.pid) return; const t = awardTally[aw.name] || (awardTally[aw.name] = {}); t[aw.pid] = (t[aw.pid] || 0) + 1; }));
+    const awardNames = Object.keys(awardTally);
+    if (awardNames.length) {
+      html += homeCard(`<h2 style="margin-top:0;">Awards</h2>${awardNames.map(n => `<div style="padding:6px 0; border-bottom:1px solid var(--card-line);"><div style="font-size:12px; color:var(--ink-soft);">🏆 ${esc(n)}</div><div style="font-size:13.5px; font-weight:600;">${Object.entries(awardTally[n]).sort((a, b) => b[1] - a[1]).map(([pid, c]) => `${esc(pid)}${c > 1 ? ' ×' + c : ''}`).join(', ')}</div></div>`).join('')}`);
     }
     // minutes
     const squadIds = new Set(squad.map(p => p.id));
@@ -4860,6 +5116,38 @@ function renderHome() {
 
 /* ================= ROTATION PRESETS (per team) ================= */
 const ROT_KEY = K('rf_rotation_v1');
+/* ================= MATCH AWARDS (per team) ================= */
+const AWARDS_KEY = K('rf_awards_v1');
+const AWARD_SUGGESTIONS = ["Coach's Player of the Match", "Opposition Manager's MoTM", "Parents' Player of the Match", "Players' Player of the Match", "Most Improved", "Effort Award"];
+function loadAwards() {
+  try { const r = lsGet(AWARDS_KEY); if (r) { const o = JSON.parse(r); if (Array.isArray(o)) return o; } } catch (e) { /* defaults */ }
+  return [{id: 'motm', name: 'Player of the Match'}];
+}
+let teamAwards = loadAwards();
+function saveAwards() { lsSet(AWARDS_KEY, JSON.stringify(teamAwards)); }
+function renderAwardsEditor(el, after) {
+  if (!el) return;
+  const sugg = AWARD_SUGGESTIONS.map((t, i) => ({t, i})).filter(x => !teamAwards.some(a => a.name.toLowerCase() === x.t.toLowerCase()));
+  el.innerHTML = (teamAwards.length ? teamAwards.map(a => `<div class="wiz-row"><span class="nm">${esc(a.name)}</span><span class="wiz-rm" style="color:var(--ink-soft);" data-aren="${a.id}" aria-label="Rename">✎</span><span class="wiz-rm" data-adel="${a.id}" aria-label="Remove">✕</span></div>`).join('')
+      : '<div class="config-note">No awards yet - matches won\'t have a Man of the Match.</div>')
+    + (sugg.length ? `<div style="font-size:12px; color:var(--ink-soft); margin:10px 0 4px;">Tap to add:</div><div style="display:flex; flex-wrap:wrap; gap:6px;">${sugg.map(x => `<span data-asug="${x.i}" style="border:1px solid var(--card-line); border-radius:16px; padding:6px 11px; font-size:12.5px; cursor:pointer; background:var(--card);">+ ${esc(x.t)}</span>`).join('')}</div>` : '')
+    + `<div style="display:flex; gap:8px; margin-top:10px;"><input type="text" id="awNew" placeholder="Your own award..." style="flex:1;"><button class="btn btn-ghost" id="awAdd" style="width:auto; margin:0; padding:0 16px;">Add</button></div>`;
+  const done = () => { saveAwards(); renderAwardsEditor(el, after); if (after) after(); };
+  const add = name => { name = (name || '').trim(); if (!name || teamAwards.some(a => a.name.toLowerCase() === name.toLowerCase())) return; teamAwards.push({id: 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4), name}); done(); };
+  el.querySelectorAll('[data-asug]').forEach(x => x.addEventListener('click', () => add(AWARD_SUGGESTIONS[+x.dataset.asug])));
+  el.querySelector('#awAdd').addEventListener('click', () => add(el.querySelector('#awNew').value));
+  el.querySelector('#awNew').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(e.target.value); } });
+  el.querySelectorAll('[data-adel]').forEach(x => x.addEventListener('click', () => { teamAwards = teamAwards.filter(a => a.id !== x.dataset.adel); done(); }));
+  el.querySelectorAll('[data-aren]').forEach(x => x.addEventListener('click', () => {
+    const aw = teamAwards.find(a => a.id === x.dataset.aren); if (!aw) return;
+    const overlay = openModal(`<div class="picker-title">Rename award</div><div class="field"><input type="text" id="arName" value="${esc(aw.name)}"></div>
+      <div class="modal-btn-row"><button class="btn btn-ghost" id="arCancel">Cancel</button><button class="btn btn-primary" id="arSave">Save</button></div>`);
+    overlay.querySelector('#arCancel').addEventListener('click', () => overlay.remove());
+    overlay.querySelector('#arSave').addEventListener('click', () => { const n = overlay.querySelector('#arName').value.trim(); if (!n) return; aw.name = n; overlay.remove(); done(); });
+  }));
+}
+renderAwardsEditor(document.getElementById('awardsEditor'));
+
 const ROT_FIELDS = ['fairnessPriority', 'positionStrictness', 'minShiftLength', 'maxBenchLength', 'gkCountsForFairness', 'subTimingMode', 'subIntervalMinutes', 'checkpointHalfway'];
 const STARTER_ROTATIONS = [
   {id: 'bal', name: 'Balanced', blurb: 'Fair playing time with sensible gaps between changes.',
@@ -4963,7 +5251,7 @@ function addTeam() {
 }
 function deleteTeam(id) {
   const t = profile.teams.find(x => x.id === id); if (!t || profile.teams.length < 2) return;
-  ['rf_squad_v1', 'rf_matches_v1', 'rf_defaults_v1', 'rf_presets_v1', 'rf_rotation_v1', 'rf_live_match_v1'].forEach(b => { try { localStorage.removeItem(teamKey(b, t)); } catch (e) { /* ignore */ } });
+  ['rf_squad_v1', 'rf_matches_v1', 'rf_defaults_v1', 'rf_presets_v1', 'rf_rotation_v1', 'rf_awards_v1', 'rf_live_match_v1'].forEach(b => { try { localStorage.removeItem(teamKey(b, t)); } catch (e) { /* ignore */ } });
   profile.teams = profile.teams.filter(x => x.id !== id);
   if (profile.activeTeamId === id) profile.activeTeamId = profile.teams[0].id;
   saveProfile(); location.reload();
@@ -5045,7 +5333,7 @@ function openBackupModal() {
 }
 
 /* ================= REGISTRATION WIZARD ================= */
-const WIZ_STEPS = ['team', 'format', 'squad', 'rotation', 'lineup', 'done'];
+const WIZ_STEPS = ['team', 'format', 'squad', 'rotation', 'awards', 'lineup', 'done'];
 let wizStep = 0;
 function posKind(p) { const t = p.positions || {}; return t.DEF === 3 ? 'DEF' : t.MID === 3 ? 'MID' : t.ATT === 3 ? 'ATT' : 'ALL'; }
 const KIND_TIERS = {DEF: {DEF: 3, MID: 2, ATT: 1}, MID: {DEF: 2, MID: 3, ATT: 2}, ATT: {DEF: 1, MID: 2, ATT: 3}, ALL: {DEF: 2, MID: 2, ATT: 2}};
@@ -5157,6 +5445,14 @@ function renderWizard() {
     body.querySelectorAll('[data-rot]').forEach(c => c.addEventListener('click', () => { rotations.defaultId = c.dataset.rot; saveRotations(); renderRotList(); renderWizard(); }));
     body.querySelector('#wizBack').addEventListener('click', () => wizGo(2));
     body.querySelector('#wizNext').addEventListener('click', () => wizGo(4));
+  } else if (step === 'awards') {
+    body.innerHTML = `${dots}<div class="form-card">
+      <div class="wiz-hero">Match awards</div>
+      <div class="config-note" style="margin-bottom:10px;">Many teams give out more than one Man of the Match - the coach's pick, the opposition manager's, the parents'. Choose the awards you give; after each match you pick a winner for each. Change these any time in the Squad tab.</div>
+      <div id="wzAwards"></div>${nav(3, 'Next')}</div>`;
+    renderAwardsEditor(body.querySelector('#wzAwards'));
+    body.querySelector('#wizBack').addEventListener('click', () => wizGo(3));
+    body.querySelector('#wizNext').addEventListener('click', () => wizGo(5));
   } else if (step === 'lineup') {
     const d = matchDefaults; const shape = defaultShapeFor(d.players, d.hasGk, d.formation);
     const mine = presets.filter(pr => pr.players === d.players && !!pr.hasGk === !!d.hasGk);
@@ -5173,8 +5469,8 @@ function renderWizard() {
     const df = body.querySelector('#wzDef'), at = body.querySelector('#wzAtt');
     if (df) df.addEventListener('click', () => { open('Defensive'); watch(); });
     if (at) at.addEventListener('click', () => { open('Attacking'); watch(); });
-    body.querySelector('#wizBack').addEventListener('click', () => wizGo(3));
-    body.querySelector('#wizNext').addEventListener('click', () => wizGo(5));
+    body.querySelector('#wizBack').addEventListener('click', () => wizGo(4));
+    body.querySelector('#wizNext').addEventListener('click', () => wizGo(6));
   } else {
     body.innerHTML = `${dots}<div class="form-card" style="text-align:center;">
       <div class="wiz-hero">${esc(teamDisplayName(t))} is ready</div>
