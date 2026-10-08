@@ -351,6 +351,12 @@
     </section>
   </div>
 
+  <!-- PLAYER PROFILE / STATS -->
+  <div class="screen" id="screen-playerStats">
+    <div class="decision-link" id="psBack" style="margin-bottom:10px; display:inline-block;">‹ Squad</div>
+    <div id="psBody"></div>
+  </div>
+
   <!-- PLAYER EDIT FORM (shared add/edit) -->
   <div class="screen" id="screen-playerForm">
     <div class="form-card">
@@ -846,6 +852,8 @@ function renderSquadList() {
   document.getElementById('squadCountMeta').textContent = `${squad.length} in squad`;
   const list = document.getElementById('squadList');
   list.innerHTML = '';
+  let statAgg = {players: {}};
+  try { statAgg = aggregateStats(); } catch (e) { /* stats are optional */ }
   squad.forEach(p => {
     const row = document.createElement('div');
     row.className = 'player-card';
@@ -853,8 +861,9 @@ function renderSquadList() {
       <div style="flex:1; margin-left:8px;">
         <div class="name">${p.id}${p.gk ? '<span class="gk-pill">GK</span>' : ''}</div>
         <div class="tags">${tagsFor(p)}</div>
+        ${statsLineFor(statAgg.players[p.id]) ? `<div class="tags" style="color:var(--turf-1); font-weight:600;">${statsLineFor(statAgg.players[p.id])}</div>` : ''}
       </div>`;
-    row.addEventListener('click', () => openPlayerForm(p.id));
+    row.addEventListener('click', () => openPlayerProfile(p.id));
     list.appendChild(row);
   });
 }
@@ -913,7 +922,7 @@ function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  const tabName = (name === 'playerForm') ? 'squad' : (name === 'setup' ? 'matches' : name);
+  const tabName = (name === 'playerForm' || name === 'playerStats') ? 'squad' : (name === 'setup' ? 'matches' : name);
   const tabEl = document.querySelector(`.tab[data-tab="${tabName}"]`);
   if (tabEl) tabEl.classList.add('active');
   // The Plan screen has its own compact back button + Live/Details sub-tabs,
@@ -3558,6 +3567,8 @@ function saveLiveMatchState() {
     rec.fixture = {...matchFixture};
     rec.format = `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH} · ${DURATION}' · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`;
     rec.score = {...score};
+    if (snap.status === 'finished' && !rec.stats) { try { rec.stats = computeMatchStats(finishedAtMinute ?? DURATION, goalEvents, score); } catch (e) { console.warn('Could not compute match stats', e); } }
+    if (snap.status !== 'finished') delete rec.stats;
     rec.minute = snap.status === 'finished' ? finishedAtMinute : (snap.status === 'live' ? (halfTimeActive && pendingHalfTimeBoundaryIdx !== null ? PERIOD_BOUNDS[pendingHalfTimeBoundaryIdx] : liveElapsedMinute()) : 0);
     // Keep the library bounded: drop the oldest finished matches first.
     while (lib.length > MAX_SAVED_MATCHES) {
@@ -4608,6 +4619,155 @@ function openExportModal() {
 }
 document.getElementById('exportImageLink').addEventListener('click', openExportModal);
 
+/* ================= MATCH STATS & PLAYER PROFILES ================= */
+const POS_COLORS = {GK: '#E3A23C', DEF: '#2F7D52', MID: '#4A86C5', ATT: '#C1503F'};
+const POS_NAMES = {GK: 'Goalkeeper', DEF: 'Defence', MID: 'Midfield', ATT: 'Attack'};
+const POS_KEYS = ['gk', 'def', 'mid', 'att'];
+
+// Minutes each player spent in each position, goals and the result, taken
+// from the match as it was actually played (the plan up to full time).
+function computeMatchStats(finishedAt, goals, sc) {
+  const players = {};
+  PLAYERS.forEach(p => { players[p.id] = {mins: 0, gk: 0, def: 0, mid: 0, att: 0, started: false, goals: 0}; });
+  Object.values(startingLineup).forEach(id => { if (players[id]) players[id].started = true; });
+  for (let m = 0; m < finishedAt; m++) {
+    const st = computeStateAt(m);
+    for (const sl of st.activeSlots) {
+      const pl = players[st.onPitch[sl.id]]; if (!pl) continue;
+      pl.mins++; pl[sl.group.toLowerCase()]++;
+    }
+  }
+  (goals || []).forEach(g => { if (g.forUs && players[g.scorer]) players[g.scorer].goals++; });
+  const us = sc ? sc.us : 0, them = sc ? sc.them : 0;
+  return {v: 1, minutes: finishedAt, duration: DURATION, gf: us, ga: them, result: us > them ? 'W' : us < them ? 'L' : 'D',
+    subs: PLAN.rotations.filter(r => !r.type && r.time <= finishedAt).length, players};
+}
+const ENGINE_GLOBALS = () => ({PLAYERS, playersById, SLOTS, slotsById, DURATION, PLAYERS_ON_PITCH, PERIODS, HAS_GK, PERIOD_BOUNDS, confirmedShape, cfg, cfgEras,
+  startingLineup, lockedEvents, unavailableFrom, GK_SEGMENTS, gkMode, gkKeepers, gkAuto, PLAN, TARGET, TARGETS, currentMatchId});
+function restoreEngineGlobals(g) {
+  ({PLAYERS, playersById, SLOTS, slotsById, DURATION, PLAYERS_ON_PITCH, PERIODS, HAS_GK, PERIOD_BOUNDS, confirmedShape, cfg, cfgEras,
+    startingLineup, lockedEvents, unavailableFrom, GK_SEGMENTS, gkMode, gkKeepers, gkAuto, PLAN, TARGET, TARGETS, currentMatchId} = g);
+}
+// Older finished matches were saved before stats existed: replay them once,
+// silently, to work out the same numbers.
+function statsFromSnapshot(saved) {
+  const keep = ENGINE_GLOBALS();
+  try {
+    currentMatchId = null;
+    confirmedShape = saved.shape;
+    applyMatchFormat(saved.playersOnPitch, saved.hasGk, saved.duration, saved.periods, saved.shape);
+    gkMode = saved.gkMode; gkKeepers = [...saved.gkKeepers]; gkAuto = !!saved.gkAuto;
+    if (gkMode === 'auto') { gkMode = 'rotate'; gkAuto = true; }
+    cfg = {autoSubs: true, maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false, ...saved.cfg};
+    cfgEras = JSON.parse(JSON.stringify(saved.cfgEras || []));
+    PLAYERS = saved.players.map(p => ({...p}));
+    playersById = Object.fromEntries(PLAYERS.map(p => [p.id, p]));
+    computeTargets();
+    GK_SEGMENTS = computeGkSegments();
+    startingLineup = {...saved.startingLineup};
+    lockedEvents = JSON.parse(JSON.stringify(saved.lockedEvents || []));
+    unavailableFrom = {...(saved.unavailableFrom || {})};
+    regeneratePlan();
+    return computeMatchStats(saved.finishedAt ?? DURATION, saved.goalEvents, saved.score);
+  } finally { restoreEngineGlobals(keep); }
+}
+function backfillMatchStats() {
+  if (currentMatchId) return;
+  const lib = loadMatchLibrary(); let changed = false;
+  for (const rec of lib) {
+    if (rec.status === 'finished' && !rec.stats && rec.snapshot && rec.snapshot.startingLineup) {
+      try { rec.stats = statsFromSnapshot(rec.snapshot); changed = true; } catch (e) { console.warn('Could not work out stats for a match', e); }
+    }
+  }
+  if (changed) saveMatchLibrary(lib);
+}
+
+function recDate(r) { return (r.fixture && r.fixture.date) || new Date(r.createdAt || 0).toISOString().slice(0, 10); }
+function aggregateStats() {
+  const fin = loadMatchLibrary().filter(r => r.status === 'finished' && r.stats).sort((a, b) => recDate(a) < recDate(b) ? -1 : recDate(a) > recDate(b) ? 1 : (a.createdAt || 0) - (b.createdAt || 0));
+  const team = {played: fin.length, w: 0, d: 0, l: 0, gf: 0, ga: 0, cs: 0, mins: 0};
+  const pl = {};
+  for (const r of fin) {
+    const s = r.stats; team[s.result.toLowerCase()]++; team.gf += s.gf; team.ga += s.ga; if (s.ga === 0) team.cs++; team.mins += s.minutes;
+    for (const [pid, ps] of Object.entries(s.players)) {
+      const a = pl[pid] || (pl[pid] = {id: pid, avail: 0, apps: 0, starts: 0, mins: 0, gk: 0, def: 0, mid: 0, att: 0, goals: 0, availMins: 0, log: []});
+      a.avail++; a.availMins += s.minutes;
+      if (ps.mins > 0) { a.apps++; if (ps.started) a.starts++; POS_KEYS.forEach(k => { a[k] += ps[k]; }); a.mins += ps.mins; }
+      a.goals += ps.goals;
+      a.log.push({rec: r, date: recDate(r), opp: r.fixture && r.fixture.opponent, mins: ps.mins, ps, result: s.result, gf: s.gf, ga: s.ga});
+    }
+  }
+  return {matches: fin, team, players: pl};
+}
+function statsLineFor(a) {
+  if (!a || !a.avail) return '';
+  return `${a.apps} app${a.apps === 1 ? '' : 's'} · ${a.mins}'${a.goals ? ` · ${a.goals} goal${a.goals === 1 ? '' : 's'}` : ''}`;
+}
+
+// Donut chart as inline SVG. parts: [{label, value, color}]
+function donutSvg(parts, size) {
+  size = size || 150; const sw = 22, r = size / 2 - sw / 2 - 2, cx = size / 2, cy = size / 2;
+  const total = parts.reduce((t, p) => t + p.value, 0);
+  if (!total) return '';
+  let ang = -Math.PI / 2; const live = parts.filter(p => p.value > 0);
+  const arcs = live.length === 1
+    ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${live[0].color}" stroke-width="${sw}"/>`
+    : live.map(p => {
+      const a2 = ang + (p.value / total) * Math.PI * 2;
+      const x1 = cx + r * Math.cos(ang), y1 = cy + r * Math.sin(ang), x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+      const d = `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${a2 - ang > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+      ang = a2; return `<path d="${d}" fill="none" stroke="${p.color}" stroke-width="${sw}"/>`;
+    }).join('');
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="Minutes by position">${arcs}</svg>`;
+}
+function posLegend(a, total) {
+  return POS_KEYS.filter(k => a[k] > 0).map(k => { const g = k.toUpperCase();
+    return `<div style="display:flex; align-items:center; gap:8px; font-size:13px; margin:3px 0;"><span style="width:11px; height:11px; border-radius:3px; background:${POS_COLORS[g]};"></span><span style="flex:1;">${POS_NAMES[g]}</span><b>${a[k]}'</b><span style="color:var(--ink-soft); width:38px; text-align:right;">${Math.round(a[k] / total * 100)}%</span></div>`; }).join('');
+}
+function posBar(a) {
+  const total = POS_KEYS.reduce((t, k) => t + a[k], 0);
+  if (!total) return '<div style="height:10px; border-radius:5px; background:var(--card-line);"></div>';
+  return `<div style="display:flex; height:10px; border-radius:5px; overflow:hidden; background:var(--card-line);">${POS_KEYS.map(k => a[k] ? `<div style="width:${a[k] / total * 100}%; background:${POS_COLORS[k.toUpperCase()]};"></div>` : '').join('')}</div>`;
+}
+
+let profilePid = null;
+function openPlayerProfile(id) {
+  profilePid = id; renderPlayerProfile(); showScreen('playerStats'); window.scrollTo(0, 0);
+}
+function renderPlayerProfile() {
+  const p = squad.find(x => x.id === profilePid);
+  const body = document.getElementById('psBody');
+  if (!p) { showScreen('squad'); return; }
+  const agg = aggregateStats(); const a = agg.players[p.id];
+  const squadAvgMins = (() => { const arr = Object.values(agg.players).filter(x => x.avail); return arr.length ? arr.reduce((t, x) => t + x.mins, 0) / arr.length : 0; })();
+  const tile = (v, l) => `<div style="background:var(--bench-card); border-radius:10px; padding:10px 6px; text-align:center;"><div style="font-family:Oswald,sans-serif; font-size:22px; font-weight:600;">${v}</div><div style="font-size:11px; color:var(--ink-soft);">${l}</div></div>`;
+  let html = `<div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+      <div style="flex:1;"><div style="font-family:Oswald,sans-serif; font-size:24px; font-weight:600;">${esc(p.id)}${p.gk ? '<span class="gk-pill">GK</span>' : ''}</div>
+      <div style="font-size:12px; color:var(--ink-soft);">${p.number ? '#' + p.number + ' · ' : ''}${tagsFor(p)}</div></div>
+      <button class="btn btn-ghost" id="psEdit" style="width:auto; margin:0; padding:8px 14px;">Edit</button></div>`;
+  if (!a || !a.avail) {
+    html += `<div class="form-card" style="margin-top:10px;"><div class="config-note">No finished matches yet. Once you play a match and finish it, ${esc(p.id)}'s appearances, minutes, positions and goals appear here.</div></div>`;
+  } else {
+    const pct = a.availMins ? Math.round(a.mins / a.availMins * 100) : 0;
+    const diff = Math.round(a.mins - squadAvgMins);
+    html += `<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0;">
+      ${tile(a.apps + '<span style="font-size:13px; color:var(--ink-soft);"> / ' + a.avail + '</span>', 'Matches played')}${tile(a.starts, 'Starts')}${tile(a.mins + "'", 'Minutes')}
+      ${tile(a.apps ? Math.round(a.mins / a.apps) + "'" : '-', 'Avg per match')}${tile(pct + '%', 'Of match time')}${tile(a.goals, 'Goals')}</div>
+      <div class="config-note" style="margin-bottom:12px;">${diff === 0 ? 'Exactly the squad average for minutes.' : `${Math.abs(diff)}' ${diff > 0 ? 'above' : 'below'} the squad average for minutes played.`}</div>`;
+    const posTotal = POS_KEYS.reduce((t, k) => t + a[k], 0);
+    html += `<div class="form-card"><h2 style="margin-top:0;">Minutes by position</h2>
+      <div style="display:flex; align-items:center; gap:14px;"><div style="flex:0 0 auto;">${donutSvg(POS_KEYS.map(k => ({label: k, value: a[k], color: POS_COLORS[k.toUpperCase()]})), 140)}</div>
+      <div style="flex:1;">${posLegend(a, posTotal)}</div></div></div>`;
+    html += `<div class="form-card"><h2 style="margin-top:0;">Match log</h2>${a.log.slice().reverse().map(l => {
+      const where = POS_KEYS.filter(k => l.ps[k] > 0).map(k => `${k.toUpperCase()} ${l.ps[k]}'`).join(' · ');
+      return `<div style="padding:8px 0; border-bottom:1px solid var(--card-line);"><div style="display:flex; gap:8px; align-items:baseline;"><b style="flex:1; font-size:14px;">${l.opp ? 'vs ' + esc(l.opp) : 'Match'}</b><span style="font-size:12px; color:var(--ink-soft);">${esc(fmtFixtureDate(l.date))}</span></div>
+        <div style="font-size:12.5px; color:var(--ink-soft);">${l.result} ${l.gf}-${l.ga} · ${l.mins > 0 ? `${l.mins}' played${l.ps.started ? ' (started)' : ' (sub)'}${where ? ' · ' + where : ''}` : 'Did not play'}${l.ps.goals ? ` · ⚽ ${l.ps.goals}` : ''}</div></div>`; }).join('')}</div>`;
+  }
+  body.innerHTML = html;
+  document.getElementById('psEdit').addEventListener('click', () => openPlayerForm(p.id));
+}
+document.getElementById('psBack').addEventListener('click', () => showScreen('squad'));
+
 /* ================= ROTATION PRESETS (per team) ================= */
 const ROT_KEY = K('rf_rotation_v1');
 const ROT_FIELDS = ['fairnessPriority', 'positionStrictness', 'minShiftLength', 'maxBenchLength', 'gkCountsForFairness', 'subTimingMode', 'subIntervalMinutes', 'checkpointHalfway'];
@@ -5042,7 +5202,7 @@ document.getElementById('tourBannerGo').addEventListener('click', () => startTou
 document.getElementById('tourBannerX').addEventListener('click', () => { profile.tourDone = true; saveProfile(); showTourBanner(); });
 // keep the banner in step with navigation
 const _origShowScreen = showScreen;
-showScreen = function (name) { _origShowScreen(name); showTourBanner(); };
+showScreen = function (name) { _origShowScreen(name); if (name === 'squad') { try { renderSquadList(); } catch (e) { /* ignore */ } } showTourBanner(); };
 
 /* ---- boot: header, and the wizard for a team that hasn't been set up ---- */
 refreshTeamHeader(); showTourBanner();
@@ -5062,6 +5222,7 @@ try { if (navigator.storage && navigator.storage.persist) navigator.storage.pers
 (function resumeLiveMatchOnLaunch() {
   migrateLegacyLiveMatch();
   if (!activeTeam().setupDone) { openWizard(); return; }
+  try { backfillMatchStats(); renderSquadList(); } catch (e) { console.warn(e); }
   const live = loadMatchLibrary().filter(r => r.status === 'live').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
   if (live) openMatchFromLibrary(live.id);
 })();
