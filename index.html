@@ -684,7 +684,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.9';
+const APP_VERSION = 'beta 0.10';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
   let buf = [];
@@ -694,9 +694,10 @@ const diag = (() => {
   const flush = () => { timer = null; try { localStorage.setItem(DIAG_KEY, JSON.stringify(buf)); } catch (e) { /* ignore */ } };
   return {
     add(kind, msg) {
-      buf.push({t: Date.now(), k: kind, m: String(msg).slice(0, 300)});
-      if (buf.length > 100) buf.splice(0, buf.length - 100);
-      if (kind === 'error') flush(); else if (!timer) timer = setTimeout(flush, 1500);
+      buf.push({t: Date.now(), k: kind, m: String(msg).slice(0, 240)});
+      if (buf.length > 400) buf.splice(0, buf.length - 400);
+      if (kind === 'error') { flush(); if (this.onError) { try { this.onError(String(msg)); } catch (e) { /* never let reporting break the app */ } } }
+      else if (!timer) timer = setTimeout(flush, 1500);
     },
     all() { return buf.slice(); },
     lastErrorTs() { for (let i = buf.length - 1; i >= 0; i--) if (buf[i].k === 'error') return buf[i].t; return 0; },
@@ -707,6 +708,24 @@ window.addEventListener('error', e => diag.add('error', `${e.message} @${String(
 window.addEventListener('unhandledrejection', e => diag.add('error', 'promise: ' + ((e.reason && e.reason.message) || e.reason)));
 ['error', 'warn'].forEach(level => { const orig = console[level]; console[level] = function () { try { diag.add(level, Array.from(arguments).map(a => (a && a.message) || String(a)).join(' ')); } catch (_) { /* ignore */ } return orig.apply(console, arguments); }; });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') diag.flush(); });
+// Every tap and every changed setting is logged (what was tapped, never what was typed),
+// so a report shows exactly what the coach did leading up to a problem.
+document.addEventListener('click', e => {
+  try {
+    const el = e.target.closest && e.target.closest('[id],[data-tab],[data-action],button,.picker-opt,.radio-opt,.player-card,.match-card,.plan-subtab,.decision-link');
+    if (!el || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    const data = Object.keys(el.dataset || {}).slice(0, 4).map(k => `${k}=${el.dataset[k]}`).join(',');
+    const label = (el.innerText || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    diag.add('tap', `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${data ? ' [' + data + ']' : ''}${label ? ' "' + label + '"' : ''}`);
+  } catch (_) { /* ignore */ }
+}, true);
+document.addEventListener('change', e => {
+  try {
+    const t = e.target; if (!t || !t.tagName) return;
+    if (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(checkbox|radio|range)$/.test(t.type))) { diag.add('set', `${t.id || t.name || 'field'} edited`); return; }
+    diag.add('set', `${t.id || t.name || t.tagName.toLowerCase()} = ${t.type === 'checkbox' ? t.checked : t.value}`);
+  } catch (_) { /* ignore */ }
+}, true);
 /* ================= MODAL HELPERS =================
    window.confirm()/alert() are unreliable inside the sandboxed iframe an
    artifact runs in — they can silently no-op (return falsy without ever
@@ -1942,6 +1961,23 @@ function regeneratePlan() {
   const state = simulate(startingLineup, lockedEvents);
   PLAN = {rotations: state.rotations, projectedMinutes: state.minutesPlayed, decisions: state.decisions, gkSegments: state.gkSegments};
   if (typeof schedulePersist === 'function') schedulePersist();
+  logPlanSummary();
+}
+// A compact record of what the planner produced (debounced), so "the balance
+// isn't what I expected" can be looked into without a visible error.
+let planLogTimer = null;
+function logPlanSummary() {
+  clearTimeout(planLogTimer);
+  planLogTimer = setTimeout(() => {
+    try {
+      if (!PLAN) return;
+      const pm = PLAN.projectedMinutes || {};
+      const vals = Object.values(pm);
+      const subs = PLAN.rotations.filter(r => !r.type).length, skips = PLAN.rotations.filter(r => r.type === 'skip').length;
+      const c = {}; ['fairnessPriority', 'positionStrictness', 'minShiftLength', 'maxBenchLength', 'gkCountsForFairness', 'subTimingMode', 'subIntervalMinutes'].forEach(k => { if (cfg && cfg[k] !== undefined) c[k] = cfg[k]; });
+      diag.add('plan', `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH} ${DURATION}' x${PERIODS}; subs=${subs} skips=${skips} decisions=${(PLAN.decisions || []).length}; projected min ${Math.min(...vals)} max ${Math.max(...vals)} spread ${Math.max(...vals) - Math.min(...vals)}; cfg ${JSON.stringify(c)}; mins ${Object.entries(pm).map(([k, v]) => k + ':' + v).join(' ')}`);
+    } catch (e) { /* logging must never break planning */ }
+  }, 1200);
 }
 
 // Reconstructs exact match state at any minute by replaying PLAN.rotations
@@ -5254,60 +5290,124 @@ renderRotList();
 const _origUpdateConfigSummary = updateConfigSummary;
 updateConfigSummary = function () { _origUpdateConfigSummary(); renderRotChips(); };
 
-/* ================= FEEDBACK & PROBLEM REPORTS =================
-   Sent with Web3Forms (free; each submission is emailed to the address the key
-   was created for). Set FEEDBACK_KEY to your access key from web3forms.com.
-   Reports that can't be sent (offline) wait in an outbox and go on next launch. */
-const FEEDBACK_KEY = '';
+/* ================= FEEDBACK, PROBLEM REPORTS & AUTOMATIC ERROR REPORTS =================
+   Sent with Web3Forms (each submission is emailed to the account owner).
+   Every report - feedback, problem or automatic error - always carries the
+   diagnostic log and the match being worked on, with player/team/opposition
+   names swapped for neutral labels. Reports that can't be sent (offline) wait
+   in an outbox and go on the next launch. */
+const FEEDBACK_KEY = 'b52923a1-b560-4072-aba6-8b119c3536f3';
 const FEEDBACK_URL = 'https://api.web3forms.com/submit';
 const FBQ_KEY = 'rf_fbq_v1';
-function fbState() { if (!profile.fb) profile.fb = {}; if (!profile.fb.firstSeen) { profile.fb.firstSeen = Date.now(); saveProfile(); } return profile.fb; }
+function fbState() {
+  if (!profile.fb) profile.fb = {};
+  if (!profile.fb.firstSeen) { profile.fb.firstSeen = Date.now(); }
+  if (!profile.fb.installId) { profile.fb.installId = Math.random().toString(36).slice(2, 8).toUpperCase(); saveProfile(); }
+  return profile.fb;
+}
 function fbQueue() { try { const q = JSON.parse(lsGet(FBQ_KEY) || '[]'); return Array.isArray(q) ? q : []; } catch (e) { return []; } }
 function fbSaveQueue(q) { lsSet(FBQ_KEY, JSON.stringify(q.slice(-20))); }
-// Player, team and opposition names are swapped for neutral labels so that a
-// shared log or match snapshot doesn't carry children's names.
-function fbAnonymise(text) {
-  let out = String(text);
-  const names = squad.map(p => p.id).filter(Boolean).sort((a, b) => b.length - a.length);
-  names.forEach((n, i) => { out = out.split(n).join(`Player ${i + 1}`); });
-  const t = teamDisplayName(activeTeam()); if (t && t !== 'My team') out = out.split(t).join('Team');
-  if (matchFixture && matchFixture.opponent) out = out.split(matchFixture.opponent).join('Opposition');
-  return out;
+// The snapshot to send: the open match, or failing that the most recent one.
+function fbSnapshot() {
+  try {
+    if (PLAN && currentMatchId) return buildMatchSnapshot();
+    const lib = loadMatchLibrary().filter(r => r.snapshot).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    return lib[0] ? lib[0].snapshot : null;
+  } catch (e) { return null; }
 }
-function fbDiagnostics() {
+// Names -> "Player N" (squad order, then anyone only in the match snapshot).
+function fbAnonymiser(snap) {
+  const names = []; squad.forEach(p => { if (p.id && !names.includes(p.id)) names.push(p.id); });
+  ((snap && snap.players) || []).forEach(p => { if (p.id && !names.includes(p.id)) names.push(p.id); });
+  const order = names.map((n, i) => [n, `Player ${i + 1}`]).sort((a, b) => b[0].length - a[0].length);
+  const team = teamDisplayName(activeTeam());
+  const opps = new Set([matchFixture && matchFixture.opponent, snap && snap.fixture && snap.fixture.opponent].filter(Boolean));
+  const venues = new Set([matchFixture && matchFixture.venue, snap && snap.fixture && snap.fixture.venue].filter(Boolean));
+  return text => {
+    let out = String(text);
+    order.forEach(([n, l]) => { out = out.replace(new RegExp('(^|[^A-Za-z0-9])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z0-9])', 'g'), '$1' + l); });
+    if (team && team !== 'My team') out = out.split(team).join('Team');
+    opps.forEach(o => { out = out.split(o).join('Opposition'); });
+    venues.forEach(v => { out = out.split(v).join('Venue'); });
+    return out;
+  };
+}
+function fbDiagnostics(anon, maxLines) {
   let standalone = false; try { standalone = !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches) || !!navigator.standalone; } catch (e) { /* ignore */ }
-  const lib = loadMatchLibrary();
-  const head = [`App: ${APP_VERSION}`, `Time: ${new Date().toISOString()}`, `Device: ${navigator.userAgent}`, `Screen: ${screen.width}x${screen.height} @${window.devicePixelRatio || 1}, viewport ${innerWidth}x${innerHeight}`,
+  const lib = loadMatchLibrary(); const st = fbState();
+  const head = [`App: ${APP_VERSION}`, `Install: ${st.installId}`, `Time: ${new Date().toISOString()}`, `Device: ${navigator.userAgent}`,
+    `Screen: ${screen.width}x${screen.height} @${window.devicePixelRatio || 1}, viewport ${innerWidth}x${innerHeight}`,
     `Installed to home screen: ${standalone}`, `Online: ${navigator.onLine}`, `Teams: ${profile.teams.length}`, `Squad size: ${squad.length}`,
     `Matches: ${lib.length} (${lib.filter(r => r.status === 'finished').length} finished)`, `Default format: ${wizFormatSummary()}`, `Screen now: ${(document.querySelector('.screen.active') || {}).id}`,
     `Match open: ${currentMatchId ? (liveMode ? (matchFinished ? 'finished' : 'live') : 'planning') : 'no'}`].join('\n');
-  const log = diag.all().map(e => `${new Date(e.t).toISOString().slice(5, 19)} ${e.k.padEnd(5)} ${e.m}`).join('\n');
-  return fbAnonymise(head + '\n\nRECENT LOG (oldest first)\n' + log);
+  const all = diag.all(); const lines = all.slice(-(maxLines || 200));
+  const log = lines.map(e => `${new Date(e.t).toISOString().slice(5, 19)} ${e.k.padEnd(5)} ${e.m}`).join('\n');
+  return anon(head + `\n\nACTIVITY LOG (last ${lines.length} of ${all.length}, oldest first)\n` + log);
 }
-function fbMatchData() {
-  try { return fbAnonymise(JSON.stringify(buildMatchSnapshot())).slice(0, 60000); } catch (e) { return 'could not read match: ' + e.message; }
+function fbMatchData(anon, snap, maxChars) {
+  if (!snap) return '(no match on this device yet)';
+  try { return anon(JSON.stringify(snap)).slice(0, maxChars || 60000); } catch (e) { return 'could not read match: ' + e.message; }
+}
+// Builds the report body at three sizes so a big one that is refused still gets through smaller.
+function fbCompose(head, tier) {
+  const snap = fbSnapshot(); const anon = fbAnonymiser(snap);
+  const sizes = [[250, 60000], [120, 20000], [60, 0]][tier || 0];
+  return head + '\n\n----- DIAGNOSTICS -----\n' + fbDiagnostics(anon, sizes[0]) + (sizes[1] ? '\n\n----- MATCH DATA (' + (currentMatchId ? 'open match' : 'most recent match') + ') -----\n' + fbMatchData(anon, snap, sizes[1]) : '\n\n(match data omitted - too large)');
 }
 async function fbPost(item) {
-  if (!FEEDBACK_KEY) throw new Error('Feedback is not set up yet');
   const body = {access_key: FEEDBACK_KEY, subject: item.subject, from_name: item.from_name || 'Squad planner user', message: item.message, botcheck: ''};
   if (item.email) body.email = item.email;
   const r = await fetch(FEEDBACK_URL, {method: 'POST', headers: {'Content-Type': 'application/json', Accept: 'application/json'}, body: JSON.stringify(body)});
   const j = await r.json().catch(() => ({}));
-  if (!r.ok || j.success === false) throw new Error(j.message || 'HTTP ' + r.status);
+  if (!r.ok || j.success === false) { const e = new Error(j.message || 'HTTP ' + r.status); e.status = r.status; throw e; }
+}
+// Tries the full report, then smaller versions; if everything fails it waits in the outbox.
+async function fbDeliver(subject, head, extra) {
+  const st = fbState();
+  const mk = (message) => ({subject, from_name: profile.coach.name || '', email: (extra && extra.email) || '', message, ts: Date.now()});
+  for (let tier = 0; tier < 3; tier++) {
+    const item = mk(fbCompose(head, tier));
+    try { await fbPost(item); return true; }
+    catch (e) {
+      if (!navigator.onLine || (e.status && e.status >= 500) || !(e.status === 413 || e.status === 400 || /large|size|limit/i.test(e.message || ''))) { const q = fbQueue(); q.push(item); fbSaveQueue(q); return false; }
+    }
+  }
+  const q = fbQueue(); q.push(mk(fbCompose(head, 2))); fbSaveQueue(q); return false;
 }
 async function fbFlushQueue() {
-  if (!FEEDBACK_KEY || !navigator.onLine) return;
-  let q = fbQueue(); if (!q.length) return;
+  if (!navigator.onLine) return;
+  const q = fbQueue(); if (!q.length) return;
   const left = [];
   for (const it of q) { try { await fbPost(it); } catch (e) { left.push(it); } }
   fbSaveQueue(left);
 }
 window.addEventListener('online', () => { fbFlushQueue(); });
+
+// Automatic error reports: whenever the app logs an error, the log and match are
+// sent without asking. Identical errors are sent once, bursts are batched, and
+// there's a daily cap so a runaway loop can't flood the inbox.
+const fbAuto = {timer: null, sigs: new Set(), pending: []};
+diag.onError = function (msg) {
+  const sig = msg.replace(/\d+/g, '#').slice(0, 90);
+  if (fbAuto.sigs.has(sig)) return;
+  fbAuto.sigs.add(sig); fbAuto.pending.push(msg);
+  if (fbAuto.timer) return;
+  fbAuto.timer = setTimeout(async () => {
+    const msgs = fbAuto.pending.splice(0); fbAuto.timer = null;
+    const st = fbState(); const day = new Date().toISOString().slice(0, 10);
+    if (st.autoDay !== day) { st.autoDay = day; st.autoCount = 0; }
+    if (st.autoCount >= 8) return;
+    st.autoCount++; saveProfile();
+    const snap = fbSnapshot(); const anon = fbAnonymiser(snap);
+    const head = `AUTOMATIC ERROR REPORT\nCoach: ${profile.coach.name || '(no name)'}\n\nErrors:\n${msgs.map(m => '- ' + anon(m)).join('\n')}`;
+    await fbDeliver(`[Squad planner ${APP_VERSION}] AUTO ERROR: ${anon(msgs[0]).slice(0, 80)}`, head, {});
+  }, 4000);
+};
+
 const FB_FACES = [['1', '😞', 'Not good'], ['2', '😐', 'OK'], ['3', '🙂', 'Good'], ['4', '😍', 'Love it']];
 function openFeedbackModal(opts) {
   opts = opts || {};
   const st = fbState();
-  const matchOpen = !!(PLAN && currentMatchId);
   let rating = opts.rating || '';
   let kind = opts.kind || 'feedback';
   const overlay = openModal(`
@@ -5316,19 +5416,17 @@ function openFeedbackModal(opts) {
       <div class="radio-opt ${kind === 'feedback' ? 'selected' : ''}" data-kind="feedback" style="flex:1;">💬 Feedback</div>
       <div class="radio-opt ${kind === 'bug' ? 'selected' : ''}" data-kind="bug" style="flex:1;">🐞 Report a problem</div>
     </div>
-    <div id="fbFaces" style="display:flex; gap:6px; margin-bottom:10px;">${FB_FACES.map(f => `<div data-face="${f[0]}" style="flex:1; text-align:center; padding:8px 2px; border:2px solid var(--card-line); border-radius:10px; cursor:pointer;"><div style="font-size:24px;">${f[1]}</div><div style="font-size:10.5px; color:var(--ink-soft);">${f[2]}</div></div>`).join('')}</div>
+    <div style="display:flex; gap:6px; margin-bottom:10px;">${FB_FACES.map(f => `<div data-face="${f[0]}" style="flex:1; text-align:center; padding:8px 2px; border:2px solid var(--card-line); border-radius:10px; cursor:pointer;"><div style="font-size:24px;">${f[1]}</div><div style="font-size:10.5px; color:var(--ink-soft);">${f[2]}</div></div>`).join('')}</div>
     <div class="field"><label id="fbLabel"></label><textarea id="fbText" rows="4" style="width:100%; box-sizing:border-box;"></textarea></div>
     <div class="field"><label>Your email (optional - only if you'd like a reply)</label><input type="email" id="fbEmail" value="${esc(st.email || '')}" placeholder="you@example.com"></div>
-    <div class="check-row" style="margin:2px 0;"><input type="checkbox" id="fbDiag"><label for="fbDiag">Include diagnostic info (app version, device, recent errors) - no names</label></div>
-    ${matchOpen ? '<div class="check-row" style="margin:2px 0;"><input type="checkbox" id="fbMatch"><label for="fbMatch">Attach this match\'s data (names replaced with Player 1, 2...)</label></div>' : ''}
-    <div class="config-note" id="fbMsg" style="margin-top:6px;"></div>
+    <div class="config-note" style="margin-top:2px;">So we can see exactly what happened, your report includes technical details: app version, device, recent activity and the match you're working on. Player, team and opposition names are replaced with "Player 1, 2..." - no names are ever sent.</div>
+    <div class="config-note" id="fbMsg" style="margin-top:6px; color:var(--coral);"></div>
     <div class="modal-btn-row"><button class="btn btn-ghost" id="fbCancel">Cancel</button><button class="btn btn-primary" id="fbSend">Send</button></div>`);
   const q = x => overlay.querySelector(x);
   const sync = () => {
     overlay.querySelectorAll('[data-kind]').forEach(el => el.classList.toggle('selected', el.dataset.kind === kind));
     overlay.querySelectorAll('[data-face]').forEach(el => { el.style.borderColor = el.dataset.face === rating ? 'var(--green, #2F7D52)' : 'var(--card-line)'; el.style.background = el.dataset.face === rating ? 'var(--bench-card)' : ''; });
-    q('#fbLabel').textContent = kind === 'bug' ? 'What went wrong? What were you doing?' : "What's working, and what would you change?";
-    q('#fbDiag').checked = q('#fbDiag').checked || kind === 'bug';
+    q('#fbLabel').textContent = kind === 'bug' ? 'What went wrong, or what did you expect to happen?' : "What's working, and what would you change?";
   };
   overlay.querySelectorAll('[data-kind]').forEach(el => el.addEventListener('click', () => { kind = el.dataset.kind; sync(); }));
   overlay.querySelectorAll('[data-face]').forEach(el => el.addEventListener('click', () => { rating = el.dataset.face; sync(); }));
@@ -5338,18 +5436,10 @@ function openFeedbackModal(opts) {
     if (!text && !rating) { q('#fbMsg').textContent = 'Add a few words or tap a face first.'; return; }
     st.email = email; saveProfile();
     const face = FB_FACES.find(f => f[0] === rating);
-    const wantDiag = q('#fbDiag').checked, wantMatch = !!(q('#fbMatch') && q('#fbMatch').checked);
-    const base = [`${kind === 'bug' ? 'PROBLEM REPORT' : 'FEEDBACK'}`, face ? `Rating: ${face[1]} ${face[2]} (${rating}/4)` : '', `Coach: ${profile.coach.name || '(no name)'}`, email ? `Reply to: ${email}` : '', '', text || '(no comment)'].filter((x, i) => x !== '' || i === 5 || i === 4).join('\n');
-    const diagText = wantDiag ? '\n\n----- DIAGNOSTICS -----\n' + fbDiagnostics() : '';
-    const matchText = wantMatch ? '\n\n----- MATCH DATA -----\n' + fbMatchData() : '';
-    const mk = full => ({subject: `[Squad planner ${APP_VERSION}] ${kind === 'bug' ? 'Problem' : 'Feedback'}${face ? ' ' + face[1] : ''}`, from_name: profile.coach.name || '', email, message: full, ts: Date.now()});
-    q('#fbSend').disabled = true; q('#fbMsg').textContent = 'Sending...';
-    let sent = false;
-    try { await fbPost(mk(base + diagText + matchText)); sent = true; }
-    catch (e1) {
-      if (wantMatch && navigator.onLine && FEEDBACK_KEY) { try { await fbPost(mk(base + diagText + '\n\n(match data was too large to send)')); sent = true; } catch (e2) { /* queue below */ } }
-    }
-    if (!sent) { const qq = fbQueue(); qq.push(mk(base + diagText + (wantMatch ? '\n\n----- MATCH DATA -----\n' + fbMatchData().slice(0, 20000) : ''))); fbSaveQueue(qq); }
+    const head = [kind === 'bug' ? 'PROBLEM REPORT' : 'FEEDBACK', face ? `Rating: ${face[1]} ${face[2]} (${rating}/4)` : null, `Coach: ${profile.coach.name || '(no name)'}`, email ? `Reply to: ${email}` : null, '', text || '(no comment)'].filter(x => x !== null).join('\n');
+    diag.add('act', `feedback sent (${kind}${rating ? ', rating ' + rating : ''})`);
+    q('#fbSend').disabled = true; q('#fbMsg').style.color = ''; q('#fbMsg').textContent = 'Sending...';
+    const sent = await fbDeliver(`[Squad planner ${APP_VERSION}] ${kind === 'bug' ? 'Problem' : 'Feedback'}${face ? ' ' + face[1] : ''}`, head, {email});
     st.lastSent = Date.now(); saveProfile();
     overlay.querySelector('.modal-card').innerHTML = `<div class="picker-title">${sent ? 'Thank you!' : 'Saved'}</div><div class="config-note" style="margin-bottom:12px;">${sent ? 'Your feedback has been sent. It really helps.' : "Couldn't send just now - it's saved and will go automatically next time you're online."}</div><div class="modal-btn-row"><button class="btn btn-primary" id="fbDone">Done</button></div>`;
     overlay.querySelector('#fbDone').addEventListener('click', () => overlay.remove());
@@ -5357,10 +5447,12 @@ function openFeedbackModal(opts) {
   sync();
   return overlay;
 }
-// Prompt card on Home: after the first finished match and every third after,
-// once a week in, and when something has gone wrong. Always dismissible.
+// Prompt card on Home: a one-time notice, then after the first finished match and
+// every third after, once a week in, and after an error (to ask what was happening).
 function fbPrompt() {
-  const st = fbState(); if (st.muted) return null;
+  const st = fbState();
+  if (!st.noticeSeen) return {kind: 'notice'};
+  if (st.muted) return null;
   const now = Date.now();
   const errTs = diag.lastErrorTs();
   if (errTs && errTs > (st.lastErrPrompt || 0) && now - errTs < 3 * 86400000) return {kind: 'error'};
@@ -5372,8 +5464,10 @@ function fbPrompt() {
 function fbPromptHtml() {
   const pr = fbPrompt(); if (!pr) return '';
   const link = (id, label) => `<span id="${id}" style="font-size:12px; color:var(--ink-soft); text-decoration:underline; cursor:pointer;">${label}</span>`;
-  if (pr.kind === 'error') return `<div class="form-card" id="fbCard" data-fbkind="error"><div style="font-weight:600; margin-bottom:4px;">Something went wrong earlier</div><div class="config-note" style="margin-bottom:8px;">Sorry about that. Sending the details helps get it fixed.</div>
-    <button class="btn btn-primary" id="fbErrSend">Send the details</button><div style="display:flex; gap:16px; margin-top:8px;">${link('fbNotNow', 'Not now')}${link('fbMute', "Don't ask me for feedback")}</div></div>`;
+  if (pr.kind === 'notice') return `<div class="form-card" id="fbCard" data-fbkind="notice"><div style="font-weight:600; margin-bottom:4px;">Helping us improve the app</div><div class="config-note" style="margin-bottom:8px;">If the app hits an error, and whenever you send feedback, it sends us a technical log (app version, device, recent activity and the current match) so we can fix problems quickly. Player, team and opposition names are replaced with "Player 1, 2..." - names are never sent.</div>
+    <button class="btn btn-primary" id="fbNoticeOk">OK, got it</button></div>`;
+  if (pr.kind === 'error') return `<div class="form-card" id="fbCard" data-fbkind="error"><div style="font-weight:600; margin-bottom:4px;">Something went wrong earlier</div><div class="config-note" style="margin-bottom:8px;">Sorry about that - the technical details have been sent to us automatically. If you can tell us what you were doing, it helps a lot.</div>
+    <button class="btn btn-primary" id="fbErrSend">Tell us what happened</button><div style="display:flex; gap:16px; margin-top:8px;">${link('fbNotNow', 'Not now')}${link('fbMute', "Don't ask me for feedback")}</div></div>`;
   return `<div class="form-card" id="fbCard" data-fbkind="${pr.kind}"><div style="font-weight:600; margin-bottom:8px;">${pr.kind === 'week' ? "You've had the app a week - how is it going?" : 'How is the app working for you?'}</div>
     <div style="display:flex; gap:6px;">${FB_FACES.map(f => `<div data-fbface="${f[0]}" style="flex:1; text-align:center; padding:8px 2px; border:2px solid var(--card-line); border-radius:10px; cursor:pointer;"><div style="font-size:24px;">${f[1]}</div><div style="font-size:10.5px; color:var(--ink-soft);">${f[2]}</div></div>`).join('')}</div>
     <div style="display:flex; gap:16px; margin-top:8px;">${link('fbNotNow', 'Not now')}${link('fbMute', "Don't ask me again")}</div></div>`;
@@ -5381,6 +5475,7 @@ function fbPromptHtml() {
 function bindFbPrompt(root) {
   const card = root.querySelector('#fbCard'); if (!card) return;
   const st = fbState(), pr = card.dataset.fbkind;
+  if (pr === 'notice') { card.querySelector('#fbNoticeOk').addEventListener('click', () => { st.noticeSeen = true; saveProfile(); renderHome(); }); return; }
   const mark = () => {
     if (pr === 'error') st.lastErrPrompt = Date.now();
     else if (pr === 'match') st.lastAskedMatches = loadMatchLibrary().filter(r => r.status === 'finished').length;
