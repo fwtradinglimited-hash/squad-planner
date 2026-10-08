@@ -277,6 +277,22 @@
   .team-row.active { border-color: var(--turf-1); background: var(--bench-card); }
   .team-row .tn { flex: 1; font-weight: 600; font-size: 14px; }
   .team-row small { color: var(--ink-soft); }
+  .tour-layer { position: fixed; inset: 0; z-index: 9999; touch-action: none; }
+  .tour-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(8,18,12,0.72); pointer-events: none; transition: all .25s ease; outline: 2px solid var(--amber); outline-offset: 0; }
+  .tour-spot.none { box-shadow: none; outline: none; }
+  .tour-back { position: fixed; inset: 0; background: rgba(8,18,12,0.72); }
+  .tour-card { position: fixed; left: 50%; transform: translateX(-50%); width: min(92vw, 340px); background: var(--card); color: var(--ink); border-radius: 14px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); box-sizing: border-box; }
+  .tour-card h3 { margin: 0 0 4px; font-family: "Oswald", sans-serif; font-size: 18px; font-weight: 600; }
+  .tour-card p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.45; color: var(--ink-soft); }
+  .tour-card ul { margin: 0 0 10px; padding-left: 18px; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
+  .tour-card .tour-step { font-size: 11px; color: var(--ink-soft); margin-bottom: 4px; letter-spacing: .04em; }
+  .tour-card .tour-btns { display: flex; gap: 8px; align-items: center; }
+  .tour-card .tour-skip { margin-right: auto; font-size: 12px; color: var(--ink-soft); cursor: pointer; text-decoration: underline; }
+  .tour-card .btn { padding: 8px 14px; width: auto; margin: 0; font-size: 13px; }
+  .tour-banner { display: flex; align-items: center; gap: 10px; background: var(--bench-card); border: 1px solid var(--card-line); border-radius: 12px; padding: 10px 12px; margin: 6px 0 10px; font-size: 13px; }
+  .tour-banner .tb-text { flex: 1; }
+  .tour-banner .btn { width: auto; padding: 7px 12px; margin: 0; font-size: 12.5px; }
+  .tour-banner .tb-x { cursor: pointer; color: var(--ink-soft); padding: 2px 6px; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -285,6 +301,11 @@
   <div class="scoreboard">
     <h1 class="team-title" id="teamTitle"><span id="teamTitleText">My team</span><span class="caret">▾</span></h1>
     <span class="meta" id="squadCountMeta"></span>
+  </div>
+
+  <div class="tour-banner" id="tourBanner" style="display:none;">
+    <div class="tb-text"><b>New here?</b> Take a 1-minute tour of the app.</div>
+    <button class="btn btn-primary" id="tourBannerGo">Show me</button><span class="tb-x" id="tourBannerX" title="Dismiss">✕</span>
   </div>
 
   <div class="tabs">
@@ -305,18 +326,18 @@
       <div id="squadList"></div>
       <button class="btn btn-ghost" id="addPlayerBtn">+ Add player</button>
     </section>
-    <section>
+    <section id="secPresets">
       <h2>Line-up presets</h2>
       <div class="config-note" style="margin-bottom:8px;">Save your go-to line-ups (strongest, defensive, attacking...) and drop one in when you plan a fixture.</div>
       <div id="presetList"></div>
       <button class="btn btn-ghost" id="addPresetBtn">+ New preset</button>
     </section>
-    <section>
+    <section id="secRotations">
       <h2>Rotation presets</h2>
       <div class="config-note" style="margin-bottom:8px;">Your regular rotation styles. The default one is used for every new fixture; you can pick another when planning.</div>
       <div id="rotList"></div>
     </section>
-    <section>
+    <section id="secDefaults">
       <h2>Default match type</h2>
       <div class="config-note" style="margin-bottom:8px;">New fixtures start with this format, so you don't have to set it every time.</div>
       <div class="pos-row">
@@ -390,7 +411,7 @@
     <div id="setupStepPlan" style="display:none;">
       <div class="config-note" style="margin-bottom:10px;"><span id="formatSummaryLine"></span> — <span id="changeFormatLink" style="text-decoration:underline; cursor:pointer; color:var(--turf-1);">change format</span></div>
 
-      <section>
+      <section id="secFixture">
         <h2>Fixture <span style="font-weight:400; color:var(--ink-soft); font-size:12px;">(optional)</span></h2>
         <div class="field"><label>Opposition</label><input type="text" id="fx-opp" placeholder="e.g. Oakfield U10s"></div>
         <div class="pos-row">
@@ -406,7 +427,7 @@
         <div class="config-note" id="presetNote"></div>
       </section>
 
-      <section>
+      <section id="secPlanMode">
         <h2>How do you want to plan this match?</h2>
         <div class="radio-row" id="planModeRow">
           <div class="radio-opt selected" data-planmode="auto">Auto-generate<br><small>Planner picks the team and suggests subs</small></div>
@@ -415,7 +436,7 @@
         <div class="config-note" id="planModeNote"></div>
       </section>
 
-      <section>
+      <section id="secAvail">
         <h2 id="availHeading">Available for this match</h2>
         <div id="availList"></div>
         <div class="avail-count" id="availCount"></div>
@@ -4713,6 +4734,7 @@ function openTeamMenu() {
     <div style="display:flex; gap:16px; flex-wrap:wrap; margin:12px 0 4px;">
       <span class="decision-link" id="tmRename">Rename this team</span>
       <span class="decision-link" id="tmCoach">${profile.coach.name ? 'Change my name' : 'Add my name'}</span>
+      <span class="decision-link" id="tmTour">Quick-start guide</span>
       <span class="decision-link" id="tmBackup">Backup &amp; restore</span>
       ${profile.teams.length > 1 ? '<span class="decision-link" id="tmDelete" style="color:var(--coral);">Delete this team</span>' : ''}
     </div>
@@ -4723,6 +4745,7 @@ function openTeamMenu() {
   overlay.querySelector('#tmRename').addEventListener('click', () => renameModal('Rename team', activeTeam().name, v => { activeTeam().name = v; saveProfile(); refreshTeamHeader(); }));
   overlay.querySelector('#tmCoach').addEventListener('click', () => renameModal('Your name', profile.coach.name, v => { profile.coach.name = v; saveProfile(); }));
   overlay.querySelector('#tmBackup').addEventListener('click', openBackupModal);
+  overlay.querySelector('#tmTour').addEventListener('click', () => { overlay.remove(); startTour(); });
   const del = overlay.querySelector('#tmDelete');
   if (del) del.addEventListener('click', () => {
     const t = activeTeam();
@@ -4906,17 +4929,123 @@ function renderWizard() {
     body.innerHTML = `${dots}<div class="form-card" style="text-align:center;">
       <div class="wiz-hero">${esc(teamDisplayName(t))} is ready</div>
       <div class="config-note" style="margin:6px 0 14px;">${squad.length} players · ${wizFormatSummary()} · ${esc((defaultRotation() || {}).name || '')} rotation · ${presets.length} saved line-up${presets.length === 1 ? '' : 's'}.<br>Head to Matches to plan your first fixture. Everything here can be changed later from the Squad tab.</div>
-      <button class="btn btn-primary" id="wizFinish">Go to my team</button></div>`;
-    body.querySelector('#wizFinish').addEventListener('click', () => {
+      <button class="btn btn-primary" id="wizFinish">Show me around (1 min)</button>
+      <button class="btn btn-ghost" id="wizSkip">Skip the tour</button></div>`;
+    const done = tour => {
       t.setupDone = true; saveProfile();
       refreshTeamHeader(); renderSquadList(); renderPresetList(); renderRotList(); renderDefaultsUI();
       showScreen('squad');
-    });
+      if (tour) startTour('squad'); else { profile.tourDone = true; saveProfile(); showTourBanner(); }
+    };
+    body.querySelector('#wizFinish').addEventListener('click', () => done(true));
+    body.querySelector('#wizSkip').addEventListener('click', () => done(false));
   }
 }
 
+/* ================= QUICK-START TOUR ================= */
+const TOUR_STEPS = [
+  {title: 'Welcome to your team hub', text: "A quick tour of the app. It takes about a minute and you can skip it at any time - replay it from the team menu (tap your team name).",
+    bullets: ['Squad - your players, line-up presets and defaults', 'Matches - every fixture, planned, live and finished', 'Match Plan - the plan and live match mode for the fixture you open']},
+  {screen: 'squad', sel: '#teamTitle', title: 'Your teams', text: 'Tap your team name to switch teams, add another side, rename a team, or back up your data. Each team has its own squad, fixtures and presets.'},
+  {screen: 'squad', sel: '#squadList', title: 'Your squad', text: "Everyone in the team. Each player has where they play best (Defence, Midfield, Attack) and whether they can go in goal. The planner uses this to choose the team and fair rotations. Tap a player to edit them."},
+  {screen: 'squad', sel: '#addPlayerBtn', title: 'Add players', text: 'Add new players any time, or tweak how comfortable each is in each position.'},
+  {screen: 'squad', sel: '#secPresets', title: 'Line-up presets', text: 'Save your go-to line-ups - strongest, defensive, attacking - and drop one into a fixture in a single tap.'},
+  {screen: 'squad', sel: '#secRotations', title: 'Rotation presets', text: 'Your regular rotation styles, like "Fewer subs" or "Maximum fairness". The default one is used for every new fixture.'},
+  {screen: 'squad', sel: '#secDefaults', title: 'Default match type', text: 'Players per side, length, periods and formation. New fixtures start from this so you rarely need to change it.'},
+  {screen: 'matches', sel: '.tab[data-tab="matches"]', title: 'Matches', text: 'Everything you plan and play lives here: upcoming fixtures, matches in progress and finished results. Line-ups can be planned well before the day.'},
+  {screen: 'matches', sel: '#newFixtureBtn', title: 'Plan a fixture', text: 'Tap here to plan a new fixture. Here is what that screen looks like:', needsClosedMatch: true},
+  {screen: 'setup', sel: '#secFixture', title: 'Fixture details', text: 'Who you are playing, when, where, and which competition. These show on your fixtures list and on the exported line-up image.', needsClosedMatch: true},
+  {screen: 'setup', sel: '#presetSection', title: 'Starting line-up', text: 'Pick one of your saved line-ups, or let the planner choose the best team. You can change anyone afterwards.', needsClosedMatch: true},
+  {screen: 'setup', sel: '#secPlanMode', title: 'Auto or manual', text: 'Auto-generate lets the planner suggest the team and every substitution. Pick it myself means you choose the team and make every change.', needsClosedMatch: true},
+  {screen: 'setup', sel: '#secAvail', title: "Who's available", text: 'Untick anyone who cannot play this match. Choose your goalkeeper plan below it.', needsClosedMatch: true},
+  {screen: 'setup', sel: '#rotPresetSection', title: 'Rotation style', text: 'Choose how players rotate for this match. The cog below it has the fine-tuning: timing, minimum time on the pitch, maximum time off and more.', needsClosedMatch: true},
+  {screen: 'setup', sel: '#generateBtn', title: 'Build the plan', text: 'This creates the match plan with the pitch view, every planned change and each player\'s forecast minutes.', needsClosedMatch: true},
+  {title: 'The match plan', text: 'After you build a plan you will see:',
+    bullets: ['Live tab - the pitch. Scrub the slider to any minute and tap players to change the plan from that point', 'Details tab - the subs list, forecast minutes, formation changes, settings and "Export as image"', 'Plan Health tells you where fairness or positions had to be traded off']},
+  {title: 'Match day', text: 'Tap Start match when the whistle goes:',
+    bullets: ['A prompt appears when a change is due - Done, Delay or Skip', 'Tap any player on the pitch for an unplanned sub, a position swap or to mark someone unavailable', 'Add goals and who scored, and the app handles half-time and full time', 'Finished matches stay in Matches']},
+  {title: "You're all set", text: 'That is the tour. Good luck with the next fixture!'},
+];
+let tourIdx = 0, tourSteps = [], tourReturn = 'squad';
+function tourAvailableSteps() { return TOUR_STEPS.filter(s => !(s.needsClosedMatch && currentMatchId)); }
+function startTour(returnTo) {
+  document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
+  tourSteps = tourAvailableSteps(); tourIdx = 0;
+  tourReturn = returnTo || (document.querySelector('.screen.active') ? document.querySelector('.screen.active').id.replace('screen-', '') : 'squad');
+  if (['plan', 'onboard', 'setup', 'playerForm'].includes(tourReturn)) tourReturn = 'squad';
+  showTourBanner();
+  tourShow();
+}
+function endTour(markDone) {
+  const l = document.getElementById('tourLayer'); if (l) l.remove();
+  window.removeEventListener('resize', tourReposition);
+  if (markDone !== false) { profile.tourDone = true; saveProfile(); }
+  const cur = document.querySelector('.screen.active');
+  if (cur && cur.id === 'screen-setup') { try { if (tourReturn === 'matches') renderMatchesScreen(); } catch (e) { /* ignore */ } }
+  showScreen(tourReturn); if (tourReturn === 'matches') renderMatchesScreen();
+  window.scrollTo(0, 0);
+  showTourBanner();
+}
+function tourEnsureScreen(st) {
+  if (!st.screen) return;
+  if (st.screen === 'setup') { if (!document.getElementById('screen-setup').classList.contains('active')) startNewFixture(); }
+  else { if (st.screen === 'matches') renderMatchesScreen(); showScreen(st.screen); }
+}
+function tourShow() {
+  const st = tourSteps[tourIdx];
+  tourEnsureScreen(st);
+  let layer = document.getElementById('tourLayer');
+  if (!layer) {
+    layer = document.createElement('div'); layer.id = 'tourLayer'; layer.className = 'tour-layer';
+    layer.innerHTML = '<div class="tour-back" id="tourBack"></div><div class="tour-spot none" id="tourSpot"></div><div class="tour-card" id="tourCard"></div>';
+    layer.addEventListener('touchmove', e => e.preventDefault(), {passive: false});
+    document.body.appendChild(layer);
+    window.addEventListener('resize', tourReposition);
+  }
+  const last = tourIdx === tourSteps.length - 1;
+  const card = layer.querySelector('#tourCard');
+  card.innerHTML = `<div class="tour-step">${tourIdx + 1} / ${tourSteps.length}</div><h3>${esc(st.title)}</h3><p>${esc(st.text)}</p>
+    ${st.bullets ? `<ul>${st.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+    <div class="tour-btns">${last ? '' : '<span class="tour-skip" id="tourSkip">Skip tour</span>'}${tourIdx > 0 ? '<button class="btn btn-ghost" id="tourPrev">Back</button>' : ''}<button class="btn btn-primary" id="tourNext">${last ? 'Finish' : 'Next'}</button></div>`;
+  card.querySelector('#tourNext').addEventListener('click', () => { if (last) endTour(true); else { tourIdx++; tourShow(); } });
+  const prev = card.querySelector('#tourPrev'); if (prev) prev.addEventListener('click', () => { tourIdx--; tourShow(); });
+  const skip = card.querySelector('#tourSkip'); if (skip) skip.addEventListener('click', () => endTour(true));
+  layer.querySelector('#tourBack').style.display = st.sel ? 'none' : 'block';
+  const el = st.sel ? document.querySelector(st.sel) : null;
+  if (el) { el.scrollIntoView({block: el.getBoundingClientRect().height > window.innerHeight * 0.5 ? 'start' : 'center', behavior: 'instant'}); }
+  setTimeout(tourReposition, 60);
+}
+function tourReposition() {
+  const layer = document.getElementById('tourLayer'); if (!layer) return;
+  const st = tourSteps[tourIdx]; const card = layer.querySelector('#tourCard'); const spot = layer.querySelector('#tourSpot');
+  const el = st.sel ? document.querySelector(st.sel) : null;
+  const vh = window.innerHeight;
+  card.style.top = card.style.bottom = '';
+  if (!el) { spot.classList.add('none'); card.style.top = Math.max(20, (vh - card.offsetHeight) / 2) + 'px'; return; }
+  const r = el.getBoundingClientRect(); const pad = 6;
+  spot.classList.remove('none');
+  spot.style.left = (r.left - pad) + 'px'; spot.style.top = (r.top - pad) + 'px';
+  spot.style.width = (r.width + 2 * pad) + 'px'; spot.style.height = (r.height + 2 * pad) + 'px';
+  const cardH = card.offsetHeight;
+  const roomBelow = vh - r.bottom - 16, roomAbove = r.top - 16;
+  if (roomBelow >= cardH + 8) card.style.top = (r.bottom + pad + 10) + 'px';
+  else if (roomAbove >= cardH + 8) card.style.top = (r.top - pad - 10 - cardH) + 'px';
+  else card.style.top = (r.top > vh / 2 ? 12 : Math.max(12, vh - cardH - 12)) + 'px';
+}
+function showTourBanner() {
+  const b = document.getElementById('tourBanner'); if (!b) return;
+  const cur = document.querySelector('.screen.active');
+  const hidden = profile.tourDone || !activeTeam().setupDone || !cur || ['screen-plan', 'screen-onboard', 'screen-setup', 'screen-playerForm'].includes(cur.id) || document.getElementById('tourLayer');
+  b.style.display = hidden ? 'none' : 'flex';
+}
+document.getElementById('tourBannerGo').addEventListener('click', () => startTour());
+document.getElementById('tourBannerX').addEventListener('click', () => { profile.tourDone = true; saveProfile(); showTourBanner(); });
+// keep the banner in step with navigation
+const _origShowScreen = showScreen;
+showScreen = function (name) { _origShowScreen(name); showTourBanner(); };
+
 /* ---- boot: header, and the wizard for a team that hasn't been set up ---- */
-refreshTeamHeader();
+refreshTeamHeader(); showTourBanner();
 
 /* ================= INIT ================= */
 renderSquadList();
