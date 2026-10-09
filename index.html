@@ -371,7 +371,7 @@
   <!-- PLAYER EDIT FORM (shared add/edit) -->
   <div class="screen" id="screen-playerForm">
     <div class="form-card">
-      <div class="field"><label>Name</label><input type="text" id="pf-name" placeholder="e.g. Oliver"></div>
+      <div class="field"><label>First name or nickname</label><input type="text" id="pf-name" placeholder="e.g. Oliver"><div class="config-note" style="margin-top:4px;">First names only, please - no surnames or other personal details.</div></div>
       <div class="field"><label>Shirt number (optional)</label><input type="number" id="pf-number" min="1" max="99"></div>
       <div class="pos-row">
         <div class="field"><label>Defence</label>
@@ -684,14 +684,16 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.10';
+const APP_VERSION = 'beta 0.11';
+const PRIVACY_VERSION = '2026-10-09';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
   let buf = [];
   try { buf = JSON.parse(localStorage.getItem(DIAG_KEY) || '[]'); } catch (e) { buf = []; }
   if (!Array.isArray(buf)) buf = [];
   let timer = null;
-  const flush = () => { timer = null; try { localStorage.setItem(DIAG_KEY, JSON.stringify(buf)); } catch (e) { /* ignore */ } };
+  let stopped = false;
+  const flush = () => { timer = null; if (stopped) return; try { localStorage.setItem(DIAG_KEY, JSON.stringify(buf)); } catch (e) { /* ignore */ } };
   return {
     add(kind, msg) {
       buf.push({t: Date.now(), k: kind, m: String(msg).slice(0, 240)});
@@ -702,6 +704,7 @@ const diag = (() => {
     all() { return buf.slice(); },
     lastErrorTs() { for (let i = buf.length - 1; i >= 0; i--) if (buf[i].k === 'error') return buf[i].t; return 0; },
     flush,
+    stop() { stopped = true; buf.length = 0; },
   };
 })();
 window.addEventListener('error', e => diag.add('error', `${e.message} @${String(e.filename || '').split('/').pop()}:${e.lineno}:${e.colno}${e.error && e.error.stack ? ' | ' + e.error.stack.split('\n').slice(0, 3).join(' > ') : ''}`));
@@ -715,7 +718,7 @@ document.addEventListener('click', e => {
     const el = e.target.closest && e.target.closest('[id],[data-tab],[data-action],button,.picker-opt,.radio-opt,.player-card,.match-card,.plan-subtab,.decision-link');
     if (!el || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
     const data = Object.keys(el.dataset || {}).slice(0, 4).map(k => `${k}=${el.dataset[k]}`).join(',');
-    const label = (el.innerText || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const label = e.target.closest('#ftNotes,#nmList,#fbCard,.modal-overlay') && !e.target.closest('.picker-opt,button') ? '' : (el.innerText || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 40);
     diag.add('tap', `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${data ? ' [' + data + ']' : ''}${label ? ' "' + label + '"' : ''}`);
   } catch (_) { /* ignore */ }
 }, true);
@@ -806,6 +809,11 @@ function activeTeam() { return profile.teams.find(t => t.id === profile.activeTe
 function teamKey(base, team) { return base + ((team || activeTeam()).suffix || ''); }
 const K = base => teamKey(base);
 
+function looksLikeFullName(n) {
+  const w = String(n).trim().split(/\s+/);
+  return w.length >= 2 && w.every(x => /^[A-Za-z\u00C0-\u024F'’-]{2,}$/.test(x)) && /^[A-Z\u00C0-\u00DE]/.test(w[0]) && /^[A-Z\u00C0-\u00DE]/.test(w[1]);
+}
+const FULLNAME_MSG = 'looks like a full name. To protect players\' privacy we recommend first names or nicknames only (add an initial if two players share a name).';
 /* ================= PERSISTENCE ================= */
 const STORAGE_KEY = K('rf_squad_v1');
 const DEFAULT_SQUAD = [
@@ -945,6 +953,12 @@ document.getElementById('pf-cancel').addEventListener('click', () => showScreen(
 document.getElementById('pf-save').addEventListener('click', () => {
   const name = document.getElementById('pf-name').value.trim();
   if (!name) { showAlert('Enter a name.'); return; }
+  const pfBtn = document.getElementById('pf-save');
+  if (pfBtn.dataset.okName) { delete pfBtn.dataset.okName; }
+  else if (looksLikeFullName(name) && name !== editingPlayerId) {
+    showConfirm(`"${name}" ${FULLNAME_MSG} Save it as entered?`, () => { pfBtn.dataset.okName = '1'; pfBtn.click(); }, 'Save as entered');
+    return;
+  }
   const newPlayer = {
     id: name,
     number: parseInt(document.getElementById('pf-number').value, 10) || null,
@@ -3649,6 +3663,7 @@ function buildMatchSnapshot() {
 // goals, pauses, period changes, finishing - so quitting the app at any moment
 // loses nothing.
 function saveLiveMatchState() {
+  if (window.__wiping) return false;
   if (!PLAN || !currentMatchId) return false;
   // Never write a snapshot whose pieces disagree (e.g. the line-up belongs to
   // a different match format than the globals) - that would corrupt the saved
@@ -4775,7 +4790,7 @@ function openExportModal() {
   const url = canvas.toDataURL('image/png');
   const overlay = openModal(`
     <div class="picker-title">Line-up image</div>
-    <div class="config-note" style="margin-bottom:8px;">Tap and hold the image to save it, or use the buttons.</div>
+    <div class="config-note" style="margin-bottom:8px;">Tap and hold the image to save it, or use the buttons. It shows players' first names - share it only with your team's parents or club.</div>
     <img id="exportImg" alt="Line-up sheet" style="width:100%; border-radius:8px; border:1px solid var(--card-line);" src="${url}">
     <div class="modal-btn-row" style="margin-top:12px;"><button class="btn btn-ghost" id="expClose">Close</button><button class="btn btn-ghost" id="expDownload">Download</button><button class="btn btn-primary" id="expShare">Share / save</button></div>`, {wide: true});
   const name = exportFileName();
@@ -4904,7 +4919,7 @@ function openSummaryModal() {
     <div class="picker-title">Post-game summary</div>
     <div class="check-row" style="margin:2px 0;"><input type="checkbox" id="smMin" checked><label for="smMin">Include minutes &amp; positions</label></div>
     ${matchNotes.length ? '<div class="check-row" style="margin:2px 0 8px;"><input type="checkbox" id="smNotes"><label for="smNotes">Include my match notes</label></div>' : ''}
-    <div class="config-note" style="margin-bottom:8px;">Tap and hold the image to save it, or use the buttons.</div>
+    <div class="config-note" style="margin-bottom:8px;">Tap and hold the image to save it, or use the buttons. It shows players' first names - share it only with your team's parents or club.</div>
     <img id="summaryImg" alt="Post-game summary" style="width:100%; border-radius:8px; border:1px solid var(--card-line);">
     <div class="modal-btn-row" style="margin-top:12px;"><button class="btn btn-ghost" id="smClose">Close</button><button class="btn btn-ghost" id="smDownload">Download</button><button class="btn btn-primary" id="smShare">Share / save</button></div>`, {wide: true});
   let canvas, url;
@@ -5310,9 +5325,13 @@ function fbSaveQueue(q) { lsSet(FBQ_KEY, JSON.stringify(q.slice(-20))); }
 // The snapshot to send: the open match, or failing that the most recent one.
 function fbSnapshot() {
   try {
-    if (PLAN && currentMatchId) return buildMatchSnapshot();
-    const lib = loadMatchLibrary().filter(r => r.snapshot).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    return lib[0] ? lib[0].snapshot : null;
+    let snap = null;
+    if (PLAN && currentMatchId) snap = buildMatchSnapshot();
+    else { const lib = loadMatchLibrary().filter(r => r.snapshot).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)); snap = lib[0] ? lib[0].snapshot : null; }
+    if (!snap) return null;
+    // free-text notes are never sent (they could contain anything about a child)
+    snap = JSON.parse(JSON.stringify(snap)); snap.notes = (snap.notes || []).length + ' note(s) omitted';
+    return snap;
   } catch (e) { return null; }
 }
 // Names -> "Player N" (squad order, then anyone only in the match snapshot).
@@ -5419,7 +5438,7 @@ function openFeedbackModal(opts) {
     <div style="display:flex; gap:6px; margin-bottom:10px;">${FB_FACES.map(f => `<div data-face="${f[0]}" style="flex:1; text-align:center; padding:8px 2px; border:2px solid var(--card-line); border-radius:10px; cursor:pointer;"><div style="font-size:24px;">${f[1]}</div><div style="font-size:10.5px; color:var(--ink-soft);">${f[2]}</div></div>`).join('')}</div>
     <div class="field"><label id="fbLabel"></label><textarea id="fbText" rows="4" style="width:100%; box-sizing:border-box;"></textarea></div>
     <div class="field"><label>Your email (optional - only if you'd like a reply)</label><input type="email" id="fbEmail" value="${esc(st.email || '')}" placeholder="you@example.com"></div>
-    <div class="config-note" style="margin-top:2px;">So we can see exactly what happened, your report includes technical details: app version, device, recent activity and the match you're working on. Player, team and opposition names are replaced with "Player 1, 2..." - no names are ever sent.</div>
+    <div class="config-note" style="margin-top:2px;">So we can see exactly what happened, your report includes technical details: app version, device, recent activity and the match you're working on. Player, team and opposition names are replaced with "Player 1, 2..." and your match notes are left out. Please don't type children's full names in your comment. <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a></div>
     <div class="config-note" id="fbMsg" style="margin-top:6px; color:var(--coral);"></div>
     <div class="modal-btn-row"><button class="btn btn-ghost" id="fbCancel">Cancel</button><button class="btn btn-primary" id="fbSend">Send</button></div>`);
   const q = x => overlay.querySelector(x);
@@ -5451,7 +5470,7 @@ function openFeedbackModal(opts) {
 // every third after, once a week in, and after an error (to ask what was happening).
 function fbPrompt() {
   const st = fbState();
-  if (!st.noticeSeen) return {kind: 'notice'};
+  if (st.noticeSeen !== PRIVACY_VERSION) return {kind: 'notice'};
   if (st.muted) return null;
   const now = Date.now();
   const errTs = diag.lastErrorTs();
@@ -5464,7 +5483,7 @@ function fbPrompt() {
 function fbPromptHtml() {
   const pr = fbPrompt(); if (!pr) return '';
   const link = (id, label) => `<span id="${id}" style="font-size:12px; color:var(--ink-soft); text-decoration:underline; cursor:pointer;">${label}</span>`;
-  if (pr.kind === 'notice') return `<div class="form-card" id="fbCard" data-fbkind="notice"><div style="font-weight:600; margin-bottom:4px;">Helping us improve the app</div><div class="config-note" style="margin-bottom:8px;">If the app hits an error, and whenever you send feedback, it sends us a technical log (app version, device, recent activity and the current match) so we can fix problems quickly. Player, team and opposition names are replaced with "Player 1, 2..." - names are never sent.</div>
+  if (pr.kind === 'notice') return `<div class="form-card" id="fbCard" data-fbkind="notice"><div style="font-weight:600; margin-bottom:4px;">Your players' privacy</div><div class="config-note" style="margin-bottom:8px;">Your squad and matches are stored only on this device. Please use first names or nicknames only. If the app hits an error, and whenever you send feedback, it sends us a technical log and the current match, with player, team and opposition names replaced by "Player 1, 2..." and your match notes left out. See the <a href="privacy.html" target="_blank" rel="noopener">privacy policy</a> or Privacy &amp; data in the team menu.</div>
     <button class="btn btn-primary" id="fbNoticeOk">OK, got it</button></div>`;
   if (pr.kind === 'error') return `<div class="form-card" id="fbCard" data-fbkind="error"><div style="font-weight:600; margin-bottom:4px;">Something went wrong earlier</div><div class="config-note" style="margin-bottom:8px;">Sorry about that - the technical details have been sent to us automatically. If you can tell us what you were doing, it helps a lot.</div>
     <button class="btn btn-primary" id="fbErrSend">Tell us what happened</button><div style="display:flex; gap:16px; margin-top:8px;">${link('fbNotNow', 'Not now')}${link('fbMute', "Don't ask me for feedback")}</div></div>`;
@@ -5475,7 +5494,7 @@ function fbPromptHtml() {
 function bindFbPrompt(root) {
   const card = root.querySelector('#fbCard'); if (!card) return;
   const st = fbState(), pr = card.dataset.fbkind;
-  if (pr === 'notice') { card.querySelector('#fbNoticeOk').addEventListener('click', () => { st.noticeSeen = true; saveProfile(); renderHome(); }); return; }
+  if (pr === 'notice') { card.querySelector('#fbNoticeOk').addEventListener('click', () => { st.noticeSeen = PRIVACY_VERSION; saveProfile(); renderHome(); }); return; }
   const mark = () => {
     if (pr === 'error') st.lastErrPrompt = Date.now();
     else if (pr === 'match') st.lastAskedMatches = loadMatchLibrary().filter(r => r.status === 'finished').length;
@@ -5540,6 +5559,7 @@ function openTeamMenu() {
       <span class="decision-link" id="tmTour">Quick-start guide</span>
       <span class="decision-link" id="tmBackup">Backup &amp; restore</span>
       <span class="decision-link" id="tmFeedback">Send feedback / report a problem</span>
+      <span class="decision-link" id="tmPrivacy">Privacy &amp; data</span>
       ${profile.teams.length > 1 ? '<span class="decision-link" id="tmDelete" style="color:var(--coral);">Delete this team</span>' : ''}
     </div>
     <div class="modal-btn-row"><button class="btn btn-ghost" id="tmClose">Close</button></div>`, {wide: true});
@@ -5550,6 +5570,7 @@ function openTeamMenu() {
   overlay.querySelector('#tmCoach').addEventListener('click', () => renameModal('Your name', profile.coach.name, v => { profile.coach.name = v; saveProfile(); }));
   overlay.querySelector('#tmBackup').addEventListener('click', openBackupModal);
   overlay.querySelector('#tmFeedback').addEventListener('click', () => openFeedbackModal());
+  overlay.querySelector('#tmPrivacy').addEventListener('click', openPrivacyModal);
   overlay.querySelector('#tmTour').addEventListener('click', () => { overlay.remove(); startTour(); });
   const del = overlay.querySelector('#tmDelete');
   if (del) del.addEventListener('click', () => {
@@ -5560,6 +5581,33 @@ function openTeamMenu() {
 }
 document.getElementById('teamTitle').addEventListener('click', openTeamMenu);
 
+function deleteAllLocalData() {
+  window.__wiping = true; diag.stop();
+  try { const rm = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('rf_')) rm.push(k); } rm.forEach(k => localStorage.removeItem(k)); } catch (e) { /* ignore */ }
+  location.reload();
+}
+function openPrivacyModal() {
+  const lib = loadMatchLibrary();
+  const overlay = openModal(`<div class="picker-title">Privacy &amp; data</div>
+    <div style="font-size:13.5px; line-height:1.5;">
+      <p style="margin:0 0 8px;"><b>Where your data is:</b> your teams, players and matches are stored <b>only on this device</b>. We can't see or recover them.</p>
+      <p style="margin:0 0 8px;"><b>What's recorded about players:</b> first name or nickname, optional shirt number, positions, and match minutes, goals, assists and awards. No surnames, photos, birth dates or contact details - please keep it that way, and keep match notes to football matters.</p>
+      <p style="margin:0 0 8px;"><b>What we receive:</b> only feedback and error reports. They contain a technical log and the current match with names replaced by "Player 1, 2..." and your notes left out.</p>
+      <p style="margin:0 0 8px; color:var(--ink-soft);">Your report code: <b>${esc(fbState().installId || '')}</b> (quote it if you contact us about your data). This team: ${squad.length} players, ${lib.length} matches.</p>
+      <p style="margin:0 0 10px;"><a href="privacy.html" target="_blank" rel="noopener">Read the full privacy policy</a></p>
+    </div>
+    <button class="btn btn-ghost" id="pvBackup">Download a copy of my data</button>
+    <button class="btn btn-danger" id="pvDelete" style="margin-top:8px;">Delete all my data from this device</button>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="pvClose">Close</button></div>`, {wide: true});
+  overlay.querySelector('#pvClose').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#pvBackup').addEventListener('click', openBackupModal);
+  overlay.querySelector('#pvDelete').addEventListener('click', () => {
+    overlay.remove();
+    showConfirm('Permanently delete ALL teams, players, matches and settings on this device? This cannot be undone. (Tip: download a copy first if you want to keep anything.)', () => {
+      showConfirm('Are you sure? Everything will be erased and the app will restart as new.', deleteAllLocalData, 'Yes, delete everything');
+    }, 'Continue');
+  });
+}
 function collectBackup() {
   const data = {};
   try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('rf_') && k !== 'rf_diag_v1' && k !== 'rf_fbq_v1') data[k] = localStorage.getItem(k); } } catch (e) { /* ignore */ }
@@ -5567,7 +5615,7 @@ function collectBackup() {
 }
 function openBackupModal() {
   const overlay = openModal(`<div class="picker-title">Backup &amp; restore</div>
-    <div class="config-note" style="margin-bottom:10px;">Your teams, squads and matches are saved on this device only. Download a backup to keep them safe or to move to a new phone.</div>
+    <div class="config-note" style="margin-bottom:10px;">Your teams, squads and matches are saved on this device only. Download a backup to keep them safe or to move to a new phone. The file contains your players' first names, so store it securely and don't share it widely.</div>
     <button class="btn btn-primary" id="bkExport">Download backup</button>
     <button class="btn btn-ghost" id="bkImport" style="margin-top:8px;">Restore from a backup file</button>
     <input type="file" id="bkFile" accept="application/json,.json" style="display:none;">
@@ -5602,6 +5650,7 @@ function openBackupModal() {
 /* ================= REGISTRATION WIZARD ================= */
 const WIZ_STEPS = ['team', 'format', 'squad', 'rotation', 'awards', 'lineup', 'done'];
 let wizStep = 0;
+let wzNamesOk = false;
 function posKind(p) { const t = p.positions || {}; return t.DEF === 3 ? 'DEF' : t.MID === 3 ? 'MID' : t.ATT === 3 ? 'ATT' : 'ALL'; }
 const KIND_TIERS = {DEF: {DEF: 3, MID: 2, ATT: 1}, MID: {DEF: 2, MID: 3, ATT: 2}, ATT: {DEF: 1, MID: 2, ATT: 3}, ALL: {DEF: 2, MID: 2, ATT: 2}};
 function openWizard(step) {
@@ -5640,10 +5689,13 @@ function renderWizard() {
       <div class="config-note" style="margin-bottom:12px;">${first ? "Let's set up your team in a few quick steps - your squad, your usual match format, how you like to rotate, and your strongest line-up." : 'A few quick steps and this team is ready. Teams are kept completely separate.'}</div>
       ${profile.coach.name ? '' : '<div class="field"><label>Your name (optional)</label><input type="text" id="wzCoach" placeholder="e.g. Sam"></div>'}
       <div class="field"><label>Team name</label><input type="text" id="wzTeam" placeholder="e.g. Riverside U10s" value="${esc(t.name)}"></div>
+      <div class="check-row" style="margin:8px 0 2px; align-items:flex-start;"><input type="checkbox" id="wzConsent" ${t.consent ? 'checked' : ''} style="margin-top:3px;"><label for="wzConsent" style="font-size:12.5px; line-height:1.4;">I'm 18 or over, and I have permission from my club and my players' parents or carers to record players' <b>first names</b>, positions and match stats in this app. Data stays on this device. <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a></label></div>
       ${err}${nav(null, 'Next')}</div>`;
     body.querySelector('#wizNext').addEventListener('click', () => {
       const name = body.querySelector('#wzTeam').value.trim();
       if (!name) return fail('Give your team a name.');
+      if (!body.querySelector('#wzConsent').checked) return fail('Please tick the box to confirm before continuing.');
+      t.consent = {v: PRIVACY_VERSION, at: Date.now()}; fbState().noticeSeen = PRIVACY_VERSION;
       t.name = name;
       const c = body.querySelector('#wzCoach'); if (c && c.value.trim()) profile.coach.name = c.value.trim();
       saveProfile(); refreshTeamHeader(); wizGo(1);
@@ -5679,12 +5731,18 @@ function renderWizard() {
       <div id="wzList">${squad.length ? squad.map((p, i) => `<div class="wiz-row"><span class="nm">${esc(p.id)}${p.number ? ' <small style="color:var(--ink-soft);">#' + p.number + '</small>' : ''}</span>
         <select data-pos="${i}"><option value="ALL" ${posKind(p) === 'ALL' ? 'selected' : ''}>All-rounder</option><option value="DEF" ${posKind(p) === 'DEF' ? 'selected' : ''}>Defender</option><option value="MID" ${posKind(p) === 'MID' ? 'selected' : ''}>Midfielder</option><option value="ATT" ${posKind(p) === 'ATT' ? 'selected' : ''}>Attacker</option></select>
         <label><input type="checkbox" data-gk="${i}" ${p.gk ? 'checked' : ''}>GK</label><span class="wiz-rm" data-rm="${i}">✕</span></div>`).join('') : '<div class="config-note">No players yet.</div>'}</div>
-      <div class="field" style="margin-top:12px;"><label>Add players - one per line (optionally start with a shirt number, e.g. "7 Oliver")</label><textarea class="wiz-ta" id="wzNames" placeholder="Oliver&#10;7 Harry&#10;Noah"></textarea></div>
+      <div class="field" style="margin-top:12px;"><label>Add players - first names or nicknames only, one per line (optionally start with a shirt number, e.g. "7 Oliver")</label><textarea class="wiz-ta" id="wzNames" placeholder="Oliver&#10;7 Harry&#10;Noah"></textarea></div>
       <button class="btn btn-ghost" id="wzAdd">Add these players</button>
       <div class="config-note" style="margin-top:8px;">${squad.length} added · you need at least ${matchDefaults.players}${matchDefaults.hasGk ? ' including a goalkeeper' : ''} for ${wizFormatSummary()}.</div>
       ${err}${nav(1, 'Next')}</div>`;
     body.querySelector('#wzAdd').addEventListener('click', () => {
       const lines = body.querySelector('#wzNames').value.split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
+      const flagged = lines.map(ln => ln.replace(/^\d{1,2}[\s.\-:]+/, '')).filter(looksLikeFullName);
+      if (flagged.length && !wzNamesOk) {
+        showConfirm(`${flagged.slice(0, 3).map(n => '"' + n + '"').join(', ')}${flagged.length > 3 ? ' and ' + (flagged.length - 3) + ' more' : ''} ${flagged.length === 1 ? FULLNAME_MSG : 'look like full names. To protect players\' privacy we recommend first names or nicknames only.'} Add them as entered?`, () => { wzNamesOk = true; body.querySelector('#wzAdd').click(); }, 'Add as entered');
+        return;
+      }
+      wzNamesOk = false;
       for (const ln of lines) {
         let num = null, name = ln; const m = ln.match(/^(\d{1,2})[\s.\-:]+(.+)$/); if (m) { num = parseInt(m[1], 10); name = m[2].trim(); }
         if (!name || squad.some(q => q.id.toLowerCase() === name.toLowerCase())) continue;
