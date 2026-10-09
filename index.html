@@ -37,6 +37,7 @@
   .tab { flex: 1; text-align: center; padding: 9px 4px; border-radius: 9px; font-family: "Oswald", sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--ink-soft); }
   .tab.active { background: var(--turf-1); color: var(--chalk); }
   .tab.disabled { opacity: 0.4; cursor: not-allowed; }
+.tab.hidden { display: none; }
 
   .screen { display: none; }
   .screen.active { display: block; }
@@ -282,6 +283,22 @@
   .tour-spot.none { box-shadow: none; outline: none; }
   .tour-back { position: fixed; inset: 0; background: rgba(8,18,12,0.72); }
   .tour-card { position: fixed; left: 50%; transform: translateX(-50%); width: min(92vw, 340px); background: var(--card); color: var(--ink); border-radius: 14px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); box-sizing: border-box; }
+  .tour-card { max-height: calc(100vh - 24px); overflow-y: auto; }
+  .tour-mock { border: 1px solid var(--card-line); border-radius: 10px; background: var(--bench-card); padding: 8px; margin: 0 0 10px; font-size: 11.5px; color: var(--ink); position: relative; }
+  .tour-mock svg { display: block; width: 100%; height: auto; border-radius: 8px; }
+  .tm-cap { font-size: 10px; letter-spacing: .06em; color: var(--ink-soft); margin-bottom: 4px; text-transform: uppercase; }
+  .tm-pill { display: flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--card-line); border-radius: 8px; padding: 5px 8px; margin-top: 6px; }
+  .tm-pill .tg { background: var(--amber); color: #1b1b1b; border-radius: 5px; padding: 1px 6px; font-weight: 700; font-size: 10px; }
+  .tm-btn { display: inline-block; border-radius: 7px; padding: 5px 10px; font-weight: 600; font-size: 11px; background: var(--green, #1F4A33); color: #fff; }
+  .tm-btn.g { background: transparent; color: var(--ink); border: 1px solid var(--card-line); }
+  .tm-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-top: 1px solid var(--card-line); }
+  .tm-row:first-child { border-top: 0; }
+  .tm-hl { outline: 2px solid var(--amber); outline-offset: 1px; border-radius: 7px; background: var(--card); }
+  .tm-dim { opacity: .5; }
+  .tm-bar { height: 7px; border-radius: 4px; background: var(--card-line); flex: 1; position: relative; overflow: hidden; }
+  .tm-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--amber); border-radius: 4px; }
+  .tm-chip { border: 1px solid var(--card-line); border-radius: 12px; padding: 2px 8px; background: var(--card); }
+  .tm-chip.on { border-color: var(--amber); background: rgba(227,162,60,.25); font-weight: 600; }
   .tour-card h3 { margin: 0 0 4px; font-family: "Oswald", sans-serif; font-size: 18px; font-weight: 600; }
   .tour-card p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.45; color: var(--ink-soft); }
   .tour-card ul { margin: 0 0 10px; padding-left: 18px; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
@@ -312,7 +329,7 @@
     <div class="tab active" data-tab="home">Home</div>
     <div class="tab" data-tab="squad">Squad</div>
     <div class="tab" data-tab="matches">Matches</div>
-    <div class="tab disabled" data-tab="plan" id="planTab">Match Plan</div>
+    <div class="tab disabled hidden" data-tab="plan" id="planTab">Match Plan</div>
   </div>
 
   <!-- REGISTRATION / TEAM SET-UP WIZARD -->
@@ -990,7 +1007,15 @@ document.getElementById('pf-delete').addEventListener('click', () => {
 });
 
 /* ================= NAV ================= */
+// The Match Plan tab only shows while there is a match still to play or in progress.
+function refreshPlanTab() {
+  const t = document.getElementById('planTab'); if (!t) return;
+  const relevant = !!(currentMatchId && PLAN && !matchFinished);
+  t.classList.toggle('hidden', !relevant);
+  t.classList.toggle('disabled', !relevant);
+}
 function showScreen(name) {
+  refreshPlanTab();
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1334,10 +1359,10 @@ function updatePlanModeUI() {
   planModeRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', (o.dataset.planmode === 'auto') === auto));
   document.getElementById('planModeNote').textContent = auto
     ? 'The planner builds the best starting team and a substitution schedule, which you can still change.'
-    : "You'll start with a sensible team to adjust: tap players on the pitch to change who starts. Add substitutions in the plan, or make them on the fly during the match. The planner makes no suggestions (you can switch it on later in Details > Settings).";
+    : "You get a blank pitch: tap each position to choose who starts, then add every substitution yourself in the plan (or on the fly during the match). The planner suggests nothing and fills nothing in (you can switch it on later in Details > Settings).";
   document.getElementById('rotationCard').style.display = auto ? 'block' : 'none';
   document.getElementById('rotPresetSection').style.display = auto ? 'block' : 'none';
-  document.getElementById('generateBtn').textContent = auto ? 'Generate match plan' : 'Set up my team';
+  document.getElementById('generateBtn').textContent = auto ? 'Generate match plan' : 'Open blank pitch';
 }
 const gkCountsCheckbox = document.getElementById('gkCountsCheckbox');
 const subTimingRow = document.getElementById('subTimingRow');
@@ -1971,7 +1996,19 @@ function simulate(lineup, lockedEvents) {
 let PLAN = null;
 let lockedEvents = []; // persistent history of coach decisions this match: subs, formation changes, skips, unavailability
 let unavailableFrom = {}; // playerId -> minute they became unavailable (time-scoped, not retroactive)
+// "Pick it myself" starts from a blank pitch: until every position has a
+// player there is nothing to simulate, so the plan is empty (no rotations).
+function lineupComplete() {
+  return SLOTS.length > 0 && SLOTS.every(sl => startingLineup[sl.id] && playersById[startingLineup[sl.id]]);
+}
 function regeneratePlan() {
+  if (!lineupComplete()) {
+    const pm = Object.fromEntries(PLAYERS.map(p => [p.id, 0]));
+    Object.values(startingLineup).forEach(pid => { if (pid in pm) pm[pid] = DURATION; });
+    PLAN = {rotations: [], projectedMinutes: pm, decisions: [], gkSegments: GK_SEGMENTS.map(x => ({...x})), incomplete: true};
+    if (typeof schedulePersist === 'function') schedulePersist();
+    return;
+  }
   const state = simulate(startingLineup, lockedEvents);
   PLAN = {rotations: state.rotations, projectedMinutes: state.minutesPlayed, decisions: state.decisions, gkSegments: state.gkSegments};
   if (typeof schedulePersist === 'function') schedulePersist();
@@ -2066,7 +2103,15 @@ document.getElementById('generateBtn').addEventListener('click', () => {
 
   GK_SEGMENTS = computeGkSegments();
 
-  try {
+  const blankCanvas = cfg.autoSubs === false;
+  if (blankCanvas) {
+    if (PLAYERS.length < PLAYERS_ON_PITCH) {
+      document.getElementById('setupError').style.display = 'block';
+      document.getElementById('setupError').textContent = `You need at least ${PLAYERS_ON_PITCH} available players for a ${PLAYERS_ON_PITCH}-a-side team.`;
+      return;
+    }
+    startingLineup = {}; // a blank pitch: the coach places every player
+  } else try {
     startingLineup = buildStartingLineup(PLAYERS, GK_SEGMENTS);
   } catch (e) {
     document.getElementById('setupError').style.display = 'block';
@@ -2109,7 +2154,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   regeneratePlan();
   saveLiveMatchState();
   document.getElementById('regenBanner').classList.remove('show');
-  document.getElementById('planTab').classList.remove('disabled');
+  refreshPlanTab();
   setDetailsSubTab('subs');
   initPlanScreenForFormat();
 
@@ -2398,6 +2443,7 @@ function openPresetsModal() {
     if (pr) applyPresetInPlan(pr);
   }));
   overlay.querySelector('#prSave').addEventListener('click', () => {
+    if (!lineupComplete()) { overlay.remove(); showAlert('Fill every position first, then you can save the line-up as a preset.'); return; }
     openPresetEditor({from: {players: PLAYERS_ON_PITCH, hasGk: HAS_GK, shape: {...confirmedShape}, lineup: {...startingLineup}}});
   });
 }
@@ -2408,12 +2454,13 @@ let currentT = 0;
 let openPicker = null;
 
 function render(t) {
+  if (PLAN && PLAN.incomplete) t = 0;
   currentT = t;
   document.getElementById('clockMin').textContent = t;
   document.getElementById('scrub').value = t;
   document.getElementById('editHint').textContent = liveMode
     ? "Tap a player on the pitch for an unplanned change"
-    : (t === 0 ? (cfg.autoSubs === false ? "Pick your team: tap a player to swap with the bench or another player on the pitch" : "At kick-off (0') — tap a player to change the starting line-up") : (matchFinished ? "" : `At ${t}' - tap a player on the pitch to sub them off, swap positions or mark them unavailable from this minute`));
+    : (PLAN.incomplete ? "Tap a position to choose who starts there" : t === 0 ? (cfg.autoSubs === false ? "Pick your team: tap a player to swap with the bench or another player on the pitch" : "At kick-off (0') — tap a player to change the starting line-up") : (matchFinished ? "" : `At ${t}' - tap a player on the pitch to sub them off, swap positions or mark them unavailable from this minute`));
 
   const now = computeStateAt(t);
   const forecast = computeStateAt(DURATION); // for GK-minutes split in the forecast bars
@@ -2433,13 +2480,14 @@ function render(t) {
     circle.setAttribute('stroke', '#E3A23C'); circle.setAttribute('stroke-width', '2');
     const label = document.createElementNS('http://www.w3.org/2000/svg','text');
     label.setAttribute('x', slot.x); label.setAttribute('y', slot.y + 4);
-    label.setAttribute('class', 'token-name'); label.textContent = initials(pid);
+    label.setAttribute('class', 'token-name'); label.textContent = pid ? initials(pid) : '+';
+    if (!pid) { circle.setAttribute('fill', 'rgba(244,241,230,0.18)'); circle.setAttribute('stroke-dasharray', '4 3'); circle.setAttribute('stroke', '#F4F1E6'); label.setAttribute('fill', '#F4F1E6'); label.setAttribute('font-size', '20'); }
     const posLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
     posLabel.setAttribute('x', slot.x); posLabel.setAttribute('y', slot.y - 28);
     posLabel.setAttribute('class', 'token-label'); posLabel.textContent = slot.label;
     g.appendChild(circle); g.appendChild(label); g.appendChild(posLabel);
     if (previewEdit && t === 0) g.addEventListener('click', () => togglePicker({kind:'start', slotId: slot.id, time: 0}));
-    else if (previewEdit) g.addEventListener('click', () => openPlayerActionMenu(pid, slot.id));
+    else if (previewEdit && pid) g.addEventListener('click', () => openPlayerActionMenu(pid, slot.id));
     if (liveMode && !halfTimeActive && !matchFinished) g.addEventListener('click', () => openPlayerActionMenu(pid, slot.id));
     tokensG.appendChild(g);
   }
@@ -2455,7 +2503,11 @@ function render(t) {
 
   const upcoming = PLAN.rotations.filter(r => r.time >= t && !r.type).sort((a,b) => a.time - b.time)[0];
   const nextSubEl = document.getElementById('nextSub');
-  if (upcoming) {
+  if (PLAN.incomplete) {
+    const placed = Object.values(startingLineup).filter(Boolean).length;
+    nextSubEl.classList.remove('done');
+    nextSubEl.innerHTML = `<span class="tag">${placed}/${SLOTS.length}</span> <span>Tap each position on the pitch to pick your starting team. Then add your substitutions.</span>`;
+  } else if (upcoming) {
     const mins = upcoming.time - t;
     nextSubEl.classList.remove('done');
     nextSubEl.innerHTML = `<span class="tag">${mins === 0 ? 'NOW' : 'in ' + mins + "'"}</span> <span><strong>${upcoming.on}</strong> ON &nbsp;·&nbsp; <strong>${upcoming.off}</strong> OFF <span style="color:var(--ink-soft)">(${upcoming.slot})</span></span>`;
@@ -2531,11 +2583,14 @@ function movesHtml(time) {
   const m = reshuffleMovesAt(time);
   return m.length ? `<div class="tl-moves">⇄ Positions: ${m.join(' · ')}</div>` : '';
 }
-// Only the planner's own fairness/time-off subs and subs the coach edited can
-// be removed - the keeper rotation and unavailability cover are structural.
+// Every planned substitution can be removed - the planner's own, the coach's,
+// edited or overridden ones. The exceptions are structural: the scheduled
+// keeper rotation (change it in the keeper settings) and the cover for a
+// player marked unavailable (they can't stay on).
+const STRUCTURAL_SUB_REASONS = ['scheduled GK rotation', 'keeper moves outfield after GK swap', 'backfill after GK swap', 'unavailable replacement'];
 function isDeletableSub(r) {
   if (r.type) return false;
-  return r.reason === 'playing-time fairness' || r.reason === 'maximum time off the pitch' || !!r.edited && r.reason !== 'unavailable replacement';
+  return STRUCTURAL_SUB_REASONS.indexOf(r.reason) < 0;
 }
 
 function renderTimeline(t, upcoming) {
@@ -2572,7 +2627,9 @@ function renderTimeline(t, upcoming) {
       const isPast = time < t;
       const badge = r.edited ? '<span class="edited-badge">edited</span>' : '';
       const canDelete = isDeletableSub(r) && !matchFinished && (!liveMode || time > liveElapsedMinute());
-      const del = canDelete ? `<span class="tl-del" data-del-time="${time}" data-del-slot="${r.slot}" title="Remove this substitution">✕ Remove</span>` : '';
+      const structural = !r.type && !isDeletableSub(r) && !matchFinished && (!liveMode || time > liveElapsedMinute());
+      const del = canDelete ? `<span class="tl-del" data-del-time="${time}" data-del-slot="${r.slot}" title="Remove this substitution">✕ Remove</span>`
+        : structural ? `<span class="tl-del" style="opacity:.55; cursor:default;" title="${r.reason === 'unavailable replacement' ? 'Needed because a player is unavailable' : 'Keeper rotation - change it in the keeper settings'}">🔒 ${r.reason === 'unavailable replacement' ? 'Cover' : 'Keeper'}</span>` : '';
       inner += `<div class="tl-swap">${del}<span class="on ${isPast ? 'locked-past' : ''}" data-time="${time}" data-slot="${r.slot}">↑ ${r.on}</span>${badge} · <span class="off">↓ ${r.off}</span> <span style="color:var(--ink-soft)">(${r.slot})</span></div>`;
     });
     div.innerHTML = inner;
@@ -2585,13 +2642,14 @@ function renderTimeline(t, upcoming) {
   tl.querySelectorAll('.on:not(.locked-past)').forEach(el => {
     el.addEventListener('click', () => togglePicker({kind:'event', slotId: el.dataset.slot, time: parseInt(el.dataset.time, 10)}));
   });
-  tl.querySelectorAll('.tl-del').forEach(el => {
+  tl.querySelectorAll('.tl-del[data-del-time]').forEach(el => {
     el.addEventListener('click', e => { e.stopPropagation(); deletePlannedSub(parseInt(el.dataset.delTime, 10), el.dataset.delSlot); });
   });
 }
 
 // Manual substitution: pick the minute, who comes off and who comes on.
 function openAddSubModal() {
+  if (!lineupComplete()) { showAlert('Choose your starting team first - tap the empty positions on the pitch. Then you can add substitutions.'); return; }
   const lo = liveMode ? Math.min(DURATION - 1, liveElapsedMinute()) : 0;
   const overlay = openModal(`
     <div class="picker-title">Add a substitution</div>
@@ -2743,6 +2801,7 @@ document.getElementById('dfc-apply').addEventListener('click', () => {
     err.textContent = `Must total ${detailsFormationOC} outfield players (currently ${d + m + a}).`;
     return;
   }
+  if (!lineupComplete()) { showAlert('Choose your starting team first, then you can change the formation.'); return; }
   const nowState = computeStateAt(currentT);
   const newSlots = buildFormation({DEF: d, MID: m, ATT: a}, HAS_GK);
   const remap = buildFormationRemap(nowState.onPitch, newSlots);
@@ -2769,7 +2828,7 @@ function buildPicker(slotId, time) {
   const occupiedIds = new Set(Object.values(computeStateAt(time).onPitch));
   const candidates = PLAYERS.filter(p => p.id !== currentOccupant && !occupiedIds.has(p.id));
   const wrap = document.createElement('div'); wrap.className = 'picker';
-  const title = document.createElement('div'); title.className = 'picker-title'; title.textContent = `Replace ${currentOccupant} at ${slot.label} with:`;
+  const title = document.createElement('div'); title.className = 'picker-title'; title.textContent = currentOccupant ? `Replace ${currentOccupant} at ${slot.label} with:` : `Who plays ${slot.label}?`;
   wrap.appendChild(title);
   candidates.forEach(p => {
     const tier = p.positions[slot.group] ?? 0;
@@ -2790,11 +2849,22 @@ function buildPicker(slotId, time) {
     });
     wrap.appendChild(row);
   });
-  if (openPicker.kind === 'start') {
+  if (openPicker.kind === 'start' && currentOccupant && cfg.autoSubs === false) {
+    const clr = document.createElement('div'); clr.className = 'picker-opt';
+    clr.innerHTML = `<span>Leave ${slot.label} empty</span><span class="tier warn">Remove ${currentOccupant}</span>`;
+    clr.addEventListener('click', () => {
+      const nl = {...startingLineup}; delete nl[slotId]; startingLineup = nl;
+      regeneratePlan(); openPicker = null;
+      const holder = document.getElementById('startPickerHolder'); if (holder) holder.innerHTML = '';
+      render(currentT);
+    });
+    wrap.appendChild(clr);
+  }
+  if (openPicker.kind === 'start' && currentOccupant) {
     const swapTitle = document.createElement('div'); swapTitle.className = 'picker-title'; swapTitle.style.marginTop = '10px';
     swapTitle.textContent = `Or swap ${currentOccupant} with a player on the pitch:`;
     wrap.appendChild(swapTitle);
-    Object.entries(startingLineup).filter(([sid]) => sid !== slotId).forEach(([sid, pid]) => {
+    Object.entries(startingLineup).filter(([sid, pid]) => sid !== slotId && pid).forEach(([sid, pid]) => {
       const other = SLOTS.find(x => x.id === sid);
       const tierHere = other.group === 'GK' ? null : (playersById[currentOccupant].positions[other.group] ?? 0);
       const tierThere = slot.group === 'GK' ? null : (playersById[pid].positions[slot.group] ?? 0);
@@ -3668,7 +3738,7 @@ function saveLiveMatchState() {
   // Never write a snapshot whose pieces disagree (e.g. the line-up belongs to
   // a different match format than the globals) - that would corrupt the saved
   // match. Better to skip one save than to poison the record.
-  if (Object.keys(startingLineup).length !== PLAYERS_ON_PITCH) { console.warn('Skipped save: format/line-up mismatch'); return false; }
+  if (Object.keys(startingLineup).length > PLAYERS_ON_PITCH || !Object.keys(startingLineup).every(k => SLOTS.some(sl => sl.id === k))) { console.warn('Skipped save: format/line-up mismatch'); return false; }
   try {
     const lib = loadMatchLibrary();
     const snap = buildMatchSnapshot();
@@ -3712,7 +3782,7 @@ function detachOpenMatch() {
   clearInterval(liveTicker);
   currentMatchId = null; PLAN = null;
   liveMode = false; halfTimeActive = false; matchFinished = false;
-  document.getElementById('planTab').classList.add('disabled');
+  refreshPlanTab();
   document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
 }
 function deleteMatchRecord(id) {
@@ -3832,7 +3902,7 @@ function restoreLiveMatch(saved, recordId) {
   document.getElementById('halfTimePanel').style.display = 'none';
   document.getElementById('halfTimePanel').innerHTML = '';
   lastAutoPoppedKey = null;
-  document.getElementById('planTab').classList.remove('disabled');
+  refreshPlanTab();
   document.getElementById('livePauseBtn').textContent = pauseStartedAt ? '▶' : '❚❚';
 
   score = saved.score ? {...saved.score} : {us: 0, them: 0};
@@ -3951,6 +4021,7 @@ function liveElapsedMs() {
 function liveElapsedMinute() { return Math.min(DURATION, Math.floor(liveElapsedMs() / 60000)); }
 
 function startMatch() {
+  if (!lineupComplete()) { showAlert(`Place a player in every position first (${Object.values(startingLineup).filter(Boolean).length} of ${SLOTS.length} chosen). Tap the empty circles on the pitch.`); return; }
   // NOTE: lockedEvents is deliberately NOT cleared here - any overrides made
   // in the pre-match preview (a swapped sub, deleted sub, new starting
   // player) are part of the plan the coach is kicking off with.
@@ -4451,6 +4522,7 @@ function requestEarlyFinish() {
 function finishMatch(atMinute, opts) {
   diag.add('act', `finish match at ${atMinute}${opts && opts.restoring ? ' (restoring)' : ''}`);
   matchFinished = true;
+  refreshPlanTab();
   finishedAtMinute = atMinute;
   clearInterval(liveTicker);
   if (!(opts && opts.restoring)) saveLiveMatchState(); // kept in the Matches tab as a finished match
@@ -5181,8 +5253,20 @@ function renderHome() {
       <div class="config-note" style="margin-bottom:8px;">Gap between most and least: <b>${mxm - mn}'</b> over ${T.played} match${T.played === 1 ? '' : 'es'}. Tap a player for their profile.</div>
       <div style="display:flex; gap:10px; font-size:11px; color:var(--ink-soft); margin-bottom:4px;">${POS_KEYS.map(k => `<span><span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:${POS_COLORS[k.toUpperCase()]};"></span> ${k.toUpperCase()}</span>`).join('')}</div>
       ${rows.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="padding:6px 0; border-bottom:1px solid var(--card-line); cursor:pointer;"><div style="display:flex; gap:8px; font-size:13.5px;"><b style="flex:1;">${esc(a.id)}</b><span style="color:var(--ink-soft);">${a.apps}/${a.avail} games</span><b style="width:44px; text-align:right;">${a.mins}'</b></div><div style="margin-top:4px;">${posBar(a)}</div></div>`).join('')}`, 'id="homeMinutes"');
-    if (tt) {
-      html += homeCard(`<h2 style="margin-top:0;">Where the team's minutes go</h2><div style="display:flex; align-items:center; gap:14px;"><div style="flex:0 0 auto;">${donutSvg(POS_KEYS.map(k => ({label: k, value: totals[k], color: POS_COLORS[k.toUpperCase()]})), 130)}</div><div style="flex:1;">${posLegend(totals, tt)}</div></div>`);
+    // fair-minutes nudge: who is getting a smaller share of the minutes they were available for
+    const nudgeRows = rows.filter(a => squadIds.has(a.id) && a.availMins > 0);
+    const totAvail = nudgeRows.reduce((t, a) => t + a.availMins, 0), totMins = nudgeRows.reduce((t, a) => t + a.mins, 0);
+    if (nudgeRows.length >= 3 && T.played >= 2 && totAvail) {
+      const avgShare = totMins / totAvail;
+      const low = nudgeRows.map(a => ({a, share: a.mins / a.availMins})).filter(x => x.share < avgShare - 0.10)
+        .sort((x, y) => x.share - y.share).slice(0, 4);
+      if (low.length) {
+        html += homeCard(`<h2 style="margin-top:0;">⚖️ Fair-minutes check</h2>
+          <div class="config-note" style="margin-bottom:6px;">These players have had a smaller share of the minutes they were available for (squad average ${Math.round(avgShare * 100)}%). Worth giving them extra time soon.</div>
+          ${low.map(x => { const gap = Math.max(1, Math.round((avgShare - x.share) * x.a.availMins)); return `<div class="home-row" data-pid="${esc(x.a.id)}" style="display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--card-line); cursor:pointer;"><b style="flex:1;">${esc(x.a.id)}</b><span style="font-size:12.5px; color:var(--ink-soft);">${Math.round(x.share * 100)}% of available</span><b style="color:#B8741A;">~${gap}' behind</b></div>`; }).join('')}`, 'id="homeFairNudge"');
+      } else {
+        html += homeCard(`<h2 style="margin-top:0;">⚖️ Fair-minutes check</h2><div class="config-note">Minutes are well balanced. Everyone is within 10 points of the squad average (${Math.round(avgShare * 100)}% of available time).</div>`, 'id="homeFairNudge"');
+      }
     }
   }
   el.innerHTML = html;
@@ -5814,10 +5898,61 @@ function renderWizard() {
 }
 
 /* ================= QUICK-START TOUR ================= */
+/* Illustrated mini-screens for the tour: they show what a screen looks like
+   when it can't be opened for real (a match is in progress, or the screen only
+   exists once a plan has been built). Purely decorative - no live data. */
+function tmPitch(tokens, opts) {
+  opts = opts || {};
+  const t = tokens.map(k => k.empty
+    ? `<circle cx="${k.x}" cy="${k.y}" r="13" fill="rgba(244,241,230,.18)" stroke="#F4F1E6" stroke-dasharray="4 3" stroke-width="1.5"/><text x="${k.x}" y="${k.y + 5}" text-anchor="middle" font-size="15" fill="#F4F1E6">+</text><text x="${k.x}" y="${k.y - 17}" text-anchor="middle" font-size="8" fill="#F4F1E6" opacity=".85">${k.pos}</text>`
+    : `<circle cx="${k.x}" cy="${k.y}" r="13" fill="#F4F1E6" stroke="${k.hl ? '#fff' : '#E3A23C'}" stroke-width="${k.hl ? 3 : 2}"/><text x="${k.x}" y="${k.y + 4}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#12241A">${k.n}</text><text x="${k.x}" y="${k.y - 17}" text-anchor="middle" font-size="8" fill="#F4F1E6" opacity=".85">${k.pos}</text>`).join('');
+  return `<svg viewBox="0 0 300 150" aria-hidden="true"><rect width="300" height="150" fill="#1F4A33"/><rect width="300" height="19" y="19" fill="#215A3B"/><rect width="300" height="19" y="57" fill="#215A3B"/><rect width="300" height="19" y="95" fill="#215A3B"/><rect width="300" height="19" y="133" fill="#215A3B"/><rect x="6" y="6" width="288" height="138" fill="none" stroke="#F4F1E6" stroke-opacity=".55"/><line x1="150" y1="6" x2="150" y2="144" stroke="#F4F1E6" stroke-opacity=".55"/><circle cx="150" cy="75" r="20" fill="none" stroke="#F4F1E6" stroke-opacity=".55"/>${t}</svg>`;
+}
+const TM_SHAPE = [{x: 28, y: 75, pos: 'GK', n: 'SA'}, {x: 85, y: 35, pos: 'DEF', n: 'JO'}, {x: 85, y: 115, pos: 'DEF', n: 'TO'}, {x: 150, y: 75, pos: 'MID', n: 'LE'}, {x: 205, y: 35, pos: 'MID', n: 'NO'}, {x: 205, y: 115, pos: 'MID', n: 'BE'}, {x: 262, y: 75, pos: 'ATT', n: 'MA'}];
+const TOUR_MOCKS = {
+  setup: n => {
+    const rows = ['Fixture details', 'Starting line-up', 'Auto-generate / Pick it myself', "Who's available + goalkeeper", 'Rotation style', 'Generate match plan'];
+    return `<div class="tm-cap">New fixture screen</div>${rows.map((r, i) => `<div class="tm-row ${i === n ? 'tm-hl' : 'tm-dim'}" style="padding:6px 8px; ${i === 5 ? '' : ''}"><b style="flex:1;">${i + 1}. ${r}</b>${i === n ? '◀' : ''}</div>`).join('')}`;
+  },
+  plan: () => `<div class="tm-cap">Match Plan · Live tab</div>${tmPitch(TM_SHAPE)}
+    <div style="display:flex; align-items:center; gap:8px; margin-top:6px;"><b style="font-size:15px;">0'</b><div class="tm-bar"><i style="width:2%; background:var(--amber);"></i></div><span style="color:var(--ink-soft);">FT 50'</span></div>
+    <div class="tm-pill"><span class="tg">in 8'</span><span><b>Leo</b> ON · <b>Sam</b> OFF (MID)</span></div>
+    <div style="margin-top:6px; text-align:center;"><span class="tm-btn" style="display:block;">▶ Start match</span></div>`,
+  tap: () => `<div class="tm-cap">Tap any player on the pitch</div><div style="position:relative;">${tmPitch(TM_SHAPE.map((k, i) => i === 3 ? {...k, hl: true} : k))}
+    <div style="position:absolute; right:6px; bottom:6px; background:var(--card); border:1px solid var(--card-line); border-radius:8px; padding:5px 8px; line-height:1.7; box-shadow:0 3px 10px rgba(0,0,0,.3);"><b>Leo (MID)</b><br>↔ Sub off · bench pick<br>⇄ Swap position<br>⚠ Mark unavailable</div></div>`,
+  subs: () => `<div class="tm-cap">Details tab · subs and forecast</div>
+    <div class="tm-row"><b style="width:26px;">8'</b><span style="flex:1;">↑ <b>Leo</b> · ↓ Sam (MID)</span><span style="color:var(--coral);">✕ Remove</span></div>
+    <div class="tm-row"><b style="width:26px;">16'</b><span style="flex:1;">↑ <b>Ben</b> · ↓ Joe (DEF)</span><span style="color:var(--coral);">✕ Remove</span></div>
+    <div class="tm-row"><b style="width:26px;">25'</b><span style="flex:1;">↑ <b>Max</b> · ↓ Tom (ATT)</span><span style="color:var(--coral);">✕ Remove</span></div>
+    <div class="tm-cap" style="margin-top:6px;">Forecast minutes</div>
+    ${[['Leo', 88], ['Sam', 80], ['Ben', 84], ['Max', 76]].map(r => `<div class="tm-row"><span style="width:30px;">${r[0]}</span><div class="tm-bar"><i style="width:${r[1]}%;"></i></div><b style="width:28px; text-align:right;">${Math.round(r[1] * .5)}'</b></div>`).join('')}`,
+  config: () => `<div class="tm-cap">Team and rotation settings</div>
+    <div style="margin-bottom:5px;"><b>Rotation style</b></div>
+    <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:7px;"><span class="tm-chip on">Balanced</span><span class="tm-chip">Fewer subs</span><span class="tm-chip">Maximum fairness</span></div>
+    <div class="tm-row"><span style="width:96px;">Position fit ↔ fair time</span><div class="tm-bar"><i style="width:55%;"></i></div></div>
+    <div class="tm-row"><span style="width:96px;">Min time on pitch</span><div class="tm-bar"><i style="width:40%;"></i></div><b>8'</b></div>
+    <div class="tm-row"><span style="width:96px;">Max time off</span><div class="tm-bar"><i style="width:25%;"></i></div><b>15'</b></div>
+    <div class="tm-row"><span style="width:96px;">Formation</span><span class="tm-chip on">2-3-1</span><span class="tm-chip">3-2-1</span><span class="tm-chip">Custom</span></div>
+    <div class="tm-row"><span style="width:96px;">Goalkeeper</span><span class="tm-chip on">Rotate each half</span></div>`,
+  manual: () => `<div class="tm-cap">Pick it myself · blank pitch</div>${tmPitch(TM_SHAPE.map((k, i) => i < 2 ? k : {...k, empty: true}))}
+    <div class="tm-pill"><span class="tg">2/7</span><span>Tap a position to choose who starts. Add every sub yourself with <b>+ Add substitution</b>.</span></div>`,
+  live: () => `<div class="tm-cap">Match mode</div>
+    <div style="display:flex; align-items:center; justify-content:space-between; background:var(--card); border:1px solid var(--card-line); border-radius:8px; padding:6px 10px;"><b style="font-size:16px;">Us 1 – 0 Them</b><b style="font-size:15px;">23:14</b><span class="tm-btn g">❚❚</span></div>
+    <div class="tm-pill" style="border-color:var(--amber);"><span class="tg">NOW</span><span style="flex:1;"><b>Leo</b> ON · <b>Sam</b> OFF</span></div>
+    <div style="display:flex; gap:6px; margin-top:6px;"><span class="tm-btn" style="flex:1; text-align:center;">Done</span><span class="tm-btn g" style="flex:1; text-align:center;">Delay</span><span class="tm-btn g" style="flex:1; text-align:center;">Skip</span></div>
+    <div style="display:flex; gap:6px; margin-top:6px;"><span class="tm-btn g" style="flex:1; text-align:center;">⚽ Goal for us</span><span class="tm-btn g" style="flex:1; text-align:center;">Goal against</span><span class="tm-btn g" style="flex:1; text-align:center;">📝 Note</span></div>`,
+  fulltime: () => `<div class="tm-cap">Full time</div>
+    <div style="display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--card-line); border-radius:8px; padding:6px 10px;"><b style="font-size:20px;">3 – 1</b><span style="background:#2E8B57; color:#fff; border-radius:5px; padding:1px 7px; font-weight:700;">W</span><span style="flex:1; text-align:right; color:var(--ink-soft);">vs Alpha FC</span></div>
+    <div class="tm-row"><span>⚽ Leo ×2 (assist Ben), Max</span></div>
+    <div class="tm-row"><span>🏆 Player of the Match: <b>Ben</b></span></div>
+    <div class="tm-row"><span>📝 "Strong second half, press worked well"</span></div>
+    <div style="margin-top:6px;"><span class="tm-btn" style="display:block; text-align:center;">Share summary image</span></div>`
+};
+function tourMockHtml(st) { const m = st.mock; if (!m) return ''; const [k, arg] = m.split(':'); const f = TOUR_MOCKS[k]; return f ? `<div class="tour-mock" aria-hidden="true">${f(arg === undefined ? undefined : +arg)}</div>` : ''; }
 const TOUR_STEPS = [
   {title: 'Welcome to your team hub', text: "A quick tour of the app. It takes about a minute and you can skip it at any time - replay it from the team menu (tap your team name).",
     bullets: ['Squad - your players, line-up presets and defaults', 'Matches - every fixture, planned, live and finished', 'Match Plan - the plan and live match mode for the fixture you open']},
-  {screen: 'home', sel: '#homeNext', title: 'Your dashboard', text: 'Home shows your next fixture and last result. As you finish matches it also builds your season: form, top scorers, and how many minutes each player has had.'},
+  {screen: 'home', sel: '#homeNext', title: 'Your dashboard', text: 'Home shows your next fixture and last result. As you finish matches it builds your season: form, top scorers, assists, awards, minutes for every player and a fair-minutes check that flags anyone who is falling behind.'},
   {screen: 'squad', sel: '#teamTitle', title: 'Your teams', text: 'Tap your team name to switch teams, add another side, rename a team, or back up your data. Each team has its own squad, fixtures and presets.'},
   {screen: 'squad', sel: '#squadList', title: 'Your squad', text: "Everyone in the team. Each player has where they play best (Defence, Midfield, Attack) and whether they can go in goal. The planner uses this to choose the team and fair rotations. Tap a player to see their stats - matches, minutes, goals and a chart of where they have played - or to edit them."},
   {screen: 'squad', sel: '#addPlayerBtn', title: 'Add players', text: 'Add new players any time, or tweak how comfortable each is in each position.'},
@@ -5825,21 +5960,31 @@ const TOUR_STEPS = [
   {screen: 'squad', sel: '#secRotations', title: 'Rotation presets', text: 'Your regular rotation styles, like "Fewer subs" or "Maximum fairness". The default one is used for every new fixture.'},
   {screen: 'squad', sel: '#secDefaults', title: 'Default match type', text: 'Players per side, length, periods and formation. New fixtures start from this so you rarely need to change it.'},
   {screen: 'matches', sel: '.tab[data-tab="matches"]', title: 'Matches', text: 'Everything you plan and play lives here: upcoming fixtures, matches in progress and finished results. Line-ups can be planned well before the day.'},
-  {screen: 'matches', sel: '#newFixtureBtn', title: 'Plan a fixture', text: 'Tap here to plan a new fixture. Here is what that screen looks like:', needsClosedMatch: true},
-  {screen: 'setup', sel: '#secFixture', title: 'Fixture details', text: 'Who you are playing, when, where, and which competition. These show on your fixtures list and on the exported line-up image.', needsClosedMatch: true},
-  {screen: 'setup', sel: '#presetSection', title: 'Starting line-up', text: 'Pick one of your saved line-ups, or let the planner choose the best team. You can change anyone afterwards.', needsClosedMatch: true},
-  {screen: 'setup', sel: '#secPlanMode', title: 'Auto or manual', text: 'Auto-generate lets the planner suggest the team and every substitution. Pick it myself means you choose the team and make every change.', needsClosedMatch: true},
-  {screen: 'setup', sel: '#secAvail', title: "Who's available", text: 'Untick anyone who cannot play this match. Choose your goalkeeper plan below it.', needsClosedMatch: true},
-  {screen: 'setup', sel: '#rotPresetSection', title: 'Rotation style', text: 'Choose how players rotate for this match. The cog below it has the fine-tuning: timing, minimum time on the pitch, maximum time off and more.', needsClosedMatch: true},
-  {screen: 'setup', sel: '#generateBtn', title: 'Build the plan', text: 'This creates the match plan with the pitch view, every planned change and each player\'s forecast minutes.', needsClosedMatch: true},
-  {title: 'The match plan', text: 'After you build a plan you will see:',
-    bullets: ['Live tab - the pitch. Scrub the slider to any minute and tap players to change the plan from that point', 'Details tab - the subs list, forecast minutes, formation changes, settings and "Export as image"', 'Plan Health tells you where fairness or positions had to be traded off']},
-  {title: 'Match day', text: 'Tap Start match when the whistle goes:',
-    bullets: ['A prompt appears when a change is due - Done, Delay or Skip', 'Tap any player on the pitch for an unplanned sub, a position swap or to mark someone unavailable', 'Add goals and who scored, and the app handles half-time and full time', 'Finished matches stay in Matches']},
+  {screen: 'matches', sel: '#newFixtureBtn', title: 'Plan a fixture', text: 'Tap here to plan a new fixture. These are the steps on the screen that opens:', needsClosedMatch: true, mock: 'setup:0'},
+  {screen: 'setup', sel: '#secFixture', title: '1. Fixture details', text: 'Who you are playing, when, where, and which competition. These show on your fixtures list and on the exported line-up image.', needsClosedMatch: true, mock: 'setup:0'},
+  {screen: 'setup', sel: '#presetSection', title: '2. Starting line-up', text: 'Pick one of your saved line-ups, or let the planner choose the best team. You can change anyone afterwards.', needsClosedMatch: true, mock: 'setup:1'},
+  {screen: 'setup', sel: '#secPlanMode', title: '3. Auto or manual', text: 'Auto-generate lets the planner suggest the team and every substitution. Pick it myself gives you a blank pitch: you choose who starts and add every substitution yourself.', needsClosedMatch: true, mock: 'setup:2'},
+  {screen: 'setup', sel: '#secAvail', title: "4. Who's available", text: 'Untick anyone who cannot play this match. Choose your goalkeeper plan below it.', needsClosedMatch: true, mock: 'setup:3'},
+  {screen: 'setup', sel: '#rotPresetSection', title: '5. Rotation style', text: 'Choose how players rotate for this match. The cog below it has the fine-tuning: timing, minimum time on the pitch, maximum time off and more.', needsClosedMatch: true, mock: 'setup:4'},
+  {screen: 'setup', sel: '#generateBtn', title: '6. Build the plan', text: 'This creates the match plan with the pitch view, every planned change and each player\'s forecast minutes.', needsClosedMatch: true, mock: 'setup:5'},
+  {title: 'Your match plan', text: 'After you build a plan you land on the pitch. Drag the slider to any minute to see who is on, and tap Start match at kick-off.', mock: 'plan',
+    bullets: ['The pill shows the next planned change', 'Tap a player at kick-off to change who starts', 'Plan Health tells you where fairness or positions had to be traded off']},
+  {title: 'Change anything', text: 'Tap any player on the pitch to make a change from that minute on. The rest of the plan re-balances around it.', mock: 'tap'},
+  {title: 'Subs and fair minutes', text: 'The Details tab lists every planned substitution and each player\'s forecast minutes. Any planned substitution can be removed, and you can add your own.', mock: 'subs'},
+  {title: 'Team and rotation settings', text: 'Fine-tune how the plan is built from Details > Settings, or save your favourites as presets on the Squad tab.', mock: 'config',
+    bullets: ['Rotation style: balanced, fewer subs or maximum fairness', 'Minimum time on the pitch and maximum time off', 'Formation and goalkeeper plan, changeable mid-match']},
+  {title: 'Pick it myself', text: 'Choose "Pick it myself" for a completely blank canvas. Nothing is filled in for you: tap each position to add a player, then add every substitution yourself.', mock: 'manual'},
+  {title: 'Match day', text: 'Tap Start match when the whistle goes. A prompt appears when a change is due, and you can log goals, assists and notes as you go.', mock: 'live',
+    bullets: ['Done, Delay or Skip each planned change', 'Tap a player for an unplanned sub, swap or unavailability', 'Half-time and full time are handled for you']},
+  {title: 'Full time', text: 'At the end, record the result, goals and assists, your awards, and match notes. Then share a summary image with the group. Finished matches feed your season stats.', mock: 'fulltime'},
   {title: "You're all set", text: 'That is the tour. Good luck with the next fixture!'},
 ];
 let tourIdx = 0, tourSteps = [], tourReturn = 'squad';
-function tourAvailableSteps() { return TOUR_STEPS.filter(s => !(s.needsClosedMatch && currentMatchId)); }
+// Steps that need an empty New Fixture screen can't open it while a match is in
+// progress (it would detach that match), so they show their illustration instead.
+function tourUsesMock(st) { return !!(st.needsClosedMatch && currentMatchId); }
+function tourSelFor(st) { return st.sel && !tourUsesMock(st) ? st.sel : null; }
+function tourAvailableSteps() { return TOUR_STEPS.slice(); }
 function startTour(returnTo) {
   document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
   tourSteps = tourAvailableSteps(); tourIdx = 0;
@@ -5859,7 +6004,7 @@ function endTour(markDone) {
   showTourBanner();
 }
 function tourEnsureScreen(st) {
-  if (!st.screen) return;
+  if (!st.screen || tourUsesMock(st)) return;
   if (st.screen === 'setup') { if (!document.getElementById('screen-setup').classList.contains('active')) startNewFixture(); }
   else { if (st.screen === 'matches') renderMatchesScreen(); showScreen(st.screen); }
 }
@@ -5870,27 +6015,27 @@ function tourShow() {
   if (!layer) {
     layer = document.createElement('div'); layer.id = 'tourLayer'; layer.className = 'tour-layer';
     layer.innerHTML = '<div class="tour-back" id="tourBack"></div><div class="tour-spot none" id="tourSpot"></div><div class="tour-card" id="tourCard"></div>';
-    layer.addEventListener('touchmove', e => e.preventDefault(), {passive: false});
+    layer.addEventListener('touchmove', e => { if (!e.target.closest('.tour-card')) e.preventDefault(); }, {passive: false});
     document.body.appendChild(layer);
     window.addEventListener('resize', tourReposition);
   }
   const last = tourIdx === tourSteps.length - 1;
   const card = layer.querySelector('#tourCard');
-  card.innerHTML = `<div class="tour-step">${tourIdx + 1} / ${tourSteps.length}</div><h3>${esc(st.title)}</h3><p>${esc(st.text)}</p>
+  card.innerHTML = `<div class="tour-step">${tourIdx + 1} / ${tourSteps.length}</div><h3>${esc(st.title)}</h3>${tourUsesMock(st) || !st.sel ? tourMockHtml(st) : ''}<p>${esc(st.text)}</p>
     ${st.bullets ? `<ul>${st.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
     <div class="tour-btns">${last ? '' : '<span class="tour-skip" id="tourSkip">Skip tour</span>'}${tourIdx > 0 ? '<button class="btn btn-ghost" id="tourPrev">Back</button>' : ''}<button class="btn btn-primary" id="tourNext">${last ? 'Finish' : 'Next'}</button></div>`;
   card.querySelector('#tourNext').addEventListener('click', () => { if (last) endTour(true); else { tourIdx++; tourShow(); } });
   const prev = card.querySelector('#tourPrev'); if (prev) prev.addEventListener('click', () => { tourIdx--; tourShow(); });
   const skip = card.querySelector('#tourSkip'); if (skip) skip.addEventListener('click', () => endTour(true));
-  layer.querySelector('#tourBack').style.display = st.sel ? 'none' : 'block';
-  const el = st.sel ? document.querySelector(st.sel) : null;
+  layer.querySelector('#tourBack').style.display = tourSelFor(st) ? 'none' : 'block';
+  const el = tourSelFor(st) ? document.querySelector(tourSelFor(st)) : null;
   if (el) { el.scrollIntoView({block: el.getBoundingClientRect().height > window.innerHeight * 0.5 ? 'start' : 'center', behavior: 'instant'}); }
   setTimeout(tourReposition, 60);
 }
 function tourReposition() {
   const layer = document.getElementById('tourLayer'); if (!layer) return;
   const st = tourSteps[tourIdx]; const card = layer.querySelector('#tourCard'); const spot = layer.querySelector('#tourSpot');
-  const el = st.sel ? document.querySelector(st.sel) : null;
+  const el = tourSelFor(st) ? document.querySelector(tourSelFor(st)) : null;
   const vh = window.innerHeight;
   card.style.top = card.style.bottom = '';
   if (!el) { spot.classList.add('none'); card.style.top = Math.max(20, (vh - card.offsetHeight) / 2) + 'px'; return; }
