@@ -1590,6 +1590,8 @@ function buildState(lineup) {
     lastSubIn: Object.fromEntries(Object.values(onPitch).map(pid => [pid, 0])),
     lastOff: Object.fromEntries(PLAYERS.map(p => [p.id, 0])), // minute each player last left the pitch (0 = never played yet)
     blocked: {},                 // "offPid>onPid": a removed sub that must not be re-proposed while offPid stays on
+    holds: {},                   // slotId -> minute: a delayed or skipped sub keeps this slot as it is until then
+    reserved: {},                // playerId -> minute: a delayed or skipped sub's player can't be used elsewhere before then
     gkSegments, gkPeriods,       // resolved keeper per period (auto mode fills these in as the match runs)
     benchSet: new Set(PLAYERS.map(p => p.id).filter(id => !onPitchIds.has(id))),
     rotations: [],
@@ -1603,7 +1605,15 @@ function cloneStateLite(state) {
   return {...state, onPitch: {...state.onPitch}, benchSet: new Set(state.benchSet), lastSubIn: {...state.lastSubIn},
     lastOff: {...state.lastOff}, rotations: [...state.rotations], minutesPlayed: {...state.minutesPlayed},
     outfieldMinutesPlayed: {...state.outfieldMinutesPlayed}, blocked: {...state.blocked},
+    holds: {...state.holds}, reserved: {...state.reserved},
     decisions: [...state.decisions], gkPeriods: {...state.gkPeriods}};
+}
+// Whether the planner may bring `pid` on at minute t: not marked unavailable,
+// and not held back by a delayed or skipped sub (nothing new is placed into
+// minutes the coach has already lived through).
+function canBringOn(state, pid, t) {
+  if (unavailableFrom[pid] !== undefined && t >= unavailableFrom[pid]) return false;
+  return !(state.reserved && state.reserved[pid] > t);
 }
 // The basis fairness decisions are made on: total pitch time, or outfield-only
 // (the coach's choice via cfg.gkCountsForFairness).
@@ -1658,7 +1668,7 @@ function doKeeperChange(state, t, newKeeper) {
       state.benchSet.add(outgoingGK); state.lastOff[outgoingGK] = t;
       const cands = [...state.benchSet].map(id => playersById[id])
         .filter(p => (p.positions[vacated.group] ?? 0) > 0)
-        .filter(p => unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id]);
+        .filter(p => canBringOn(state, p.id, t));
       if (cands.length) {
         const basis = fairnessBasis(state);
         cands.sort((a,b) => basis[a.id] - basis[b.id]);
@@ -1707,6 +1717,13 @@ function applyPeriodGKChange(state, t) {
   if (seg.player === null || seg.player === undefined) {
     const idx = state.gkSegments.indexOf(seg);
     seg.player = seg.keep && idx > 0 ? state.gkSegments[idx - 1].player : chooseAutoKeeper(state, t);
+  }
+  // A keeper who has been marked unavailable never comes back: whoever is in
+  // goal now carries on, or the planner picks another available keeper.
+  if (unavailableFrom[seg.player] !== undefined && t >= unavailableFrom[seg.player]) {
+    const gkSlot = state.activeSlots.find(s => s.group === 'GK');
+    const cur = gkSlot && state.onPitch[gkSlot.id];
+    seg.player = (cur && (unavailableFrom[cur] === undefined || t < unavailableFrom[cur])) ? cur : chooseAutoKeeper(state, t);
   }
   state.gkPeriods[seg.player] = (state.gkPeriods[seg.player] || 0) + 1;
   doKeeperChange(state, t, seg.player);
@@ -1784,7 +1801,7 @@ function runFairnessPass(state, t, skipSlots) {
     // Bench players who are unavailable, or whose swap for this player was
     // deliberately removed by the coach, are out.
     const pool = [...state.benchSet].map(id => playersById[id])
-      .filter(p => unavailableFrom[p.id] === undefined || t < unavailableFrom[p.id])
+      .filter(p => canBringOn(state, p.id, t))
       .filter(p => !state.blocked[curPid + '>' + p.id]);
     // Cheap gate first: a swap can only go ahead if fairness alone wants it.
     const maxGain = pool.length ? Math.max(...pool.map(p => (TARGETS[p.id] - basis[p.id]) - curDeficit)) : -Infinity;
@@ -1859,7 +1876,7 @@ function runBenchLimitPass(state, t, skipSlots) {
   const wait = nxt === Infinity ? DURATION - t : nxt - t;
   const basis = fairnessBasis(state);
   const overdue = [...state.benchSet]
-    .filter(id => unavailableFrom[id] === undefined || t < unavailableFrom[id])
+    .filter(id => canBringOn(state, id, t))
     .filter(id => (t - state.lastOff[id]) + wait > max)
     .sort((a, b) => state.lastOff[a] - state.lastOff[b]);
   for (const pid of overdue) {
@@ -1898,7 +1915,7 @@ function runBenchLimitPass(state, t, skipSlots) {
 // immediately re-touch them). `.manual` on the returned set holds the slots
 // the coach picked by hand, which position tidy-ups must leave alone.
 function applyEventsAt(state, t, events) {
-  const dueNow = events.filter(e => e.time === t);
+  const dueNow = events.filter(e => e.time === t && e.type !== 'pin' && e.type !== 'freeze');
   const startIdx = state.rotations.length, beforeLineup = {...state.onPitch};
   const beforeClocks = {lastSubIn: {...state.lastSubIn}, lastOff: {...state.lastOff}, benchSet: new Set(state.benchSet)};
   const skipSlots = new Set();
@@ -1906,6 +1923,17 @@ function applyEventsAt(state, t, events) {
   for (const ev of dueNow) {
     if (ev.type === 'formation') {
       applyFormationChange(state, t, ev);
+    } else if (ev.type === 'defer') {
+      // A planned sub the coach delayed and then confirmed later. Until the
+      // minute it actually happened, the slot stays exactly as it was and the
+      // incoming player stays on the bench: the sub is not assumed to have
+      // been made before it was confirmed. Nothing is listed for it here;
+      // the real change is its own locked sub at the confirmed minute.
+      if (ev.until > t) {
+        state.holds[ev.slot] = Math.max(state.holds[ev.slot] || 0, ev.until);
+        if (ev.on) state.reserved[ev.on] = Math.max(state.reserved[ev.on] || 0, ev.until);
+      }
+      skipSlots.add(ev.slot); skipSlots.manual.add(ev.slot);
     } else if (ev.type === 'skip') {
       // Coach declined (or deleted) this suggested swap. Reset the current
       // occupant's clock so the fairness pass doesn't immediately
@@ -1914,6 +1942,17 @@ function applyEventsAt(state, t, events) {
       const curPid = state.onPitch[ev.slot];
       state.lastSubIn[curPid] = t;
       if (ev.block) state.blocked[curPid + '>' + ev.block] = true;
+      // Skipped late: it is recorded at the minute it was planned for, and
+      // nothing new is put into the minutes between then and the skip. The
+      // player who stayed on restarts their minimum-time clock from the
+      // moment the coach skipped, so the same change isn't asked again at once.
+      if (ev.until > t) {
+        state.lastSubIn[curPid] = ev.until;
+        state.holds[ev.slot] = Math.max(state.holds[ev.slot] || 0, ev.until);
+      }
+      // "Not this change now": the player who was due on isn't offered again
+      // in a different position in the same minute the coach skipped.
+      if (ev.on) state.reserved[ev.on] = Math.max(state.reserved[ev.on] || 0, Math.max(ev.until || t, t) + 1);
       state.rotations.push({time:t, type:'skip', slot:ev.slot, reason: ev.deleted ? 'sub removed' : 'coach skipped',
         deleted: !!ev.deleted, off: ev.off, on: ev.on});
       skipSlots.add(ev.slot);
@@ -1964,8 +2003,44 @@ function applyEventsAt(state, t, events) {
   return skipSlots;
 }
 
+// The planner's own changes that are kept exactly as they were when the
+// coach alters something in minutes already played (see pinPastPlan).
+const PINNABLE_REASONS = ['playing-time fairness', 'maximum time off the pitch'];
+function isPinnable(r) {
+  if (r.edited) return false;
+  if (r.type === 'reshuffle') return r.reason === 'better positions';
+  return !r.type && PINNABLE_REASONS.indexOf(r.reason) >= 0;
+}
+// Re-applies a pinned planner change if it still makes sense: the player
+// coming off is still in that position and the player coming on is free.
+function applyPinsAt(state, t, pins, skipSlots) {
+  for (const pin of pins) {
+    const r = pin.rot;
+    if (r.type === 'reshuffle') {
+      const froms = r.moves.map(m => m.from), tos = Object.keys(r.assign);
+      const valid = r.moves.every(m => state.onPitch[m.from] === m.pid && !skipSlots.manual.has(m.from) && !skipSlots.manual.has(m.to))
+        && froms.length === tos.length && tos.every(sl => froms.includes(sl));
+      if (!valid) continue;
+      Object.assign(state.onPitch, r.assign);
+      state.rotations.push({...r, assign: {...r.assign}, moves: r.moves.map(m => ({...m}))});
+    } else {
+      if (skipSlots.has(r.slot) || state.onPitch[r.slot] !== r.off || !state.benchSet.has(r.on) || !canBringOn(state, r.on, t)) continue;
+      state.benchSet.delete(r.on); state.benchSet.add(r.off);
+      state.onPitch[r.slot] = r.on; state.lastSubIn[r.on] = t; state.lastOff[r.off] = t;
+      clearBlocks(state, r.off);
+      state.rotations.push({time: t, slot: r.slot, off: r.off, on: r.on, reason: r.reason});
+      skipSlots.add(r.slot);
+    }
+  }
+}
+
 function simulate(lineup, lockedEvents) {
   const events = [...lockedEvents].sort((a,b) => a.time - b.time);
+  // Minutes before `frozenUntil` are already played and were re-opened by the
+  // coach (a late skip or a delayed confirm). The planner doesn't make any new
+  // decisions there: its earlier changes are replayed from their pins instead.
+  const frozenUntil = Math.max(0, ...events.filter(e => e.type === 'freeze').map(e => e.until));
+  const pinsAt = t => events.filter(e => e.type === 'pin' && e.time === t);
   const baseCfg = cfg;
   try {
     const state = buildState(lineup);
@@ -1973,7 +2048,8 @@ function simulate(lineup, lockedEvents) {
     // the per-minute loop below, which only considers t=1..DURATION.
     cfg = effectiveCfgAt(baseCfg, 0);
     const skip0 = applyEventsAt(state, 0, events);
-    if (cfg.autoSubs !== false && state.rotations.some(r => !r.type)) reshuffleOutfield(state, 0, skip0.manual, 'better positions');
+    if (0 < frozenUntil) applyPinsAt(state, 0, pinsAt(0), skip0);
+    else if (cfg.autoSubs !== false && state.rotations.some(r => !r.type)) reshuffleOutfield(state, 0, skip0.manual, 'better positions');
 
     for (let t = 1; t <= DURATION; t++) {
       for (const [slotId, pid] of Object.entries(state.onPitch)) {
@@ -1985,6 +2061,8 @@ function simulate(lineup, lockedEvents) {
       const before = state.rotations.length;
       applyPeriodGKChange(state, t);
       const skipSlots = applyEventsAt(state, t, events);
+      for (const [sl, until] of Object.entries(state.holds)) if (t < until) { skipSlots.add(sl); skipSlots.manual.add(sl); }
+      if (t < frozenUntil) { applyPinsAt(state, t, pinsAt(t), skipSlots); continue; }
       runBenchLimitPass(state, t, skipSlots);
       runFairnessPass(state, t, skipSlots);
       if (cfg.autoSubs !== false && state.rotations.slice(before).some(r => !r.type)) reshuffleOutfield(state, t, skipSlots.manual, 'better positions');
@@ -2613,7 +2691,9 @@ function renderTimeline(t, upcoming) {
       if (r.type === 'skip') {
         inner += r.deleted
           ? `<div class="tl-swap" style="color:var(--ink-soft);">✕ Planned sub removed (${r.on} for ${r.off}, ${r.slot})</div>`
-          : `<div class="tl-swap" style="color:var(--ink-soft);">⏭ Sub at ${r.slot} skipped</div>`;
+          : (r.on && r.off
+            ? `<div class="tl-swap" style="color:var(--ink-soft);">⏭ Skipped: ${r.off} stayed on (${r.on} was due on, ${r.slot})</div>`
+            : `<div class="tl-swap" style="color:var(--ink-soft);">⏭ Sub at ${r.slot} skipped</div>`);
         return;
       }
       if (r.type === 'reshuffle') {
@@ -4098,15 +4178,52 @@ function isSnoozed(key, mins) { return snoozes[key] !== undefined && mins < snoo
 
 // Shared by the Substitutions popup and the between-periods prompt, so a sub
 // is resolved identically wherever the coach deals with it.
+//
+// When a confirmed sub counts (agreed rules):
+//  - DONE without a delay: at the minute it was planned for.
+//  - DELAY, then DONE later: at the minute it was actually confirmed. Until
+//    then the player due off stays on and the player due on stays on the
+//    bench (a 'defer' holds both), so minutes are recorded as they happened.
+// Before a coach decision changes a minute that has already been played (a
+// late skip or a delayed confirm), everything else the planner had already
+// decided up to now is pinned exactly as it was, and the planner is told
+// not to invent anything new in those minutes. Only the one sub the coach
+// acted on changes; the rest of the past stays as it was.
+function pinPastPlan(mins, exceptRot) {
+  if (!PLAN || PLAN.incomplete) return;
+  const skipKey = exceptRot ? rotationKey(exceptRot) : null;
+  const pins = PLAN.rotations
+    .filter(r => r.time < mins && isPinnable(r) && !(r.type !== 'reshuffle' && rotationKey(r) === skipKey))
+    .map(r => ({time: r.time, type: 'pin', rot: r.type === 'reshuffle' ? {...r, assign: {...r.assign}, moves: r.moves.map(m => ({...m}))} : {...r}}));
+  const prevFreeze = Math.max(0, ...lockedEvents.filter(e => e.type === 'freeze').map(e => e.until));
+  lockedEvents = lockedEvents.filter(e => e.type !== 'pin' && e.type !== 'freeze');
+  lockedEvents.push(...pins, {time: 0, type: 'freeze', until: Math.max(prevFreeze, mins)});
+}
 function confirmDueSub(r, mins) {
-  resolvedKeys.add(rotationKey(r));
-  lockedEvents.push({time: mins, type: 'sub', slot: r.slot, on: r.on, reason: mins - r.time > 0 ? 'confirmed (actual time)' : 'coach override'});
-  delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
+  const key = rotationKey(r);
+  const wasDelayed = snoozes[key] !== undefined;
+  resolvedKeys.add(key);
+  // Keeper rotations and cover changes are tied together (the keeper swap
+  // moves two players at once), so they always count at their planned minute.
+  const structural = STRUCTURAL_SUB_REASONS.indexOf(r.reason) >= 0;
+  if (wasDelayed && mins > r.time && !structural) {
+    pinPastPlan(mins, r);
+    lockedEvents.push({time: r.time, type: 'defer', slot: r.slot, on: r.on, until: mins});
+    lockedEvents.push({time: mins, type: 'sub', slot: r.slot, on: r.on, reason: 'confirmed after a delay'});
+    resolvedKeys.add(rotationKey({time: mins, slot: r.slot}));
+  } else {
+    lockedEvents.push({time: r.time, type: 'sub', slot: r.slot, on: r.on, reason: 'confirmed'});
+  }
+  delete snoozes[key]; lastAutoPoppedKey = null;
   regeneratePlan(); render(mins); saveLiveMatchState();
 }
+// SKIP removes the planned sub altogether: it is recorded at the minute it
+// was planned for, the player due off simply stays on, and the planner
+// doesn't slot anything new into the minutes already played.
 function skipDueSub(r, mins) {
   resolvedKeys.add(rotationKey(r));
-  lockedEvents.push({time: mins, type: 'skip', slot: r.slot});
+  if (mins > r.time) pinPastPlan(mins, r);
+  lockedEvents.push({time: r.time, type: 'skip', slot: r.slot, off: r.off, on: r.on, until: mins});
   delete snoozes[rotationKey(r)]; lastAutoPoppedKey = null;
   regeneratePlan(); render(mins); saveLiveMatchState();
 }
@@ -4313,6 +4430,75 @@ function openPlayerActionMenu(pid, slotId) {
   overlay.querySelector('#pamCancel').addEventListener('click', () => overlay.remove());
 }
 
+// Locks a cover change made because a player became unavailable. Already
+// actioned, so it never shows up as "due" as well.
+function lockCoverSub(mins, slotId, on) {
+  lockedEvents.push({time: mins, type: 'sub', slot: slotId, on, reason: 'unavailable replacement'});
+  resolvedKeys.add(rotationKey({time: mins, slot: slotId}));
+}
+// Best bench player for a position: highest comfort there, then whoever has
+// played least so far (never the order of the squad list).
+function bestBenchFor(group, benchIds, minutes) {
+  return benchIds.map(id => playersById[id])
+    .filter(p => (p.positions[group] ?? 0) >= 1)
+    .sort((a, b) => ((b.positions[group] ?? 0) - (a.positions[group] ?? 0)) || (minutes[a.id] - minutes[b.id]) || (a.id < b.id ? -1 : 1))[0];
+}
+// Keeper cover when the player in goal becomes unavailable:
+//  1. a keeper on the bench comes on in goal; or
+//  2. a keeper already playing outfield moves into goal, and the best bench
+//     player takes their outfield place. A coach who leans towards strength
+//     over equal minutes gets this even when a bench keeper exists, because
+//     it keeps the stronger keeper option and the outfield intact.
+//  3. nobody is a keeper: the coach chooses who goes in goal.
+function coverKeeper(pid, mins, state, gkSlotId) {
+  const onIds = new Set(Object.values(state.onPitch));
+  const avail = id => id !== pid && (unavailableFrom[id] === undefined || mins < unavailableFrom[id]);
+  const bench = PLAYERS.map(p => p.id).filter(id => !onIds.has(id) && avail(id));
+  const benchKeepers = bench.filter(id => playersById[id].gk)
+    .sort((a, b) => (state.minutesPlayed[a] - state.minutesPlayed[b]) || (a < b ? -1 : 1));
+  const pitchKeepers = Object.entries(state.onPitch)
+    .filter(([sl, id]) => sl !== gkSlotId && avail(id) && playersById[id].gk);
+  const strengthFirst = cfg.fairnessPriority <= 0.3;
+  const moveIn = () => {
+    for (const [sl, k] of pitchKeepers) {
+      const group = state.activeSlots.find(s => s.id === sl).group;
+      const rep = bestBenchFor(group, bench.filter(id => !playersById[id].gk || !benchKeepers.length || strengthFirst), state.minutesPlayed)
+        || bestBenchFor(group, bench, state.minutesPlayed);
+      if (!rep) continue;
+      lockCoverSub(mins, sl, rep.id);       // keeper-capable outfielder comes off their position...
+      lockCoverSub(mins, gkSlotId, k);      // ...and goes straight into goal
+      return true;
+    }
+    return false;
+  };
+  if (strengthFirst && moveIn()) return true;
+  if (benchKeepers.length) { lockCoverSub(mins, gkSlotId, benchKeepers[0]); return true; }
+  return moveIn();
+}
+// Nobody is a keeper: the coach picks who goes in goal - a player already on
+// the pitch (the best bench player then takes their place) or one from the bench.
+function openKeeperCoverPicker(pid, mins, state, gkSlotId) {
+  const onIds = new Set(Object.values(state.onPitch));
+  const avail = id => id !== pid && (unavailableFrom[id] === undefined || mins < unavailableFrom[id]);
+  const bench = PLAYERS.map(p => p.id).filter(id => !onIds.has(id) && avail(id));
+  const fromPitch = Object.entries(state.onPitch).filter(([sl, id]) => sl !== gkSlotId && avail(id));
+  const opts = [
+    ...fromPitch.map(([sl, id]) => ({id, label: `${id} (from ${state.activeSlots.find(s => s.id === sl).label})`, run: () => {
+      const rep = bestBenchFor(state.activeSlots.find(s => s.id === sl).group, bench, state.minutesPlayed) || (bench[0] && playersById[bench[0]]);
+      if (rep) lockCoverSub(mins, sl, rep.id);
+      lockCoverSub(mins, gkSlotId, id);
+    }})),
+    ...bench.map(id => ({id, label: `${id} (from the bench)`, run: () => lockCoverSub(mins, gkSlotId, id)})),
+  ];
+  const finish = () => { regeneratePlan(); render(mins); saveLiveMatchState(); };
+  const overlay = openModal(`
+    <div class="picker-title">No other keeper is available. Who goes in goal?</div>
+    ${opts.map((o, i) => `<div class="picker-opt" data-i="${i}"><span>${o.label}</span></div>`).join('')}
+    <div class="picker-cancel" id="goalPickCancel">Decide later</div>`);
+  overlay.querySelectorAll('.picker-opt').forEach(el => el.addEventListener('click', () => { opts[+el.dataset.i].run(); overlay.remove(); finish(); }));
+  overlay.querySelector('#goalPickCancel').addEventListener('click', () => overlay.remove());
+}
+
 function markPlayerUnavailable(pid) {
   const mins = editMinute();
   const state = computeStateAt(mins);
@@ -4320,22 +4506,26 @@ function markPlayerUnavailable(pid) {
   showConfirm(`Mark ${pid} unavailable for the rest of the match?`, () => {
     unavailableFrom[pid] = mins;
     lockedEvents.push({time: mins, type: 'unavailable', player: pid});
+    let askForKeeper = false;
     if (onPitchSet.has(pid)) {
       const slotId = Object.entries(state.onPitch).find(([sid, p2]) => p2 === pid)[0];
       const slot = state.activeSlots.find(s => s.id === slotId);
-      const candidates = PLAYERS.filter(p2 => p2.id !== pid && !onPitchSet.has(p2.id) && unavailableFrom[p2.id] === undefined && (p2.positions[slot.group] ?? 0) >= 1);
-      if (candidates.length) {
-        candidates.sort((a,b) => (b.positions[slot.group] ?? 0) - (a.positions[slot.group] ?? 0));
-        lockedEvents.push({time: mins, type: 'sub', slot: slotId, on: candidates[0].id, reason: 'unavailable replacement'});
-        // Already actioned automatically - don't let it show up as "due" too.
-        resolvedKeys.add(rotationKey({time: mins, slot: slotId}));
+      if (slot.group === 'GK') {
+        askForKeeper = !coverKeeper(pid, mins, state, slotId);
       } else {
-        showAlert(`No eligible replacement for ${pid}'s slot (${slot.label}) - the plan will continue short in that position until someone becomes available.`);
+        const bench = PLAYERS.map(p => p.id).filter(id => id !== pid && !onPitchSet.has(id) && (unavailableFrom[id] === undefined || mins < unavailableFrom[id]));
+        const rep = bestBenchFor(slot.group, bench, state.minutesPlayed);
+        if (rep) lockCoverSub(mins, slotId, rep.id);
+        else showAlert(`No eligible replacement for ${pid}'s slot (${slot.label}) - the plan will continue short in that position until someone becomes available.`);
       }
     }
     regeneratePlan();
     render(mins);
     saveLiveMatchState();
+    if (askForKeeper) {
+      const slotId = Object.entries(state.onPitch).find(([sid, p2]) => p2 === pid)[0];
+      setTimeout(() => openKeeperCoverPicker(pid, mins, computeStateAt(mins), slotId), 0);
+    }
   }, 'Mark unavailable');
 }
 
