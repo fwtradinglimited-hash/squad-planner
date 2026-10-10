@@ -2324,6 +2324,525 @@ function requestNewFixture() {
 }
 document.getElementById('setupBackLink').addEventListener('click', () => { renderMatchesScreen(); showScreen('matches'); });
 
+/* ================= PLANNING SPEC & SCORECARD (evaluator) =================
+ * One function marks any plan against the coach's rules, tier by tier, and
+ * says why. The same function is meant for the planner's search, the
+ * scorecard the coach sees, manual mode, the tests and live re-planning, so
+ * "best" means exactly one thing everywhere. Nothing here reads the app's
+ * globals: everything comes in through the arguments.
+ *
+ * Tiers (a higher tier always wins; each leaves a small tolerance so the
+ * tiers below still have room to improve the plan):
+ *   0 Inviolable   - one player per position, right numbers, "Do not use",
+ *                    keeper eligibility, availability, caps, league minimum.
+ *   1 Guarantees   - minute floor, unit floor, maximum time off, minimum
+ *                    spell, changes per stoppage, one change per unit.
+ *   2 Minutes      - each player's minutes against their target and band.
+ *   3 Strength     - evenness through the match, or strength at the moments
+ *                    the coach cares about, plus balance inside each unit.
+ *   4 Positions    - how well players fit where they play, variety, pairs.
+ *   5 Smoothness   - fewer stoppages, fewer subs and position moves, stability.
+ *
+ * Plan (engine-neutral):
+ *   {duration, periodBounds: [0, 25, 50],
+ *    segments: [{from, to, slots: [{id, group, label}], onPitch: {slotId: pid}}]}
+ * Player: {id, positions: {DEF, MID, ATT} (0-3), gk, level?, levels?: {DEF, MID, ATT, GK}}
+ *   level is 0-10 (Developing about 2, Core about 5, Strong about 8). No level
+ *   means "not set": everyone counts as an equal 5 and level rules stay quiet.
+ */
+const LEVEL_DEFAULT = 5, LEVEL_DEVELOPING_MAX = 3, LEVEL_STRONG_MIN = 7;
+// Plans are made of whole-minute windows that can't all be the same length,
+// so time-off and spell limits allow one minute either way before they count.
+const SPEC_GRACE = 1;
+const OUTFIELD_GROUPS = ['DEF', 'MID', 'ATT'];
+const GROUP_NAMES = {GK: 'goal', DEF: 'defence', MID: 'midfield', ATT: 'attack'};
+
+function playerLevel(p, group) {
+  if (p.levels && typeof p.levels[group] === 'number') return p.levels[group];
+  return typeof p.level === 'number' ? p.level : LEVEL_DEFAULT;
+}
+function levelBand(level) { return level <= LEVEL_DEVELOPING_MAX ? 'Developing' : level >= LEVEL_STRONG_MIN ? 'Strong' : 'Core'; }
+function squadHasLevels(players) { return players.some(p => typeof p.level === 'number' || (p.levels && Object.keys(p.levels).length)); }
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+const lerp = (a, b, s) => a + (b - a) * s;
+const round1 = x => Math.round(x * 10) / 10;
+
+// Splits `pool` minutes between players in proportion to `weights`, never
+// giving anyone more than `caps` (the time they can actually play). Classic
+// water-filling: whatever a capped player can't take is shared by the rest.
+function waterFill(ids, weights, caps, pool) {
+  const out = Object.fromEntries(ids.map(id => [id, 0]));
+  const live = ids.filter(id => caps[id] > 0 && weights[id] > 0);
+  if (!live.length || pool <= 0) return out;
+  const capTotal = live.reduce((a, id) => a + caps[id], 0);
+  if (pool >= capTotal) { live.forEach(id => { out[id] = caps[id]; }); return out; }
+  let lo = 0, hi = pool / Math.min(...live.map(id => weights[id]));
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    const sum = live.reduce((a, id) => a + Math.min(caps[id], mid * weights[id]), 0);
+    if (sum > pool) hi = mid; else lo = mid;
+  }
+  live.forEach(id => { out[id] = Math.min(caps[id], lo * weights[id]); });
+  return out;
+}
+
+/* ---------- Spec: the numbers a plan is judged against ----------
+ * Built from the Team Ethos sliders (each 0-100) and team rules. The numbers
+ * follow section 8 of the design review; each carries where it came from, so
+ * every number the coach sees can be explained. */
+const ETHOS_PRESETS = {
+  development: {label: 'Development', playingTime: 0, strength: 10, positions: 70, changes: 70, season: 70, unitFloor: 'strict'},
+  balanced: {label: 'Balanced', playingTime: 25, strength: 30, positions: 35, changes: 50, season: 50, unitFloor: 'strict'},
+  competitive: {label: 'Competitive', playingTime: 60, strength: 70, positions: 15, changes: 35, season: 25, unitFloor: 'strict'},
+  performance: {label: 'Performance', playingTime: 90, strength: 85, positions: 0, changes: 20, season: 0, unitFloor: 'off'},
+};
+function buildSpec(o) {
+  const base = ETHOS_PRESETS[o.preset || 'balanced'] || ETHOS_PRESETS.balanced;
+  const pick = k => (o.sliders && typeof o.sliders[k] === 'number') ? o.sliders[k] : base[k];
+  const from = k => (o.sliders && typeof o.sliders[k] === 'number') ? `${k} ${o.sliders[k]} (edited)` : `${base.label}, ${k} ${base[k]}`;
+  const s = {playingTime: pick('playingTime') / 100, strength: pick('strength') / 100, positions: pick('positions') / 100, changes: pick('changes') / 100, season: pick('season') / 100};
+  const duration = o.duration;
+  // Window length scales with the match: about 14' down to 6' for a
+  // 50-minute game, longer or shorter in proportion for other lengths.
+  const scale = Math.sqrt(duration / 50);
+  const windowLen = Math.max(3, Math.round(lerp(14, 6, s.changes) * scale));
+  const rules = o.rules || {};
+  const fitBase = {3: 1, 2: 0.85, 1: 0.6};
+  const soften = 0.5 * s.positions; // "try new positions" narrows the gap between fits
+  const fit = {0: 0, 3: 1, 2: 1 - (1 - fitBase[2]) * (1 - soften), 1: 1 - (1 - fitBase[1]) * (1 - soften)};
+  const spec = {
+    preset: o.preset || 'balanced', sliders: s, duration, periodBounds: o.periodBounds,
+    windowLen,
+    band: (0.06 + 0.08 * s.playingTime) * duration,
+    floorFrac: 0.8 - 0.5 * s.playingTime,
+    levelWeight: 0.3 * s.playingTime,
+    maxTimeOff: rules.maxTimeOff !== undefined ? rules.maxTimeOff : Math.round(lerp(25, 12, s.changes) * scale),
+    minSpell: rules.minSpell !== undefined ? rules.minSpell : Math.max(3, Math.round(windowLen * 0.75)),
+    maxChangesPerStoppage: rules.maxChangesPerStoppage !== undefined ? rules.maxChangesPerStoppage : Math.floor(2 + s.changes),
+    limitChangesAtBreaks: !!rules.limitChangesAtBreaks,
+    unitFloor: rules.unitFloor || base.unitFloor,            // 'strict' | 'soft' | 'off'
+    oneChangePerUnit: rules.oneChangePerUnit || 'off',      // 'strict' | 'soft' | 'off'
+    strength: {mode: rules.strengthMode || 'blend', k: s.strength, keyMinutes: Math.max(3, Math.round(duration / 6))},
+    fit,
+    varietyShare: s.positions > 0.5 ? (s.positions - 0.5) / 0.5 * 0.25 : 0,
+    gkCountsForFairness: !!o.gkCountsForFairness,
+    allowedKeepers: o.allowedKeepers || [],  // coach-approved non-keepers in goal (e.g. no keeper available)
+    leagueMinPct: rules.leagueMinPct || null,
+    availability: o.availability || {},      // pid -> {from, to}
+    caps: o.caps || {},                      // pid -> most minutes for this match
+    targetAdjust: o.targetAdjust || {},      // pid -> multiplier (season catch-up, extra minutes)
+    pairs: o.pairs || [],                    // [{a, b, kind: 'with' | 'apart'}]
+    reference: o.reference || null,          // the plan the coach has already seen (live stability)
+    now: o.now || 0,
+    tolerances: {t1: 0.5, t2: 1, t3: 0.05, t4: 1.5, t5: 0},
+    provenance: {
+      band: from('playingTime'), floor: from('playingTime'), targets: from('playingTime'),
+      strength: from('strength'), fit: from('positions'), windows: from('changes'), season: from('season'),
+      unitFloor: rules.unitFloor ? 'team rule (edited)' : `${base.label} default`,
+    },
+  };
+  return spec;
+}
+
+/* ---------- Engine plan -> neutral plan ---------- */
+// Reads the current engine's plan minute by minute and merges identical
+// minutes into segments.
+function planFromEngine() {
+  const segs = [];
+  for (let t = 0; t < DURATION; t++) {
+    const st = computeStateAt(t);
+    const key = JSON.stringify([st.activeSlots.map(s => s.id), st.onPitch]);
+    const last = segs[segs.length - 1];
+    if (last && last.key === key) { last.to = t + 1; continue; }
+    segs.push({key, from: t, to: t + 1, slots: st.activeSlots.map(s => ({id: s.id, group: s.group, label: s.label})), onPitch: {...st.onPitch}});
+  }
+  segs.forEach(s => delete s.key);
+  return {duration: DURATION, periodBounds: [...PERIOD_BOUNDS], segments: segs};
+}
+// Builds a neutral plan from a simple rota: window edges plus, for every
+// window, slotId -> player. Used for hand-made plans and tests.
+function planFromRota(duration, periodBounds, slots, edges, windows) {
+  return {duration, periodBounds, segments: windows.map((w, i) => ({from: edges[i], to: edges[i + 1], slots, onPitch: {...w}}))};
+}
+
+/* ---------- Facts about a plan ---------- */
+function planFacts(plan, players, spec) {
+  const byId = Object.fromEntries(players.map(p => [p.id, p]));
+  const ids = players.map(p => p.id);
+  const D = plan.duration;
+  const avail = id => {
+    const a = spec.availability[id] || {};
+    return {from: a.from !== undefined ? a.from : 0, to: a.to !== undefined ? a.to : D};
+  };
+  const minutes = Object.fromEntries(ids.map(id => [id, 0]));
+  const gkMinutes = Object.fromEntries(ids.map(id => [id, 0]));
+  const groupMinutes = Object.fromEntries(ids.map(id => [id, {DEF: 0, MID: 0, ATT: 0, GK: 0}]));
+  const onTimeline = Object.fromEntries(ids.map(id => [id, []])); // [from, to] on-pitch pieces
+  let outfieldSlotMinutes = 0, allSlotMinutes = 0;
+  for (const seg of plan.segments) {
+    const len = seg.to - seg.from;
+    for (const sl of seg.slots) {
+      allSlotMinutes += len;
+      if (sl.group !== 'GK') outfieldSlotMinutes += len;
+      const pid = seg.onPitch[sl.id];
+      if (!byId[pid]) continue;
+      minutes[pid] += len;
+      groupMinutes[pid][sl.group] += len;
+      if (sl.group === 'GK') gkMinutes[pid] += len;
+      onTimeline[pid].push([seg.from, seg.to]);
+    }
+  }
+  // Contiguous on-pitch spells (a position move mid-spell doesn't end it).
+  const spells = {}, benchSpells = {};
+  for (const id of ids) {
+    const pieces = onTimeline[id].sort((a, b) => a[0] - b[0]);
+    const sp = [];
+    for (const [f, t] of pieces) {
+      const last = sp[sp.length - 1];
+      if (last && last.to === f) last.to = t; else sp.push({from: f, to: t});
+    }
+    spells[id] = sp;
+    const {from: af, to: at} = avail(id);
+    const bs = []; let cur = af;
+    for (const s of sp) {
+      const sf = Math.max(s.from, af), st = Math.min(s.to, at);
+      if (st <= sf) continue;
+      if (sf > cur) bs.push({from: cur, to: sf});
+      cur = Math.max(cur, st);
+    }
+    if (at > cur) bs.push({from: cur, to: at});
+    benchSpells[id] = bs;
+  }
+  // Change moments between consecutive segments.
+  const moments = [];
+  const interiorBreaks = new Set((plan.periodBounds || []).slice(1, -1));
+  for (let i = 1; i < plan.segments.length; i++) {
+    const a = plan.segments[i - 1], b = plan.segments[i];
+    const where = (seg) => { const m = {}; for (const sl of seg.slots) { const pid = seg.onPitch[sl.id]; if (pid) m[pid] = sl; } return m; };
+    const wa = where(a), wb = where(b);
+    const on = Object.keys(wb).filter(pid => !wa[pid]);
+    const off = Object.keys(wa).filter(pid => !wb[pid]);
+    const moved = Object.keys(wb).filter(pid => wa[pid] && wa[pid].group !== wb[pid].group);
+    // A unit "changes" once for every player who leaves it.
+    const unitChanges = {};
+    for (const pid of Object.keys(wa)) {
+      const g = wa[pid].group;
+      if (!wb[pid] || wb[pid].group !== g) unitChanges[g] = (unitChanges[g] || 0) + 1;
+    }
+    if (on.length || off.length || moved.length) moments.push({time: b.from, isBreak: interiorBreaks.has(b.from), on, off, moved, unitChanges});
+  }
+  return {byId, ids, avail, minutes, gkMinutes, groupMinutes, spells, benchSpells, moments, outfieldSlotMinutes, allSlotMinutes};
+}
+
+/* ---------- Targets ---------- */
+function computePlanTargets(players, spec, facts) {
+  const ids = facts.ids, D = spec.duration;
+  const caps = {}, weights = {}, equalW = {};
+  for (const p of players) {
+    const a = facts.avail(p.id);
+    let cap = Math.max(0, a.to - a.from);
+    if (!spec.gkCountsForFairness) cap = Math.max(0, cap - facts.gkMinutes[p.id]);
+    if (spec.caps[p.id] !== undefined) cap = Math.min(cap, spec.caps[p.id]);
+    caps[p.id] = cap;
+    const lvl = typeof p.level === 'number' ? p.level : LEVEL_DEFAULT;
+    weights[p.id] = Math.max(0.05, (1 + spec.levelWeight * clamp((lvl - LEVEL_DEFAULT) / 3, -1, 1)) * (spec.targetAdjust[p.id] || 1));
+    equalW[p.id] = 1;
+  }
+  const pool = spec.gkCountsForFairness ? facts.allSlotMinutes : facts.outfieldSlotMinutes;
+  const targets = waterFill(ids, weights, caps, pool);
+  const equal = waterFill(ids, equalW, caps, pool);
+  const floors = Object.fromEntries(ids.map(id => [id, Math.min(caps[id], spec.floorFrac * equal[id])]));
+  return {targets, equal, floors, caps, pool, basis: spec.gkCountsForFairness ? 'total' : 'outfield'};
+}
+
+/* ---------- The evaluator ---------- */
+function evaluatePlan(plan, players, spec) {
+  const f = planFacts(plan, players, spec);
+  const {byId, ids} = f;
+  const fitOf = (p, group) => group === 'GK' ? 1 : (spec.fit[p.positions[group] ?? 0] ?? 0);
+  const withLevels = squadHasLevels(players);
+  const nm = id => id;
+
+  // ---- Tier 0
+  const t0 = [];
+  for (const seg of plan.segments) {
+    const len = seg.to - seg.from, seen = {};
+    for (const sl of seg.slots) {
+      const pid = seg.onPitch[sl.id];
+      if (!pid || !byId[pid]) { t0.push({code: 'EMPTY_POSITION', text: `${sl.label || sl.id} is empty ${seg.from}'–${seg.to}'`, minutes: len}); continue; }
+      if (seen[pid]) t0.push({code: 'TWO_POSITIONS', pid, text: `${nm(pid)} is in two positions ${seg.from}'–${seg.to}'`, minutes: len});
+      seen[pid] = true;
+      const p = byId[pid];
+      if (sl.group === 'GK') {
+        if (!p.gk && !spec.allowedKeepers.includes(pid)) t0.push({code: 'NOT_A_KEEPER', pid, text: `${nm(pid)} is in goal but isn't a keeper (${seg.from}'–${seg.to}')`, minutes: len});
+      } else if ((p.positions[sl.group] ?? 0) === 0) {
+        t0.push({code: 'DO_NOT_USE', pid, text: `${nm(pid)} plays ${GROUP_NAMES[sl.group]} (marked "Do not use") ${seg.from}'–${seg.to}'`, minutes: len});
+      }
+      const a = f.avail(pid);
+      const outside = Math.max(0, Math.min(seg.to, a.from) - seg.from) + Math.max(0, seg.to - Math.max(seg.from, a.to));
+      if (outside > 0) t0.push({code: 'NOT_AVAILABLE', pid, text: `${nm(pid)} plays while not available (${outside}')`, minutes: Math.min(outside, len)});
+    }
+    const filled = Object.keys(seg.onPitch).filter(k => seg.slots.some(s => s.id === k)).length;
+    if (filled !== seg.slots.length) t0.push({code: 'WRONG_NUMBERS', text: `${filled} players for ${seg.slots.length} positions ${seg.from}'–${seg.to}'`, minutes: len});
+  }
+  // One line per player and problem, however many windows it spans.
+  {
+    const merged = [], seen = {};
+    const label = {DO_NOT_USE: (x) => `${x.pid} plays a "Do not use" position for ${x.minutes}'`, NOT_A_KEEPER: (x) => `${x.pid} is in goal for ${x.minutes}' but isn't a keeper`,
+      NOT_AVAILABLE: (x) => `${x.pid} plays ${x.minutes}' while not available`, TWO_POSITIONS: (x) => `${x.pid} is in two positions for ${x.minutes}'`};
+    for (const it of t0) {
+      const key = it.pid && label[it.code] ? it.code + '|' + it.pid : null;
+      if (key && seen[key]) { seen[key].minutes += it.minutes; seen[key].text = label[it.code](seen[key]); continue; }
+      const copy = {...it}; if (key) { seen[key] = copy; copy.text = label[it.code](copy); }
+      merged.push(copy);
+    }
+    t0.length = 0; t0.push(...merged);
+  }
+  for (const id of ids) {
+    if (spec.caps[id] !== undefined && f.minutes[id] > spec.caps[id]) t0.push({code: 'OVER_CAP', pid: id, text: `${nm(id)} plays ${f.minutes[id]}', over their cap of ${spec.caps[id]}'`, minutes: f.minutes[id] - spec.caps[id]});
+    if (spec.leagueMinPct) {
+      const a = f.avail(id), need = Math.ceil(spec.leagueMinPct / 100 * (a.to - a.from));
+      if (f.minutes[id] < need) t0.push({code: 'LEAGUE_MINIMUM', pid: id, text: `${nm(id)} plays ${f.minutes[id]}', under the league minimum of ${need}'`, minutes: need - f.minutes[id]});
+    }
+  }
+
+  // ---- Targets (tier 2 inputs)
+  const T = computePlanTargets(players, spec, f);
+  const basisMinutes = id => spec.gkCountsForFairness ? f.minutes[id] : f.minutes[id] - f.gkMinutes[id];
+
+  // ---- Tier 1
+  const t1 = [];
+  for (const id of ids) {
+    const m = basisMinutes(id), fl = T.floors[id];
+    if (fl > 0 && m < fl - 0.5) t1.push({code: 'BELOW_FLOOR', pid: id, text: `${nm(id)} gets ${m}', below their floor of ${Math.round(fl)}'`, magnitude: fl - m});
+  }
+  const softUnit = {minutes: 0, items: []};
+  if (withLevels && spec.unitFloor !== 'off') {
+    for (const seg of plan.segments) {
+      for (const g of OUTFIELD_GROUPS) {
+        const sl = seg.slots.filter(s => s.group === g);
+        if (sl.length < 2) continue;
+        const pids = sl.map(s => seg.onPitch[s.id]).filter(pid => byId[pid]);
+        if (pids.length === sl.length && pids.every(pid => levelBand(playerLevel(byId[pid], g)) === 'Developing')) {
+          const item = {code: 'UNIT_FLOOR', unit: g, pids, from: seg.from, to: seg.to,
+            text: `All-Developing ${GROUP_NAMES[g]} (${pids.join(' + ')}) ${seg.from}'–${seg.to}'`, magnitude: seg.to - seg.from};
+          if (spec.unitFloor === 'strict') t1.push(item); else { softUnit.minutes += item.magnitude; softUnit.items.push(item); }
+        }
+      }
+    }
+  }
+  // One line per stretch: back-to-back windows with the same pair merge.
+  const mergeUnit = list => list.reduce((acc, it) => {
+    const last = acc[acc.length - 1];
+    if (last && last.unit === it.unit && last.to === it.from && last.pids.join() === it.pids.join()) {
+      last.to = it.to; last.magnitude += it.magnitude;
+      last.text = `All-Developing ${GROUP_NAMES[it.unit]} (${it.pids.join(' + ')}) ${last.from}'–${last.to}'`;
+    } else acc.push({...it});
+    return acc;
+  }, []);
+  { const keep = t1.filter(x => x.code !== 'UNIT_FLOOR'); const merged = mergeUnit(t1.filter(x => x.code === 'UNIT_FLOOR')); t1.length = 0; t1.push(...keep, ...merged); }
+  softUnit.items = mergeUnit(softUnit.items);
+  if (spec.maxTimeOff > 0) {
+    for (const id of ids) for (const b of f.benchSpells[id]) {
+      const len = b.to - b.from;
+      if (len > spec.maxTimeOff + SPEC_GRACE) t1.push({code: 'TIME_OFF', pid: id, text: `${nm(id)} sits out ${len}' (${b.from}'–${b.to}'), over the ${spec.maxTimeOff}' maximum`, magnitude: len - spec.maxTimeOff});
+    }
+  }
+  if (spec.minSpell > 0) {
+    for (const id of ids) {
+      const a = f.avail(id);
+      for (const s of f.spells[id]) {
+        const len = s.to - s.from;
+        if (len < spec.minSpell - SPEC_GRACE && s.to < a.to) t1.push({code: 'SHORT_SPELL', pid: id, text: `${nm(id)} plays only ${len}' (${s.from}'–${s.to}'), under the ${spec.minSpell}' minimum spell`, magnitude: spec.minSpell - len});
+        else if (len < spec.minSpell - SPEC_GRACE && s.to === plan.duration && s.from > 0) t1.push({code: 'SHORT_SPELL', pid: id, text: `${nm(id)} comes on for only ${len}' at the end (${s.from}'–${s.to}')`, magnitude: spec.minSpell - len});
+      }
+    }
+  }
+  const softUnitChanges = {count: 0};
+  for (const mo of f.moments) {
+    if (mo.isBreak && !spec.limitChangesAtBreaks) continue;
+    if (mo.on.length > spec.maxChangesPerStoppage) t1.push({code: 'TOO_MANY_CHANGES', time: mo.time, text: `${mo.on.length} changes at ${mo.time}', more than ${spec.maxChangesPerStoppage} at once`, magnitude: (mo.on.length - spec.maxChangesPerStoppage) * 3});
+    if (spec.oneChangePerUnit !== 'off') {
+      for (const [g, n] of Object.entries(mo.unitChanges)) {
+        if (g === 'GK' || n < 2) continue;
+        if (spec.oneChangePerUnit === 'strict') t1.push({code: 'UNIT_CHANGED_TOGETHER', time: mo.time, unit: g, text: `${n} ${GROUP_NAMES[g]} players change together at ${mo.time}'`, magnitude: (n - 1) * 3});
+        else softUnitChanges.count += n - 1;
+      }
+    }
+  }
+
+  // ---- Tier 2
+  const perPlayer = {};
+  let cost = 0, overshoot = 0;
+  for (const id of ids) {
+    const m = basisMinutes(id), tg = T.targets[id];
+    const lo = Math.max(0, tg - spec.band), hi = tg + spec.band;
+    const over = Math.max(0, Math.abs(m - tg) - spec.band);
+    cost += over * over; overshoot += over;
+    perPlayer[id] = {minutes: f.minutes[id], basis: m, gk: f.gkMinutes[id], target: round1(tg), low: round1(lo), high: round1(hi), floor: round1(T.floors[id]), outside: round1(over)};
+  }
+  const active = ids.filter(id => T.caps[id] > 0);
+  const bm = active.map(basisMinutes);
+
+  // ---- Tier 3
+  const segStrength = plan.segments.map(seg => {
+    let S = 0; const U = {};
+    for (const sl of seg.slots) {
+      if (sl.group === 'GK') continue;
+      const p = byId[seg.onPitch[sl.id]]; if (!p) continue;
+      const v = playerLevel(p, sl.group) * fitOf(p, sl.group);
+      S += v; U[sl.group] = (U[sl.group] || 0) + v;
+    }
+    return {from: seg.from, to: seg.to, len: seg.to - seg.from, S, U};
+  });
+  const totLen = segStrength.reduce((a, s) => a + s.len, 0) || 1;
+  const avgS = segStrength.reduce((a, s) => a + s.S * s.len, 0) / totLen;
+  let evenPenalty = 0;
+  segStrength.forEach(s => { evenPenalty += Math.max(0, avgS - s.S) * s.len; });
+  const unitStats = {};
+  for (const g of OUTFIELD_GROUPS) {
+    const rows = segStrength.filter(s => s.U[g] !== undefined);
+    if (!rows.length) continue;
+    const L = rows.reduce((a, s) => a + s.len, 0);
+    const avg = rows.reduce((a, s) => a + s.U[g] * s.len, 0) / L;
+    const min = Math.min(...rows.map(s => s.U[g]));
+    const pen = rows.reduce((a, s) => a + Math.max(0, avg - s.U[g]) * s.len, 0);
+    unitStats[g] = {avg: round1(avg), min: round1(min), penalty: pen};
+    evenPenalty += 0.5 * pen;
+  }
+  // Strength where the coach wants it: first and last minutes ("key
+  // moments"), or front-loaded ("strong start"). Measured against average.
+  const D = plan.duration, K = spec.strength.keyMinutes;
+  const wAt = t => spec.strength.mode === 'strongStart' ? Math.max(0, 1 - t / D) * 2 : ((t < K || t >= D - K) ? 1 : 0);
+  let keyBonus = 0;
+  for (const s of segStrength) for (let t = s.from; t < s.to; t++) keyBonus += (s.S - avgS) * wAt(t);
+  const k = spec.strength.mode === 'none' ? 0 : (spec.strength.mode === 'even' ? 0 : spec.strength.k);
+  const evenWeight = spec.strength.mode === 'none' ? 0 : (1 - k);
+  const softUnitPenalty = softUnit.minutes * Math.max(1, avgS / 3);
+  const t3value = evenWeight * evenPenalty - k * keyBonus + softUnitPenalty;
+  const weakest = segStrength.reduce((w, s) => (!w || s.S < w.S - 1e-9) ? s : w, null);
+  // Shown to the coach per outfield player, on the same 0-10 scale as levels.
+  const outfieldCount = Math.max(1, (plan.segments[0] ? plan.segments[0].slots.filter(sl => sl.group !== 'GK').length : 1));
+
+  // ---- Tier 4
+  let fitLoss = 0, fitSum = 0, outMin = 0;
+  for (const seg of plan.segments) {
+    const len = seg.to - seg.from;
+    for (const sl of seg.slots) {
+      if (sl.group === 'GK') continue;
+      const p = byId[seg.onPitch[sl.id]]; if (!p) continue;
+      const fv = fitOf(p, sl.group);
+      fitLoss += (1 - fv) * len; fitSum += fv * len; outMin += len;
+    }
+  }
+  let varietyShort = 0;
+  if (spec.varietyShare > 0) {
+    for (const id of ids) {
+      const gm = f.groupMinutes[id], out = gm.DEF + gm.MID + gm.ATT;
+      if (!out) continue;
+      const sorted = OUTFIELD_GROUPS.map(g => gm[g]).sort((a, b) => b - a);
+      const p = byId[id];
+      const canSecond = OUTFIELD_GROUPS.filter(g => (p.positions[g] ?? 0) >= 1).length >= 2;
+      if (canSecond) varietyShort += Math.max(0, spec.varietyShare * out - sorted[1]);
+    }
+  }
+  const together = (a, b) => plan.segments.reduce((acc, seg) => {
+    const on = new Set(Object.values(seg.onPitch));
+    return acc + (on.has(a) && on.has(b) ? seg.to - seg.from : 0);
+  }, 0);
+  let pairWith = 0, pairApart = 0;
+  for (const pr of spec.pairs) {
+    if (!byId[pr.a] || !byId[pr.b]) continue;
+    const m = together(pr.a, pr.b);
+    if (pr.kind === 'apart') pairApart += m; else pairWith += m;
+  }
+  const t4value = fitLoss + 0.5 * varietyShort + 0.3 * pairApart - 0.1 * pairWith;
+
+  // ---- Tier 5
+  const nonBreakMoments = f.moments.filter(m => !m.isBreak && m.on.length);
+  const subs = f.moments.reduce((a, m) => a + m.on.length, 0);
+  const moves = f.moments.reduce((a, m) => a + m.moved.length, 0);
+  let stability = 0;
+  if (spec.reference) {
+    const rf = planFacts(spec.reference, players, spec);
+    const nextOf = facts => facts.moments.find(m => m.time >= spec.now);
+    const a = nextOf(f), b = nextOf(rf);
+    if (a || b) {
+      if (!a || !b || a.time !== b.time) stability += 3;
+      else {
+        const key = m => JSON.stringify([m.on.slice().sort(), m.off.slice().sort()]);
+        if (key(a) !== key(b)) stability += 2;
+      }
+    }
+  }
+  const t5value = nonBreakMoments.length * 2 + subs + moves + softUnitChanges.count * 2 + stability * 3;
+
+  const card = {
+    tiers: {
+      t0: {count: t0.length, minutes: t0.reduce((a, x) => a + (x.minutes || 0), 0), items: t0},
+      t1: {count: t1.length, magnitude: round1(t1.reduce((a, x) => a + x.magnitude, 0)), items: t1},
+      t2: {cost: round1(cost), overshoot: round1(overshoot), band: round1(spec.band), basis: T.basis,
+        range: bm.length ? [Math.min(...bm), Math.max(...bm)] : [0, 0], spread: bm.length ? Math.max(...bm) - Math.min(...bm) : 0, perPlayer},
+      t3: {value: round1(t3value), average: round1(avgS), perPlayer: round1(avgS / outfieldCount), evenPenalty: round1(evenPenalty), keyBonus: round1(keyBonus),
+        weakest: weakest ? {strength: round1(weakest.S), perPlayer: round1(weakest.S / outfieldCount), from: weakest.from, to: weakest.to} : null, units: unitStats,
+        softUnitFloor: softUnit.items, mode: spec.strength.mode, k},
+      t4: {value: round1(t4value), fitLoss: round1(fitLoss), fitPct: outMin ? Math.round(fitSum / outMin * 100) : 100,
+        varietyShort: round1(varietyShort), pairWith, pairApart},
+      t5: {value: t5value, subMoments: nonBreakMoments.length, breakSubs: f.moments.filter(m => m.isBreak).reduce((a, m) => a + m.on.length, 0),
+        subs, positionMoves: moves, softUnitChanges: softUnitChanges.count, stability},
+    },
+    withLevels,
+  };
+  card.lines = scorecardLines(card, spec, players);
+  return card;
+}
+
+// Plain-language summary: every line names a number or a rule the coach set.
+function scorecardLines(card, spec) {
+  const {t0, t1, t2, t3, t4, t5} = card.tiers;
+  const L = [];
+  if (t0.count) L.push({tier: 0, ok: false, text: `Can't be used as it is: ${t0.items.slice(0, 3).map(x => x.text).join('; ')}${t0.count > 3 ? ` (+${t0.count - 3} more)` : ''}`});
+  const outside = Object.entries(t2.perPlayer).filter(([, v]) => v.outside > 0);
+  L.push({tier: 2, ok: !outside.length, text: `Minutes ${t2.range[0]}'–${t2.range[1]}'${t2.basis === 'outfield' ? ' (outfield)' : ''}, targets ± ${Math.round(t2.band)}'` +
+    (outside.length ? `. Outside the band: ${outside.slice(0, 4).map(([id, v]) => `${id} ${v.basis}' (target ${Math.round(v.target)}')`).join(', ')}${outside.length > 4 ? ` +${outside.length - 4}` : ''}` : '. Everyone within the band')});
+  const byCode = c => t1.items.filter(x => x.code === c);
+  const unit = byCode('UNIT_FLOOR');
+  if (card.withLevels && spec.unitFloor !== 'off') {
+    const soft = t3.softUnitFloor;
+    const all = unit.concat(soft);
+    L.push({tier: unit.length ? 1 : 3, ok: !all.length, text: all.length ? all.slice(0, 2).map(x => x.text).join('; ') + (all.length > 2 ? ` (+${all.length - 2} more)` : '') : 'No unit is ever all-Developing'});
+  }
+  for (const code of ['BELOW_FLOOR', 'TIME_OFF', 'SHORT_SPELL', 'TOO_MANY_CHANGES', 'UNIT_CHANGED_TOGETHER']) {
+    const items = byCode(code);
+    if (items.length) L.push({tier: 1, ok: false, text: items.slice(0, 2).map(x => x.text).join('; ') + (items.length > 2 ? ` (+${items.length - 2} more)` : '')});
+  }
+  L.push({tier: 5, ok: true, text: `${t5.subs} subs: ${t5.subs - t5.breakSubs} during play at ${t5.subMoments} stoppages, ${t5.breakSubs} at period breaks; ${t5.positionMoves} position moves`});
+  if (t3.weakest) L.push({tier: 3, ok: true, text: `Strength on the pitch averages ${t3.perPlayer} out of 10; weakest spell ${t3.weakest.perPlayer} (${t3.weakest.from}'–${t3.weakest.to}')`});
+  L.push({tier: 4, ok: t4.fitPct >= 85, text: `Positions: ${t4.fitPct}% position fit${t4.varietyShort ? `; ${Math.round(t4.varietyShort)}' short of the variety target` : ''}`});
+  return L.map((l, i) => ({...l, i})).sort((a, b) => (a.tier - b.tier) || (a.i - b.i)).map(({i, ...l}) => l);
+}
+
+// Compares two scorecards tier by tier with the agreed tolerances.
+// Returns {cmp: <0 if a is better, >0 if b is better, 0 if equal; tier; why}.
+function compareScorecards(a, b, spec) {
+  const tol = (spec && spec.tolerances) || {t1: 0.5, t2: 1, t3: 0.05, t4: 1.5, t5: 0};
+  const A = a.tiers, B = b.tiers;
+  const out = (cmp, tier, why) => ({cmp, tier, why});
+  if (A.t0.count !== B.t0.count) return out(A.t0.count - B.t0.count, 0, 'fewer rule clashes');
+  if (A.t0.minutes !== B.t0.minutes) return out(A.t0.minutes - B.t0.minutes, 0, 'smaller rule clashes');
+  // Guarantees: broken by as little as possible (measured in minutes), then
+  // as few times as possible. Counting first would punish a plan for
+  // breaking a rule in two short pieces rather than one long one.
+  if (Math.abs(A.t1.magnitude - B.t1.magnitude) > tol.t1) return out(A.t1.magnitude - B.t1.magnitude, 1, 'guarantees broken by less');
+  if (A.t1.count !== B.t1.count) return out(A.t1.count - B.t1.count, 1, 'fewer broken guarantees');
+  if (Math.abs(A.t2.cost - B.t2.cost) > tol.t2) return out(A.t2.cost - B.t2.cost, 2, 'minutes closer to targets');
+  const scale = Math.max(Math.abs(A.t3.value), Math.abs(B.t3.value), 1);
+  if (Math.abs(A.t3.value - B.t3.value) > tol.t3 * scale) return out(A.t3.value - B.t3.value, 3, 'team strength closer to the ethos');
+  if (Math.abs(A.t4.value - B.t4.value) > tol.t4) return out(A.t4.value - B.t4.value, 4, 'better position fit');
+  if (A.t5.value !== B.t5.value) return out(A.t5.value - B.t5.value, 5, 'fewer changes');
+  return out(0, 6, 'equally good');
+}
+
 /* ================= LINE-UP PRESETS ================= */
 const PRESETS_KEY = K('rf_presets_v1');
 function loadPresets() { try { const r = localStorage.getItem(PRESETS_KEY); if (r) return JSON.parse(r); } catch (e) { /* none */ } return []; }
