@@ -1516,6 +1516,7 @@ let playersById = {};
 let GK_SEGMENTS = [];
 let TARGET = 0, TARGETS = {};
 let startingLineup = {};
+let lineupByCoach = false; // the coach chose the starting line-up (a preset or by hand): the planner keeps it
 
 /* ---- Position optimiser ----
    Placing players into positions is an assignment problem: given who is on
@@ -2113,6 +2114,17 @@ function regeneratePlan() {
     if (typeof schedulePersist === 'function') schedulePersist();
     return;
   }
+  // The new engine (behind a switch until it becomes the default) plans
+  // fresh matches; coach edits and live play still replay through today's
+  // engine until live re-planning moves across.
+  if (cfg.engine === 'window' && cfg.autoSubs !== false && !lockedEvents.length) {
+    try {
+      PLAN = planWithNewEngine();
+      if (typeof schedulePersist === 'function') schedulePersist();
+      logPlanSummary();
+      return;
+    } catch (e) { diag.add('err', 'new engine failed, using the classic planner: ' + (e && e.message)); }
+  }
   const state = simulate(startingLineup, lockedEvents);
   PLAN = {rotations: state.rotations, projectedMinutes: state.minutesPlayed, decisions: state.decisions, gkSegments: state.gkSegments};
   if (typeof schedulePersist === 'function') schedulePersist();
@@ -2216,6 +2228,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
     }
     startingLineup = {}; // a blank pitch: the coach places every player
   } else try {
+    lineupByCoach = false;
     startingLineup = buildStartingLineup(PLAYERS, GK_SEGMENTS);
   } catch (e) {
     document.getElementById('setupError').style.display = 'block';
@@ -2226,7 +2239,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   if (selectedPresetId) {
     const pr = presets.find(x => x.id === selectedPresetId);
     if (pr && presetFits(pr)) {
-      try { startingLineup = lineupFromPreset(pr, startingLineup); syncGkToLineup(); }
+      try { startingLineup = lineupFromPreset(pr, startingLineup); syncGkToLineup(); lineupByCoach = true; }
       catch (e) {
         document.getElementById('setupError').style.display = 'block';
         document.getElementById('setupError').textContent = e.message;
@@ -2400,15 +2413,15 @@ function waterFill(ids, weights, caps, pool) {
   const out = Object.fromEntries(ids.map(id => [id, 0]));
   const live = ids.filter(id => caps[id] > 0 && weights[id] > 0);
   if (!live.length || pool <= 0) return out;
-  const capTotal = live.reduce((a, id) => a + caps[id], 0);
-  if (pool >= capTotal) { live.forEach(id => { out[id] = caps[id]; }); return out; }
-  let lo = 0, hi = pool / Math.min(...live.map(id => weights[id]));
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    const sum = live.reduce((a, id) => a + Math.min(caps[id], mid * weights[id]), 0);
-    if (sum > pool) hi = mid; else lo = mid;
+  // Exact: fill the players who hit their cap first, share the rest by weight.
+  live.sort((a, b) => caps[a] / weights[a] - caps[b] / weights[b]);
+  let R = pool, W = live.reduce((t, id) => t + weights[id], 0), i = 0;
+  for (; i < live.length; i++) {
+    const id = live[i];
+    if (caps[id] / weights[id] <= R / W) { out[id] = caps[id]; R -= caps[id]; W -= weights[id]; } else break;
   }
-  live.forEach(id => { out[id] = Math.min(caps[id], lo * weights[id]); });
+  const lambda = W > 0 ? R / W : 0;
+  for (; i < live.length; i++) out[live[i]] = lambda * weights[live[i]];
   return out;
 }
 
@@ -2474,7 +2487,7 @@ function buildSpec(o) {
     pairs: o.pairs || [],                    // [{a, b, kind: 'with' | 'apart'}]
     reference: o.reference || null,          // the plan the coach has already seen (live stability)
     now: o.now || 0,
-    tolerances: {t1: 0.5, t2: 1, t3: 0.05, t4: 1.5, t5: 0},
+    tolerances: {t1: 0.5, t2: 1, t3: 0.015, t4: 1.5, t5: 0},
     provenance: {
       band: from('playingTime'), floor: from('playingTime'), targets: from('playingTime'),
       strength: from('strength'), fit: from('positions'), windows: from('changes'), season: from('season'),
@@ -2576,7 +2589,21 @@ function planFacts(plan, players, spec) {
 }
 
 /* ---------- Targets ---------- */
+// Targets only change when the time in goal or the window lengths change,
+// so the search reuses them (cached per spec).
+const targetCache = new WeakMap();
 function computePlanTargets(players, spec, facts) {
+  let cache = targetCache.get(spec);
+  if (!cache || cache.players !== players) { cache = {players, map: new Map()}; targetCache.set(spec, cache); }
+  const key = facts.outfieldSlotMinutes + '|' + facts.allSlotMinutes + '|' + facts.ids.map(id => facts.gkMinutes[id]).join(',');
+  const hit = cache.map.get(key);
+  if (hit) return hit;
+  const res = computePlanTargetsUncached(players, spec, facts);
+  if (cache.map.size > 500) cache.map.clear();
+  cache.map.set(key, res);
+  return res;
+}
+function computePlanTargetsUncached(players, spec, facts) {
   const ids = facts.ids, D = spec.duration;
   const caps = {}, weights = {}, equalW = {};
   for (const p of players) {
@@ -2611,7 +2638,7 @@ function subTimingAllows(timing, t, plan) {
 }
 
 /* ---------- The evaluator ---------- */
-function evaluatePlan(plan, players, spec) {
+function evaluatePlan(plan, players, spec, opts) {
   const f = planFacts(plan, players, spec);
   const {byId, ids} = f;
   const fitOf = (p, group) => group === 'GK' ? 1 : (spec.fit[p.positions[group] ?? 0] ?? 0);
@@ -2795,9 +2822,15 @@ function evaluatePlan(plan, players, spec) {
   let keyBonus = 0;
   for (const s of segStrength) for (let t = s.from; t < s.to; t++) keyBonus += (s.S - avgS) * wAt(t);
   const k = spec.strength.mode === 'none' ? 0 : (spec.strength.mode === 'even' ? 0 : spec.strength.k);
-  const evenWeight = spec.strength.mode === 'none' ? 0 : (1 - k);
+  // "Strong start" accepts a weaker finish by design, so evenness doesn't count there.
+  const evenWeight = (spec.strength.mode === 'none' || spec.strength.mode === 'strongStart') ? 0 : (1 - k);
   const softUnitPenalty = softUnit.minutes * Math.max(1, avgS / 3);
-  const t3value = evenWeight * evenPenalty - k * keyBonus + softUnitPenalty;
+  // Lower is better. Overall strength always counts (weakening a strong
+  // spell is never an improvement in itself); spells below average cost
+  // extra in proportion to how much the ethos wants an even team; strength
+  // at the moments the ethos cares about earns a bonus.
+  const strengthMinutes = avgS * totLen;
+  const t3value = spec.strength.mode === 'none' ? softUnitPenalty : -strengthMinutes + 1.5 * evenWeight * evenPenalty - k * keyBonus + softUnitPenalty;
   const weakest = segStrength.reduce((w, s) => (!w || s.S < w.S - 1e-9) ? s : w, null);
   // Shown to the coach per outfield player, on the same 0-10 scale as levels.
   const outfieldCount = Math.max(1, (plan.segments[0] ? plan.segments[0].slots.filter(sl => sl.group !== 'GK').length : 1));
@@ -2834,7 +2867,15 @@ function evaluatePlan(plan, players, spec) {
     const m = together(pr.a, pr.b);
     if (pr.kind === 'apart') pairApart += m; else pairWith += m;
   }
-  const t4value = fitLoss + 0.5 * varietyShort + 0.3 * pairApart - 0.1 * pairWith;
+  // Sharing starts and finishes across the season: starting someone who has
+  // started every match costs a little, so equal players take turns.
+  let shareCost = 0;
+  if (spec.startHistory && plan.segments.length) {
+    const outfieldIn = seg => seg.slots.filter(sl => sl.group !== 'GK').map(sl => seg.onPitch[sl.id]);
+    outfieldIn(plan.segments[0]).forEach(id => { const h = spec.startHistory[id]; if (h) shareCost += 4 * h.startRate; });
+    outfieldIn(plan.segments[plan.segments.length - 1]).forEach(id => { const h = spec.startHistory[id]; if (h) shareCost += 3 * h.finishRate; });
+  }
+  const t4value = fitLoss + 0.5 * varietyShort + 0.3 * pairApart - 0.1 * pairWith + shareCost;
 
   // ---- Tier 5
   const nonBreakMoments = f.moments.filter(m => !m.isBreak && m.on.length);
@@ -2867,14 +2908,14 @@ function evaluatePlan(plan, players, spec) {
         weakest: weakest ? {strength: round1(weakest.S), perPlayer: round1(weakest.S / outfieldCount), from: weakest.from, to: weakest.to} : null, units: unitStats,
         softUnitFloor: softUnit.items, mode: spec.strength.mode, k},
       t4: {value: round1(t4value), fitLoss: round1(fitLoss), fitPct: outMin ? Math.round(fitSum / outMin * 100) : 100,
-        varietyShort: round1(varietyShort), pairWith, pairApart},
+        varietyShort: round1(varietyShort), pairWith, pairApart, shareCost: round1(shareCost)},
       t5: {value: t5value, subMoments: nonBreakMoments.length, breakSubs: f.moments.filter(m => m.isBreak).reduce((a, m) => a + m.on.length, 0),
         subs, positionMoves: moves, softUnitChanges: softUnitChanges.count, stability, softShortSpells: softShort, offTiming: offTiming.length,
         offTimingAllowed: timing.strictness === 'flexible' ? offTiming.map(m => m.time) : []},
     },
     withLevels,
   };
-  card.lines = scorecardLines(card, spec, players);
+  if (!(opts && opts.lines === false)) card.lines = scorecardLines(card, spec, players);
   return card;
 }
 
@@ -2883,7 +2924,7 @@ function scorecardLines(card, spec) {
   const {t0, t1, t2, t3, t4, t5} = card.tiers;
   const L = [];
   if (t0.count) L.push({tier: 0, ok: false, text: `Can't be used as it is: ${t0.items.slice(0, 3).map(x => x.text).join('; ')}${t0.count > 3 ? ` (+${t0.count - 3} more)` : ''}`});
-  const outside = Object.entries(t2.perPlayer).filter(([, v]) => v.outside > 0);
+  const outside = Object.entries(t2.perPlayer).filter(([, v]) => v.outside >= 0.5);
   L.push({tier: 2, ok: !outside.length, text: `Minutes ${t2.range[0]}'–${t2.range[1]}'${t2.basis === 'outfield' ? ' (outfield)' : ''}, targets ± ${Math.round(t2.band)}'` +
     (outside.length ? `. Outside the band: ${outside.slice(0, 4).map(([id, v]) => `${id} ${v.basis}' (target ${Math.round(v.target)}')`).join(', ')}${outside.length > 4 ? ` +${outside.length - 4}` : ''}` : '. Everyone within the band')});
   const byCode = c => t1.items.filter(x => x.code === c);
@@ -2911,7 +2952,7 @@ function scorecardLines(card, spec) {
 // Compares two scorecards tier by tier with the agreed tolerances.
 // Returns {cmp: <0 if a is better, >0 if b is better, 0 if equal; tier; why}.
 function compareScorecards(a, b, spec) {
-  const tol = (spec && spec.tolerances) || {t1: 0.5, t2: 1, t3: 0.05, t4: 1.5, t5: 0};
+  const tol = (spec && spec.tolerances) || {t1: 0.5, t2: 1, t3: 0.015, t4: 1.5, t5: 0};
   const A = a.tiers, B = b.tiers;
   const out = (cmp, tier, why) => ({cmp, tier, why});
   if (A.t0.count !== B.t0.count) return out(A.t0.count - B.t0.count, 0, 'fewer rule clashes');
@@ -2925,8 +2966,11 @@ function compareScorecards(a, b, spec) {
   const steps = {
     minutes: () => Math.abs(A.t2.cost - B.t2.cost) > tol.t2 ? out(A.t2.cost - B.t2.cost, 2, 'minutes closer to targets') : null,
     strength: () => {
+      // "Close enough": 1.5% of the team's strength over the match (about a
+      // Strong player swapped for a Developing one for three minutes), so the
+      // next priority still gets a say.
       const scale = Math.max(Math.abs(A.t3.value), Math.abs(B.t3.value), 1);
-      return Math.abs(A.t3.value - B.t3.value) > tol.t3 * scale ? out(A.t3.value - B.t3.value, 3, 'team strength closer to the ethos') : null;
+      return Math.abs(A.t3.value - B.t3.value) > Math.max(5, tol.t3 * scale) ? out(A.t3.value - B.t3.value, 3, 'team strength closer to the ethos') : null;
     },
     positions: () => Math.abs(A.t4.value - B.t4.value) > tol.t4 ? out(A.t4.value - B.t4.value, 4, 'better position fit') : null,
   };
@@ -3140,6 +3184,12 @@ function compileSpec(ctx) {
   for (const [pid, x] of Object.entries(exceptions)) if (x.extra && equal > 0) spec.targetAdjust[pid] = (spec.targetAdjust[pid] || 1) * Math.max(0.1, 1 + x.extra / equal);
   spec.catchUp = catchUp;
   spec.exceptions = exceptions;
+  // Who has started and finished most often this season (shared out in tier 4).
+  const hist = {};
+  for (const [id, a] of Object.entries((ctx.ledger && ctx.ledger.players) || {})) {
+    if (a.matches > 0) hist[id] = {startRate: a.starts / a.matches, finishRate: a.finishes / a.matches, starts: a.starts, finishes: a.finishes, matches: a.matches};
+  }
+  spec.startHistory = hist;
   Object.assign(spec.provenance, {
     sliders: from, priority: T.priority ? `Today: ${T.label}` : (ethos.priority ? 'your order' : `${preset.label} preset`),
     unitFloor: ethos.rules.unitFloor ? 'your team rule' : `${preset.label} preset`,
@@ -3166,6 +3216,339 @@ function stripPrivatePlayerData(p) { const q = {...p}; delete q.level; delete q.
 function renamePlayerInEthos(oldId, newId) {
   teamEthos.pairs = teamEthos.pairs.map(x => ({...x, a: x.a === oldId ? newId : x.a, b: x.b === oldId ? newId : x.b})).filter(x => x.a && x.b && x.a !== x.b);
   saveEthos();
+}
+
+/* ================= WINDOW PLANNER (the new engine) =================
+ * Plans the whole match at once. The match is split into windows (stretches
+ * of play with a fixed team on the pitch; changes happen only at their
+ * edges). The planner builds a staggered rota, then improves it move by
+ * move, keeping a change only when the scorecard rates the new plan better.
+ * The starting line-up is simply window 1. Same inputs and seed always give
+ * the same plan.
+ */
+function mulberry32(a) {
+  return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function hashSeed(str) { let h = 2166136261; for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+// Window edges: period breaks always; then either the coach's strict sub
+// timing, or evenly spaced edges about one window-length apart. Players
+// leaving early add an edge (they must come off then); late arrivals add
+// one too unless sub timing is strict. No window is shorter than 3'.
+function buildTimeGrid(spec, duration, periodBounds) {
+  const timing = spec.subTiming || {};
+  const strict = timing.strictness === 'strict';
+  const fixed = new Set(periodBounds), edges = new Set(periodBounds);
+  for (let i = 0; i + 1 < periodBounds.length; i++) {
+    const a = periodBounds[i], b = periodBounds[i + 1], len = b - a;
+    if (strict && timing.mode === 'interval' && timing.interval > 0) {
+      for (let t = Math.ceil((a + 1) / timing.interval) * timing.interval; t < b; t += timing.interval) { edges.add(t); fixed.add(t); }
+    } else if (strict && timing.mode === 'checkpoints') {
+      if (timing.halfway) { const h = Math.round((a + b) / 2); edges.add(h); fixed.add(h); }
+    } else {
+      const n = Math.max(1, Math.round(len / spec.windowLen));
+      for (let k = 1; k < n; k++) edges.add(a + Math.round(k * len / n));
+    }
+  }
+  for (const av of Object.values(spec.availability || {})) {
+    if (av.to > 0 && av.to < duration) { edges.add(av.to); fixed.add(av.to); }
+    if (!strict && av.from > 0 && av.from < duration) { edges.add(av.from); fixed.add(av.from); }
+  }
+  const list = [...edges].sort((x, y) => x - y);
+  for (let changed = true; changed;) {
+    changed = false;
+    for (let i = 1; i < list.length - 1; i++) {
+      if (fixed.has(list[i])) continue;
+      if (list[i] - list[i - 1] < 3 || list[i + 1] - list[i] < 3) { list.splice(i, 1); changed = true; break; }
+    }
+  }
+  return {edges: list, fixed};
+}
+
+// Everything the search needs, worked out once.
+// opts: {players, slots, duration, periodBounds, spec, keepers: [{from, to, player|null}], fixedFirst: {slotId: pid}, seed}
+function makePlannerProblem(opts) {
+  const {spec, duration, periodBounds} = opts;
+  const players = opts.players.map(normalisePlayer);
+  const byId = Object.fromEntries(players.map(p => [p.id, p]));
+  const slots = opts.slots.map(s => ({id: s.id, group: s.group, label: s.label || s.group}));
+  const gkSlot = slots.find(s => s.group === 'GK') || null;
+  const outSlots = slots.filter(s => s.group !== 'GK');
+  const grid = buildTimeGrid(spec, duration, periodBounds);
+  const avail = id => { const a = spec.availability[id] || {}; return {from: a.from || 0, to: a.to !== undefined ? a.to : duration}; };
+  const canKeep = id => byId[id] && (byId[id].gk || (spec.allowedKeepers || []).includes(id));
+  const periodOf = t => { for (let i = 0; i + 1 < periodBounds.length; i++) if (t >= periodBounds[i] && t < periodBounds[i + 1]) return i; return periodBounds.length - 2; };
+  return {spec, duration, periodBounds, players, byId, slots, gkSlot, outSlots, grid, avail, canKeep, periodOf,
+    keepers: opts.keepers || [], fixedFirst: opts.fixedFirst || null, rng: mulberry32(hashSeed(opts.seed || 'plan')), ids: players.map(p => p.id)};
+}
+// Is `pid` free to play the whole of window w?
+function eligibleIn(P, pid, w) { const a = P.avail(pid); return a.from <= w.from && w.to <= a.to; }
+
+// The keeper for each period: the coach's choice where made; otherwise an
+// available keeper, sharing goal between them (fewest periods so far).
+function chooseKeepers(P) {
+  if (!P.gkSlot) return [];
+  const used = {}, out = [];
+  for (let i = 0; i + 1 < P.periodBounds.length; i++) {
+    const from = P.periodBounds[i], to = P.periodBounds[i + 1];
+    const seg = P.keepers.find(k => k.from === from) || {};
+    let k = seg.player;
+    const ok = id => id && P.canKeep(id) && P.avail(id).from <= from && to <= P.avail(id).to;
+    if (!ok(k)) {
+      const pinned = (P.spec.keeperPins || []).filter(ok);
+      const pool = (pinned.length ? pinned : P.ids.filter(id => P.byId[id].gk && ok(id))).concat(P.ids.filter(id => !P.byId[id].gk && ok(id)));
+      pool.sort((a, b) => ((used[a] || 0) - (used[b] || 0)) || ((P.byId[b].goal || 0) - (P.byId[a].goal || 0)));
+      k = seg.keep && out.length && ok(out[out.length - 1]) ? out[out.length - 1] : pool[0];
+    }
+    used[k] = (used[k] || 0) + 1; out.push(k || null);
+  }
+  return out;
+}
+
+// Positions inside one window: best fit for the chosen players, keeping
+// anyone already in a position there if it's just as good.
+function assignWindowSlots(P, pids, prevOnPitch) {
+  const outs = P.outSlots;
+  if (!outs.length) return {};
+  const fitV = (pid, g) => { const t = P.byId[pid].positions[g] ?? 0; return t === 0 ? -1000 : (P.spec.fit[t] * playerLevel(P.byId[pid], g)); };
+  const cost = outs.map(sl => pids.map(pid => -fitV(pid, sl.group) - (prevOnPitch && prevOnPitch[sl.id] === pid ? 0.3 : 0)));
+  const ans = hungarianMin(cost);
+  const assign = {};
+  outs.forEach((sl, i) => { assign[sl.id] = pids[ans[i]]; });
+  return assign;
+}
+
+// A sensible first rota: each window picks whoever is furthest behind
+// their target (for the time they have left), keeps players on until their
+// spell reaches the minimum, then fits positions.
+function initialRota(P, jitter) {
+  const {grid, spec, outSlots} = P;
+  const windows = [];
+  for (let i = 0; i + 1 < grid.edges.length; i++) windows.push({from: grid.edges[i], to: grid.edges[i + 1], onPitch: {}});
+  const keepers = chooseKeepers(P);
+  const gkMin = Object.fromEntries(P.ids.map(id => [id, 0]));
+  windows.forEach(w => { const k = keepers[P.periodOf(w.from)]; if (k) gkMin[k] += w.to - w.from; });
+  // Targets for planning, as the scorecard will see them.
+  const caps = {}, weights = {};
+  for (const p of P.players) {
+    const a = P.avail(p.id);
+    caps[p.id] = Math.max(0, (a.to - a.from) - (spec.gkCountsForFairness ? 0 : gkMin[p.id]));
+    if (spec.caps[p.id] !== undefined) caps[p.id] = Math.min(caps[p.id], spec.caps[p.id]);
+    const lvl = typeof p.level === 'number' ? p.level : LEVEL_DEFAULT;
+    weights[p.id] = Math.max(0.05, (1 + spec.levelWeight * clamp((lvl - LEVEL_DEFAULT) / 3, -1, 1)) * (spec.targetAdjust[p.id] || 1));
+  }
+  const pool = outSlots.length * P.duration + (spec.gkCountsForFairness && P.gkSlot ? P.duration : 0);
+  const target = waterFill(P.ids, weights, caps, pool);
+  const played = Object.fromEntries(P.ids.map(id => [id, spec.gkCountsForFairness ? gkMin[id] : 0]));
+  const spell = {};
+  let prev = null;
+  windows.forEach((w, wi) => {
+    const len = w.to - w.from;
+    const k = keepers[P.periodOf(w.from)];
+    if (P.gkSlot && k) w.onPitch[P.gkSlot.id] = k;
+    if (wi === 0 && P.fixedFirst) { Object.assign(w.onPitch, P.fixedFirst); }
+    else {
+      const cands = P.ids.filter(id => id !== k && eligibleIn(P, id, w) && caps[id] > 0);
+      const pins = wi === 0 ? (spec.startPins || {}) : {};
+      const remain = id => Math.max(1, Math.min(P.avail(id).to, P.duration) - w.from);
+      const score = id => {
+        let s = (target[id] - played[id]) / remain(id);
+        if (prev && Object.values(prev).includes(id) && (spell[id] || 0) < spec.minSpell) s += 0.6;
+        if (pins[id] === 'start') s += 100;
+        if (pins[id] === 'bench') s -= 100;
+        return s + jitter() * 0.02;
+      };
+      const chosen = cands.sort((a, b) => score(b) - score(a)).slice(0, outSlots.length);
+      Object.assign(w.onPitch, assignWindowSlots(P, chosen, prev));
+    }
+    for (const [sl, pid] of Object.entries(w.onPitch)) {
+      if (sl === (P.gkSlot && P.gkSlot.id)) continue;
+      played[pid] += len;
+    }
+    const on = new Set(Object.values(w.onPitch));
+    P.ids.forEach(id => { spell[id] = on.has(id) ? (spell[id] || 0) + len : 0; });
+    prev = w.onPitch;
+  });
+  return windows;
+}
+
+const planOfWindows = (P, windows) => ({duration: P.duration, periodBounds: P.periodBounds, segments: windows.map(w => ({from: w.from, to: w.to, slots: P.slots, onPitch: w.onPitch}))});
+const cloneWindows = ws => ws.map(w => ({from: w.from, to: w.to, onPitch: {...w.onPitch}}));
+
+// One random change to a rota. Returns a new rota or null if the move
+// doesn't apply. Window 1 stays as the coach set it when they chose the line-up.
+function randomMove(P, ws) {
+  const r = P.rng, n = ws.length;
+  const firstFree = P.fixedFirst ? 1 : 0;
+  if (firstFree >= n) return null;
+  const wi = firstFree + Math.floor(r() * (n - firstFree));
+  const w = ws[wi];
+  const gkId = P.gkSlot ? w.onPitch[P.gkSlot.id] : null;
+  const outs = P.outSlots;
+  if (!outs.length) return null;
+  const onIds = () => new Set(Object.values(w.onPitch));
+  const kind = r();
+  const out = cloneWindows(ws), x = out[wi];
+  const slotOf = (win, pid) => Object.keys(win.onPitch).find(s => win.onPitch[s] === pid);
+  const pins = wi === 0 ? (P.spec.startPins || {}) : {};
+  const benchable = pid => pins[pid] !== 'start';
+  const startable = pid => pins[pid] !== 'bench';
+  if (kind < 0.34) {                       // bring a bench player on for someone
+    const on = onIds();
+    const bench = P.ids.filter(id => !on.has(id) && id !== gkId && eligibleIn(P, id, w) && startable(id));
+    if (!bench.length) return null;
+    const q = bench[Math.floor(r() * bench.length)];
+    const sl = outs[Math.floor(r() * outs.length)];
+    if (!benchable(x.onPitch[sl.id])) return null;
+    x.onPitch[sl.id] = q;
+    if (r() < 0.5) Object.assign(x.onPitch, assignWindowSlots(P, outs.map(s => x.onPitch[s.id]), wi ? out[wi - 1].onPitch : null));
+  } else if (kind < 0.46) {                // swap two players' positions
+    const a = outs[Math.floor(r() * outs.length)], b = outs[Math.floor(r() * outs.length)];
+    if (a.id === b.id) return null;
+    [x.onPitch[a.id], x.onPitch[b.id]] = [x.onPitch[b.id], x.onPitch[a.id]];
+  } else if (kind < 0.70) {                // keep a spell going (copy from the window before or after)
+    const dir = r() < 0.5 ? -1 : 1, nb = out[wi + dir];
+    if (!nb) return null;
+    const sl = outs[Math.floor(r() * outs.length)];
+    const pid = nb.onPitch[sl.id];
+    if (!pid || pid === x.onPitch[sl.id] || pid === gkId || !eligibleIn(P, pid, w)) return null;
+    const where = slotOf(x, pid);
+    if (where) { if (where === (P.gkSlot && P.gkSlot.id)) return null; x.onPitch[where] = x.onPitch[sl.id]; }
+    else if (!benchable(x.onPitch[sl.id]) || !startable(pid)) return null;
+    x.onPitch[sl.id] = pid;
+  } else if (kind < 0.86) {                // two players swap their whole schedules
+    const ids = P.ids.filter(id => !P.keepersUsed || !P.keepersUsed.has(id));
+    const a = ids[Math.floor(r() * ids.length)], b = ids[Math.floor(r() * ids.length)];
+    if (a === b) return null;
+    let changed = false;
+    for (let i = firstFree; i < out.length; i++) {
+      const win = out[i], gk = P.gkSlot ? win.onPitch[P.gkSlot.id] : null;
+      if (a === gk || b === gk) continue;
+      const sa = slotOf(win, a), sb = slotOf(win, b);
+      if (!sa && !sb) continue;
+      if ((sa && !eligibleIn(P, b, win)) || (sb && !eligibleIn(P, a, win))) return null;
+      if (i === 0 && ((sa && (pins[a] === 'start' || pins[b] === 'bench')) || (sb && (pins[b] === 'start' || pins[a] === 'bench')))) return null;
+      if (sa) win.onPitch[sa] = b;
+      if (sb) win.onPitch[sb] = a;
+      changed = true;
+    }
+    if (!changed) return null;
+  } else if (kind < 0.92) {                // split a window and change one player part-way through
+    if (wi === 0 && P.fixedFirst) return null;
+    const len = x.to - x.from;
+    if (len < 6) return null;
+    const t = x.from + 3 + Math.floor(r() * (len - 5));
+    const on = onIds();
+    const bench = P.ids.filter(id => !on.has(id) && id !== gkId && P.avail(id).from <= t && x.to <= P.avail(id).to && (wi > 0 || startable(id)));
+    if (!bench.length) return null;
+    const second = {from: t, to: x.to, onPitch: {...x.onPitch}};
+    x.to = t;
+    const sl = outs[Math.floor(r() * outs.length)];
+    second.onPitch[sl.id] = bench[Math.floor(r() * bench.length)];
+    out.splice(wi + 1, 0, second);
+  } else if (kind < 0.96) {                // merge a window into the next one (one stoppage fewer)
+    const nb = out[wi + 1];
+    if (!nb || P.grid.fixed.has(nb.from)) return null;
+    if (wi === 0 && P.fixedFirst) return null;
+    const keepFirst = r() < 0.5;
+    const merged = {from: x.from, to: nb.to, onPitch: {...(keepFirst ? x : nb).onPitch}};
+    for (const pid of Object.values(merged.onPitch)) { const a = P.avail(pid); if (a.from > merged.from || a.to < merged.to) return null; }
+    if (wi === 0 && !keepFirst) for (const [pid, pin] of Object.entries(pins)) { const on = Object.values(merged.onPitch).includes(pid); if ((pin === 'start' && !on) || (pin === 'bench' && on)) return null; }
+    out.splice(wi, 2, merged);
+  } else {                                 // move a window edge by a minute or two
+    const ei = 1 + Math.floor(r() * (out.length - 1));
+    if (ei >= out.length) return null;
+    const t = out[ei].from;
+    if (P.grid.fixed.has(t)) return null;
+    const d = (r() < 0.5 ? -1 : 1) * (r() < 0.7 ? 1 : 2);
+    const nt = t + d;
+    if (nt - out[ei - 1].from < 3 || out[ei].to - nt < 3) return null;
+    // Players coming on at this edge must be available from the new time.
+    for (const pid of Object.values(out[ei].onPitch)) if (P.avail(pid).from > nt) return null;
+    for (const pid of Object.values(out[ei - 1].onPitch)) if (P.avail(pid).to < nt) return null;
+    out[ei - 1].to = nt; out[ei].from = nt;
+  }
+  return out;
+}
+
+// Runs the search: a few different starting rotas, each improved by random
+// moves that the scorecard accepts only if they make the plan better.
+function planMatchWindows(opts) {
+  const P = makePlannerProblem(opts);
+  const budget = opts.budget || 2500, restarts = opts.restarts || 2, stall = opts.stall || 700;
+  const ev = ws => evaluatePlan(planOfWindows(P, ws), P.players, P.spec, {lines: false});
+  let best = null;
+  for (let r = 0; r < restarts; r++) {
+    const jitterRng = mulberry32(hashSeed((opts.seed || 'plan') + ':' + r));
+    let cur = initialRota(P, r === 0 ? () => 0 : jitterRng);
+    let card = ev(cur);
+    let sinceBetter = 0;
+    for (let i = 0; i < budget && sinceBetter < stall; i++) {
+      const cand = randomMove(P, cur);
+      if (!cand) continue;
+      const c = ev(cand);
+      if (compareScorecards(c, card, P.spec).cmp < 0) { cur = cand; card = c; sinceBetter = 0; } else sinceBetter++;
+    }
+    if (!best || compareScorecards(card, best.card, P.spec).cmp < 0) best = {windows: cur, card};
+  }
+  const plan = planOfWindows(P, best.windows);
+  const card = evaluatePlan(plan, P.players, P.spec);
+  return {windows: best.windows, plan, card, problem: P};
+}
+
+// Turns a rota into the app's plan format (a starting line-up and a list
+// of substitutions and position moves), so every screen works unchanged.
+function rotaToRotations(windows, slots, periodBounds) {
+  const gkId = (slots.find(s => s.group === 'GK') || {}).id;
+  const rotations = [];
+  const breaks = new Set(periodBounds.slice(1, -1));
+  for (let i = 1; i < windows.length; i++) {
+    const before = windows[i - 1].onPitch, after = windows[i].onPitch, t = windows[i].from;
+    const bIds = new Set(Object.values(before)), aIds = new Set(Object.values(after));
+    const entering = Object.values(after).filter(id => !bIds.has(id));
+    const leaving = Object.values(before).filter(id => !aIds.has(id));
+    const cur = {...before};
+    const keeperReason = sl => sl === gkId ? (breaks.has(t) ? 'scheduled GK rotation' : 'keeper change') : null;
+    // Direct subs: the new player takes the leaving player's own position.
+    for (const sl of Object.keys(after)) {
+      if (entering.includes(after[sl]) && leaving.includes(before[sl])) {
+        rotations.push({time: t, slot: sl, off: before[sl], on: after[sl], reason: keeperReason(sl) || 'planned rotation'});
+        cur[sl] = after[sl];
+        entering.splice(entering.indexOf(after[sl]), 1); leaving.splice(leaving.indexOf(before[sl]), 1);
+      }
+    }
+    // Remaining: the new player comes on in the leaver's spot, then positions move.
+    while (entering.length && leaving.length) {
+      const e = entering.shift(), l = leaving.shift();
+      const sl = Object.keys(cur).find(s => cur[s] === l);
+      rotations.push({time: t, slot: sl, off: l, on: e, reason: keeperReason(sl) || 'planned rotation'});
+      cur[sl] = e;
+    }
+    const assign = {}, moves = [];
+    const where = {}; Object.entries(cur).forEach(([s, p]) => { where[p] = s; });
+    for (const sl of Object.keys(after)) if (cur[sl] !== after[sl]) { assign[sl] = after[sl]; moves.push({pid: after[sl], from: where[after[sl]], to: sl}); }
+    if (moves.length) {
+      const gkMove = moves.some(m => m.from === gkId || m.to === gkId);
+      rotations.push({time: t, type: 'reshuffle', assign, moves, reason: gkMove ? 'keeper swap' : 'planned positions'});
+    }
+  }
+  return rotations;
+}
+
+// Plans the open match with the new engine and puts the result in the app's
+// usual plan format. Used when the match's settings choose the new engine.
+function planWithNewEngine() {
+  const spec = currentMatchSpec();
+  const res = planMatchWindows({players: PLAYERS, slots: SLOTS, duration: DURATION, periodBounds: [...PERIOD_BOUNDS], spec,
+    keepers: GK_SEGMENTS.map(sg => ({...sg})), fixedFirst: lineupByCoach && lineupComplete() ? {...startingLineup} : null,
+    seed: (currentMatchId || 'draft') + ':' + PLAYERS.map(p => p.id).join(',')});
+  startingLineup = {...res.windows[0].onPitch};
+  const rotations = rotaToRotations(res.windows, SLOTS, PERIOD_BOUNDS);
+  const projected = Object.fromEntries(PLAYERS.map(p => [p.id, 0]));
+  res.windows.forEach(w => Object.values(w.onPitch).forEach(id => { if (id in projected) projected[id] += w.to - w.from; }));
+  const gkSlot = SLOTS.find(sl => sl.group === 'GK');
+  const gkSegments = GK_SEGMENTS.map(sg => ({...sg, player: gkSlot ? (res.windows.find(w => w.from >= sg.from) || res.windows[0]).onPitch[gkSlot.id] : null}));
+  return {rotations, projectedMinutes: projected, decisions: [], gkSegments, scorecard: res.card, engine: 'window', windows: res.windows};
 }
 
 /* ================= LINE-UP PRESETS ================= */
@@ -3339,7 +3722,7 @@ function applyPresetInPlan(pr) {
       lockedEvents = [];
     }
     try { startingLineup = lineupFromPreset(pr, startingLineup); } catch (e) { showAlert(e.message); return; }
-    syncGkToLineup();
+    syncGkToLineup(); lineupByCoach = true;
     regeneratePlan();
     openPicker = null;
     initPlanScreenForFormat();
@@ -3759,7 +4142,7 @@ function buildPicker(slotId, time) {
     const row = document.createElement('div'); row.className = 'picker-opt';
     row.innerHTML = `<span>${p.id}</span><span class="tier ${tier <= 1 ? 'warn' : ''}">${TIER_NAMES[tier]}</span>`;
     row.addEventListener('click', () => {
-      if (openPicker.kind === 'start') { startingLineup = {...startingLineup, [slotId]: p.id}; }
+      if (openPicker.kind === 'start') { startingLineup = {...startingLineup, [slotId]: p.id}; lineupByCoach = true; }
       else {
         lockedEvents.push({time, type: 'sub', slot: slotId, on: p.id, manual: true});
         // The coach just explicitly actioned this slot/time themselves, so it
@@ -3796,7 +4179,7 @@ function buildPicker(slotId, time) {
       const row = document.createElement('div'); row.className = 'picker-opt';
       row.innerHTML = `<span>${pid} (${other.label})</span><span class="tier ${bad ? 'warn' : ''}">${currentOccupant} → ${other.label}: ${tierHere === null ? 'GK' : TIER_NAMES[tierHere]} · ${pid} → ${slot.label}: ${tierThere === null ? 'GK' : TIER_NAMES[tierThere]}</span>`;
       row.addEventListener('click', () => {
-        startingLineup = {...startingLineup, [slotId]: pid, [sid]: currentOccupant};
+        startingLineup = {...startingLineup, [slotId]: pid, [sid]: currentOccupant}; lineupByCoach = true;
         regeneratePlan(); openPicker = null;
         const holder = document.getElementById('startPickerHolder'); if (holder) holder.innerHTML = '';
         render(currentT);
@@ -4638,7 +5021,7 @@ function buildMatchSnapshot() {
     // rotation settings (and any changes made mid-match)
     cfg: {...cfg}, cfgEras: JSON.parse(JSON.stringify(cfgEras)),
     // engine state
-    startingLineup: {...startingLineup},
+    startingLineup: {...startingLineup}, lineupByCoach,
     lockedEvents: JSON.parse(JSON.stringify(lockedEvents)),
     unavailableFrom: {...unavailableFrom},
     // live clock / progress
@@ -4798,7 +5181,7 @@ function restoreLiveMatch(saved, recordId) {
   computeTargets();
   GK_SEGMENTS = computeGkSegments();
 
-  startingLineup = {...saved.startingLineup};
+  startingLineup = {...saved.startingLineup}; lineupByCoach = !!saved.lineupByCoach;
   lockedEvents = saved.lockedEvents;
   unavailableFrom = {...saved.unavailableFrom};
   currentMatchId = null; // regenerate without writing until fully restored
