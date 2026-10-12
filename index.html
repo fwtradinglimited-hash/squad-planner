@@ -2390,12 +2390,22 @@ function waterFill(ids, weights, caps, pool) {
  * Built from the Team Ethos sliders (each 0-100) and team rules. The numbers
  * follow section 8 of the design review; each carries where it came from, so
  * every number the coach sees can be explained. */
+// `priority` is the order minutes, strength and positions are weighed in.
+// Rules and guarantees (including each player's minute floor) always come
+// first, and smoothness last; between them the coach's ethos decides. A
+// coach who wants the strongest side kept in position ranks minutes last.
+const PRIORITY_AREAS = ['minutes', 'strength', 'positions'];
 const ETHOS_PRESETS = {
-  development: {label: 'Development', playingTime: 0, strength: 10, positions: 70, changes: 70, season: 70, unitFloor: 'strict'},
-  balanced: {label: 'Balanced', playingTime: 25, strength: 30, positions: 35, changes: 50, season: 50, unitFloor: 'strict'},
-  competitive: {label: 'Competitive', playingTime: 60, strength: 70, positions: 15, changes: 35, season: 25, unitFloor: 'strict'},
-  performance: {label: 'Performance', playingTime: 90, strength: 85, positions: 0, changes: 20, season: 0, unitFloor: 'off'},
+  development: {label: 'Development', playingTime: 0, strength: 10, positions: 70, changes: 70, season: 70, unitFloor: 'strict', priority: ['minutes', 'positions', 'strength']},
+  balanced: {label: 'Balanced', playingTime: 25, strength: 30, positions: 35, changes: 50, season: 50, unitFloor: 'strict', priority: ['minutes', 'strength', 'positions']},
+  competitive: {label: 'Competitive', playingTime: 60, strength: 70, positions: 15, changes: 35, season: 25, unitFloor: 'strict', priority: ['strength', 'minutes', 'positions']},
+  performance: {label: 'Performance', playingTime: 90, strength: 85, positions: 0, changes: 20, season: 0, unitFloor: 'off', priority: ['strength', 'positions', 'minutes']},
 };
+// A valid priority order: the three areas, each once, in the coach's order.
+function normalisePriority(order, fallback) {
+  const o = Array.isArray(order) ? order.filter((x, i) => PRIORITY_AREAS.includes(x) && order.indexOf(x) === i) : [];
+  return o.length === 3 ? o : [...fallback];
+}
 function buildSpec(o) {
   const base = ETHOS_PRESETS[o.preset || 'balanced'] || ETHOS_PRESETS.balanced;
   const pick = k => (o.sliders && typeof o.sliders[k] === 'number') ? o.sliders[k] : base[k];
@@ -2412,6 +2422,7 @@ function buildSpec(o) {
   const fit = {0: 0, 3: 1, 2: 1 - (1 - fitBase[2]) * (1 - soften), 1: 1 - (1 - fitBase[1]) * (1 - soften)};
   const spec = {
     preset: o.preset || 'balanced', sliders: s, duration, periodBounds: o.periodBounds,
+    priority: normalisePriority(o.priority, base.priority),
     windowLen,
     band: (0.06 + 0.08 * s.playingTime) * duration,
     floorFrac: 0.8 - 0.5 * s.playingTime,
@@ -2439,6 +2450,7 @@ function buildSpec(o) {
       band: from('playingTime'), floor: from('playingTime'), targets: from('playingTime'),
       strength: from('strength'), fit: from('positions'), windows: from('changes'), season: from('season'),
       unitFloor: rules.unitFloor ? 'team rule (edited)' : `${base.label} default`,
+      priority: o.priority ? 'edited' : `${base.label} default`,
     },
   };
   return spec;
@@ -2819,7 +2831,10 @@ function scorecardLines(card, spec) {
   L.push({tier: 5, ok: true, text: `${t5.subs} subs: ${t5.subs - t5.breakSubs} during play at ${t5.subMoments} stoppages, ${t5.breakSubs} at period breaks; ${t5.positionMoves} position moves`});
   if (t3.weakest) L.push({tier: 3, ok: true, text: `Strength on the pitch averages ${t3.perPlayer} out of 10; weakest spell ${t3.weakest.perPlayer} (${t3.weakest.from}'–${t3.weakest.to}')`});
   L.push({tier: 4, ok: t4.fitPct >= 85, text: `Positions: ${t4.fitPct}% position fit${t4.varietyShort ? `; ${Math.round(t4.varietyShort)}' short of the variety target` : ''}`});
-  return L.map((l, i) => ({...l, i})).sort((a, b) => (a.tier - b.tier) || (a.i - b.i)).map(({i, ...l}) => l);
+  const areaOf = {0: 'rules', 1: 'guarantees', 2: 'minutes', 3: 'strength', 4: 'positions', 5: 'smoothness'};
+  const order = ['rules', 'guarantees', ...((spec && spec.priority) || PRIORITY_AREAS), 'smoothness'];
+  return L.map((l, i) => ({...l, area: areaOf[l.tier], i}))
+    .sort((a, b) => (order.indexOf(a.area) - order.indexOf(b.area)) || (a.i - b.i)).map(({i, ...l}) => l);
 }
 
 // Compares two scorecards tier by tier with the agreed tolerances.
@@ -2835,10 +2850,16 @@ function compareScorecards(a, b, spec) {
   // breaking a rule in two short pieces rather than one long one.
   if (Math.abs(A.t1.magnitude - B.t1.magnitude) > tol.t1) return out(A.t1.magnitude - B.t1.magnitude, 1, 'guarantees broken by less');
   if (A.t1.count !== B.t1.count) return out(A.t1.count - B.t1.count, 1, 'fewer broken guarantees');
-  if (Math.abs(A.t2.cost - B.t2.cost) > tol.t2) return out(A.t2.cost - B.t2.cost, 2, 'minutes closer to targets');
-  const scale = Math.max(Math.abs(A.t3.value), Math.abs(B.t3.value), 1);
-  if (Math.abs(A.t3.value - B.t3.value) > tol.t3 * scale) return out(A.t3.value - B.t3.value, 3, 'team strength closer to the ethos');
-  if (Math.abs(A.t4.value - B.t4.value) > tol.t4) return out(A.t4.value - B.t4.value, 4, 'better position fit');
+  // Minutes, strength and positions in the order the coach's ethos sets.
+  const steps = {
+    minutes: () => Math.abs(A.t2.cost - B.t2.cost) > tol.t2 ? out(A.t2.cost - B.t2.cost, 2, 'minutes closer to targets') : null,
+    strength: () => {
+      const scale = Math.max(Math.abs(A.t3.value), Math.abs(B.t3.value), 1);
+      return Math.abs(A.t3.value - B.t3.value) > tol.t3 * scale ? out(A.t3.value - B.t3.value, 3, 'team strength closer to the ethos') : null;
+    },
+    positions: () => Math.abs(A.t4.value - B.t4.value) > tol.t4 ? out(A.t4.value - B.t4.value, 4, 'better position fit') : null,
+  };
+  for (const area of (spec && spec.priority) || PRIORITY_AREAS) { const r = steps[area](); if (r) return r; }
   if (A.t5.value !== B.t5.value) return out(A.t5.value - B.t5.value, 5, 'fewer changes');
   return out(0, 6, 'equally good');
 }

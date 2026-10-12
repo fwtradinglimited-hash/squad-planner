@@ -39,6 +39,23 @@ const STAGGERED = REFERENCE_PLANS.staggered.windows, NAIVE = REFERENCE_PLANS.nai
     const sp3 = spec('balanced', {rules: {unitFloor: 'soft'}});
     const n3 = ev(NAIVE, sp3), s3 = ev(STAGGERED, sp3);
     out.soft = {naiveT1: n3.tiers.t1.items.filter(x => x.code === 'UNIT_FLOOR').length, softItems: n3.tiers.t3.softUnitFloor.length, verdict: compareScorecards(s3, n3, sp3)};
+    // Priority order follows the ethos: Ava replaces Finn for the last window
+    // (stronger finish, Ava 42', Finn 25'). Minutes-first ethos keeps the
+    // equal plan; strength-first ethos takes the stronger one.
+    const strongEnd = STAGGERED.map(x => ({...x}));
+    strongEnd[5] = W('Eli', 'Gus', 'Ben', 'Cal', 'Ike', 'Ava');
+    const verdictFor = sp => compareScorecards(ev(strongEnd, sp), ev(STAGGERED, sp), sp);
+    out.priority = {
+      balanced: verdictFor(spec('balanced')),
+      performance: verdictFor(spec('performance')),
+      // Same sliders, only the order differs: strong finishes valued fully,
+      // equal targets. Strength first takes the strong finish; minutes first doesn't.
+      customStrengthFirst: verdictFor(spec('balanced', {sliders: {strength: 100, playingTime: 25}, priority: ['strength', 'positions', 'minutes']})),
+      customMinutesFirst: verdictFor(spec('balanced', {sliders: {strength: 100, playingTime: 25}, priority: ['minutes', 'strength', 'positions']})),
+      floorStillWins: verdictFor(spec('balanced', {sliders: {strength: 100, playingTime: 0}, priority: ['strength', 'positions', 'minutes']})),
+      linesPerf: ev(strongEnd, spec('performance')).lines.map(l => l.area),
+      invalid: buildSpec({preset: 'balanced', duration: 50, periodBounds: PB, priority: ['minutes', 'minutes']}).priority,
+    };
     // Minutes: a plan that benches Cal for the whole second half
     const unfair = STAGGERED.map(x => ({...x}));
     unfair[5] = W('Eli', 'Finn', 'Ben', 'Dan', 'Ike', 'Gus'); // Cal off, Dan on again
@@ -87,6 +104,15 @@ const STAGGERED = REFERENCE_PLANS.staggered.windows, NAIVE = REFERENCE_PLANS.nai
   ok(r.development.staggered.t2.overshoot === 0, 'equal-minute plan sits inside the band', r.development.staggered.t2);
   ok(r.strongStart.cmp < 0 && r.strongStart.tier === 3, 'with the unit rule off and a "strong start" ethos, the best-XI-first plan wins on strength', r.strongStart);
   ok(r.soft.naiveT1 === 0 && r.soft.softItems > 0 && r.soft.verdict.cmp < 0 && r.soft.verdict.tier === 3, 'unit rule "soft": no broken guarantee, but strength prefers the staggered plan', r.soft);
+
+  console.log('The ethos decides whether minutes, strength or positions come first');
+  ok(r.priority.balanced.cmp > 0 && r.priority.balanced.tier === 2, 'Balanced (minutes first): equal minutes beat a stronger finish', r.priority.balanced);
+  ok(r.priority.performance.cmp < 0 && r.priority.performance.tier === 3, 'Performance (strength first): the stronger finish wins despite uneven minutes', r.priority.performance);
+  ok(r.priority.customStrengthFirst.cmp < 0, 'with the same settings, putting strength first takes the strong finish', r.priority.customStrengthFirst);
+  ok(r.priority.customMinutesFirst.cmp > 0, 'with the same settings, putting minutes first keeps equal minutes', r.priority.customMinutesFirst);
+  ok(r.priority.floorStillWins.cmp > 0 && r.priority.floorStillWins.tier === 1, 'even with strength first, a player pushed below their minute floor is a broken guarantee', r.priority.floorStillWins);
+  ok(r.priority.linesPerf.indexOf('strength') < r.priority.linesPerf.indexOf('minutes'), 'scorecard lines follow the same order', r.priority.linesPerf);
+  ok(JSON.stringify(r.priority.invalid) === JSON.stringify(['minutes', 'strength', 'positions']), 'an invalid order falls back to the preset', r.priority.invalid);
 
   console.log('Minutes, spells and changes');
   ok(r.unfair.t2.outside > 0 || r.unfair.dan.outside > 0, 'a player well under target is outside the band', r.unfair);

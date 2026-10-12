@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-10T21:18:25.587Z",
+ "generated": "2026-10-12T14:50:16.937Z",
  "engine": "current (minute-by-minute greedy)",
  "judgedAgainst": "proposed Balanced ethos",
  "results": [
@@ -613,27 +613,32 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 8', more than 2 at once; 3 changes at 15', more than 2 at once"
+      "text": "3 changes at 8', more than 2 at once; 3 changes at 15', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 18'–36' (outfield), targets ± 4'. Outside the band: Archie 18' (target 25'), Alfie 36' (target 31')"
+      "text": "Minutes 18'–36' (outfield), targets ± 4'. Outside the band: Archie 18' (target 25'), Alfie 36' (target 31')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4 out of 10; weakest spell 4 (0'–8')"
+      "text": "Strength on the pitch averages 4 out of 10; weakest spell 4 (0'–8')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": false,
-      "text": "Positions: 81% position fit"
+      "text": "Positions: 81% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "12 subs: 12 during play at 6 stoppages, 0 at period breaks; 2 position moves"
+      "text": "12 subs: 12 during play at 6 stoppages, 0 at period breaks; 2 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -834,27 +839,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 15', more than 2 at once"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 15', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 18'–36' (outfield), targets ± 4'. Outside the band: Archie 18' (target 25'), Alfie 36' (target 31')"
+        "text": "Minutes 18'–36' (outfield), targets ± 4'. Outside the band: Archie 18' (target 25'), Alfie 36' (target 31')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4 out of 10; weakest spell 4 (0'–8')"
+        "text": "Strength on the pitch averages 4 out of 10; weakest spell 4 (0'–8')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": false,
-        "text": "Positions: 81% position fit"
+        "text": "Positions: 81% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "12 subs: 12 during play at 6 stoppages, 0 at period breaks; 2 position moves"
+        "text": "12 subs: 12 during play at 6 stoppages, 0 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -1397,42 +1407,50 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Archie gets 15', below their floor of 17'"
+      "text": "Archie gets 15', below their floor of 17'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "George sits out 22' (22'–44'), over the 19' maximum"
+      "text": "George sits out 22' (22'–44'), over the 19' maximum",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "George comes on for only 6' at the end (44'–50')"
+      "text": "George comes on for only 6' at the end (44'–50')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 12', more than 2 at once; 3 changes at 22', more than 2 at once"
+      "text": "3 changes at 12', more than 2 at once; 3 changes at 22', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 15'–38' (outfield), targets ± 4'. Outside the band: Archie 15' (target 25'), Noah 38' (target 31'), Theo 38' (target 31')"
+      "text": "Minutes 15'–38' (outfield), targets ± 4'. Outside the band: Archie 15' (target 25'), Noah 38' (target 31'), Theo 38' (target 31')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4 out of 10; weakest spell 4 (0'–12')"
+      "text": "Strength on the pitch averages 4 out of 10; weakest spell 4 (0'–12')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": false,
-      "text": "Positions: 81% position fit"
+      "text": "Positions: 81% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "9 subs: 9 during play at 4 stoppages, 0 at period breaks; 2 position moves"
+      "text": "9 subs: 9 during play at 4 stoppages, 0 at period breaks; 2 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -1645,37 +1663,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "George sits out 22' (22'–44'), over the 20' maximum"
+        "text": "George sits out 22' (22'–44'), over the 20' maximum",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "George comes on for only 6' at the end (44'–50')"
+        "text": "George comes on for only 6' at the end (44'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 12', more than 2 at once; 3 changes at 22', more than 2 at once"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 15'–38' (outfield), targets ± 5'. Outside the band: Archie 15' (target 25'), Noah 38' (target 31'), Theo 38' (target 31')"
+        "text": "3 changes at 12', more than 2 at once; 3 changes at 22', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 3.9 out of 10; weakest spell 3.9 (0'–12')"
+        "text": "Strength on the pitch averages 3.9 out of 10; weakest spell 3.9 (0'–12')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 15'–38' (outfield), targets ± 5'. Outside the band: Archie 15' (target 25'), Noah 38' (target 31'), Theo 38' (target 31')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": false,
-        "text": "Positions: 78% position fit"
+        "text": "Positions: 78% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "9 subs: 9 during play at 4 stoppages, 0 at period breaks; 2 position moves"
+        "text": "9 subs: 9 during play at 4 stoppages, 0 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -3158,37 +3183,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Archie gets 16', below their floor of 17'"
+      "text": "Archie gets 16', below their floor of 17'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Archie plays only 5' (0'–5'), under the 8' minimum spell; Archie plays only 5' (7'–12'), under the 8' minimum spell (+35 more)"
+      "text": "Archie plays only 5' (0'–5'), under the 8' minimum spell; Archie plays only 5' (7'–12'), under the 8' minimum spell (+35 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+5 more)"
+      "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+5 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 16'–33' (outfield), targets ± 4'. Outside the band: Archie 16' (target 25')"
+      "text": "Minutes 16'–33' (outfield), targets ± 4'. Outside the band: Archie 16' (target 25')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4 out of 10; weakest spell 4 (0'–5')"
+      "text": "Strength on the pitch averages 4 out of 10; weakest spell 4 (0'–5')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": false,
-      "text": "Positions: 81% position fit"
+      "text": "Positions: 81% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "41 subs: 38 during play at 18 stoppages, 3 at period breaks; 1 position moves"
+      "text": "41 subs: 38 during play at 18 stoppages, 3 at period breaks; 1 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -3449,37 +3481,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Archie gets 16', below their floor of 20'"
+        "text": "Archie gets 16', below their floor of 20'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Charlie comes on for only 3' at the end (47'–50'); Leo comes on for only 4' at the end (46'–50') (+2 more)"
+        "text": "Charlie comes on for only 3' at the end (47'–50'); Leo comes on for only 4' at the end (46'–50') (+2 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+5 more)"
+        "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+5 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 16'–33' (outfield), targets ± 3'. Outside the band: Archie 16' (target 25')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.2 out of 10; weakest spell 4.2 (0'–5')"
+        "text": "Minutes 16'–33' (outfield), targets ± 3'. Outside the band: Archie 16' (target 25')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 85% position fit; 3' short of the variety target"
+        "text": "Positions: 85% position fit; 3' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.2 out of 10; weakest spell 4.2 (0'–5')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "41 subs: 38 during play at 18 stoppages, 3 at period breaks; 1 position moves"
+        "text": "41 subs: 38 during play at 18 stoppages, 3 at period breaks; 1 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -4266,32 +4305,38 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing midfield (Cal + Dan) 10'–35'"
+      "text": "All-Developing midfield (Cal + Dan) 10'–35'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')"
+      "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Gus 29' (target 33'), Dan 36' (target 31')"
+      "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Gus 29' (target 33'), Dan 36' (target 31')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')"
+      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 95% position fit"
+      "text": "Positions: 95% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves"
+      "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -4504,32 +4549,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Cal + Dan) 10'–35'"
+        "text": "All-Developing midfield (Cal + Dan) 10'–35'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')"
+        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Gus 29' (target 33'), Dan 36' (target 31')"
+        "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Gus 29' (target 33'), Dan 36' (target 31')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')"
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 95% position fit"
+        "text": "Positions: 95% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves"
+        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -4740,32 +4791,38 @@
       {
        "tier": 1,
        "ok": false,
-       "text": "All-Developing midfield (Cal + Dan) 10'–35'"
+       "text": "All-Developing midfield (Cal + Dan) 10'–35'",
+       "area": "guarantees"
       },
       {
        "tier": 1,
        "ok": false,
-       "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')"
+       "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')",
+       "area": "guarantees"
       },
       {
        "tier": 2,
        "ok": false,
-       "text": "Minutes 29'–36' (outfield), targets ± 3'. Outside the band: Gus 29' (target 33'), Cal 29' (target 33')"
-      },
-      {
-       "tier": 3,
-       "ok": true,
-       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.9 (10'–15')"
+       "text": "Minutes 29'–36' (outfield), targets ± 3'. Outside the band: Gus 29' (target 33'), Cal 29' (target 33')",
+       "area": "minutes"
       },
       {
        "tier": 4,
        "ok": true,
-       "text": "Positions: 96% position fit; 21' short of the variety target"
+       "text": "Positions: 96% position fit; 21' short of the variety target",
+       "area": "positions"
+      },
+      {
+       "tier": 3,
+       "ok": true,
+       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.9 (10'–15')",
+       "area": "strength"
       },
       {
        "tier": 5,
        "ok": true,
-       "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves"
+       "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves",
+       "area": "smoothness"
       }
      ]
     },
@@ -4975,32 +5032,38 @@
       {
        "tier": 1,
        "ok": false,
-       "text": "All-Developing midfield (Cal + Dan) 10'–35'"
+       "text": "All-Developing midfield (Cal + Dan) 10'–35'",
+       "area": "guarantees"
       },
       {
        "tier": 1,
        "ok": false,
-       "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')"
-      },
-      {
-       "tier": 2,
-       "ok": false,
-       "text": "Minutes 29'–36' (outfield), targets ± 5'. Outside the band: Ava 33' (target 39'), Ben 33' (target 39'), Dan 36' (target 27')"
+       "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')",
+       "area": "guarantees"
       },
       {
        "tier": 3,
        "ok": true,
-       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')"
+       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')",
+       "area": "strength"
+      },
+      {
+       "tier": 2,
+       "ok": false,
+       "text": "Minutes 29'–36' (outfield), targets ± 5'. Outside the band: Ava 33' (target 39'), Ben 33' (target 39'), Dan 36' (target 27')",
+       "area": "minutes"
       },
       {
        "tier": 4,
        "ok": true,
-       "text": "Positions: 94% position fit"
+       "text": "Positions: 94% position fit",
+       "area": "positions"
       },
       {
        "tier": 5,
        "ok": true,
-       "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves"
+       "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves",
+       "area": "smoothness"
       }
      ]
     },
@@ -5198,27 +5261,32 @@
       {
        "tier": 1,
        "ok": false,
-       "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')"
-      },
-      {
-       "tier": 2,
-       "ok": false,
-       "text": "Minutes 29'–36' (outfield), targets ± 7'. Outside the band: Ava 33' (target 42'), Ben 33' (target 42'), Dan 36' (target 24')"
+       "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')",
+       "area": "guarantees"
       },
       {
        "tier": 3,
        "ok": true,
-       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')"
+       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')",
+       "area": "strength"
       },
       {
        "tier": 4,
        "ok": true,
-       "text": "Positions: 94% position fit"
+       "text": "Positions: 94% position fit",
+       "area": "positions"
+      },
+      {
+       "tier": 2,
+       "ok": false,
+       "text": "Minutes 29'–36' (outfield), targets ± 7'. Outside the band: Ava 33' (target 42'), Ben 33' (target 42'), Dan 36' (target 24')",
+       "area": "minutes"
       },
       {
        "tier": 5,
        "ok": true,
-       "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves"
+       "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves",
+       "area": "smoothness"
       }
      ]
     }
@@ -5742,27 +5810,32 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing midfield (Cal + Dan) 15'–50'"
+      "text": "All-Developing midfield (Cal + Dan) 15'–50'",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 30'–38' (outfield), targets ± 4'. Outside the band: Gus 38' (target 33'), Cal 38' (target 31'), Dan 35' (target 31')"
+      "text": "Minutes 30'–38' (outfield), targets ± 4'. Outside the band: Gus 38' (target 33'), Cal 38' (target 31'), Dan 35' (target 31')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.8 (15'–22')"
+      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.8 (15'–22')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 94% position fit"
+      "text": "Positions: 94% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves"
+      "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -5963,27 +6036,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Cal + Dan) 15'–50'"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 30'–38' (outfield), targets ± 5'. Outside the band: Ava 32' (target 39'), Cal 38' (target 27'), Dan 35' (target 27')"
+        "text": "All-Developing midfield (Cal + Dan) 15'–50'",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 3.8 (15'–22')"
+        "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 3.8 (15'–22')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 30'–38' (outfield), targets ± 5'. Outside the band: Ava 32' (target 39'), Cal 38' (target 27'), Dan 35' (target 27')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 93% position fit"
+        "text": "Positions: 93% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves"
+        "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -6200,32 +6278,38 @@
       {
        "tier": 1,
        "ok": false,
-       "text": "All-Developing midfield (Cal + Dan) 15'–50'"
+       "text": "All-Developing midfield (Cal + Dan) 15'–50'",
+       "area": "guarantees"
       },
       {
        "tier": 1,
        "ok": false,
-       "text": "Finn sits out 20' (22'–42'), over the 16' maximum; Hal sits out 20' (22'–42'), over the 16' maximum (+1 more)"
+       "text": "Finn sits out 20' (22'–42'), over the 16' maximum; Hal sits out 20' (22'–42'), over the 16' maximum (+1 more)",
+       "area": "guarantees"
       },
       {
        "tier": 2,
        "ok": false,
-       "text": "Minutes 30'–38' (outfield), targets ± 3'. Outside the band: Finn 30' (target 33'), Gus 38' (target 33'), Cal 38' (target 33'), Hal 30' (target 33') +1"
-      },
-      {
-       "tier": 3,
-       "ok": true,
-       "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.9 (15'–22')"
+       "text": "Minutes 30'–38' (outfield), targets ± 3'. Outside the band: Finn 30' (target 33'), Gus 38' (target 33'), Cal 38' (target 33'), Hal 30' (target 33') +1",
+       "area": "minutes"
       },
       {
        "tier": 4,
        "ok": true,
-       "text": "Positions: 95% position fit; 23' short of the variety target"
+       "text": "Positions: 95% position fit; 23' short of the variety target",
+       "area": "positions"
+      },
+      {
+       "tier": 3,
+       "ok": true,
+       "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.9 (15'–22')",
+       "area": "strength"
       },
       {
        "tier": 5,
        "ok": true,
-       "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves"
+       "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves",
+       "area": "smoothness"
       }
      ]
     },
@@ -6423,27 +6507,32 @@
       {
        "tier": 1,
        "ok": false,
-       "text": "All-Developing midfield (Cal + Dan) 15'–50'"
-      },
-      {
-       "tier": 2,
-       "ok": false,
-       "text": "Minutes 30'–38' (outfield), targets ± 5'. Outside the band: Ava 32' (target 39'), Cal 38' (target 27'), Dan 35' (target 27')"
+       "text": "All-Developing midfield (Cal + Dan) 15'–50'",
+       "area": "guarantees"
       },
       {
        "tier": 3,
        "ok": true,
-       "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 3.8 (15'–22')"
+       "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 3.8 (15'–22')",
+       "area": "strength"
+      },
+      {
+       "tier": 2,
+       "ok": false,
+       "text": "Minutes 30'–38' (outfield), targets ± 5'. Outside the band: Ava 32' (target 39'), Cal 38' (target 27'), Dan 35' (target 27')",
+       "area": "minutes"
       },
       {
        "tier": 4,
        "ok": true,
-       "text": "Positions: 93% position fit"
+       "text": "Positions: 93% position fit",
+       "area": "positions"
       },
       {
        "tier": 5,
        "ok": true,
-       "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves"
+       "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves",
+       "area": "smoothness"
       }
      ]
     },
@@ -6626,24 +6715,28 @@
      "withLevels": true,
      "lines": [
       {
-       "tier": 2,
-       "ok": false,
-       "text": "Minutes 30'–38' (outfield), targets ± 7'. Outside the band: Ava 32' (target 42'), Ben 35' (target 42'), Cal 38' (target 24'), Dan 35' (target 24')"
-      },
-      {
        "tier": 3,
        "ok": true,
-       "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 3.8 (15'–22')"
+       "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 3.8 (15'–22')",
+       "area": "strength"
       },
       {
        "tier": 4,
        "ok": true,
-       "text": "Positions: 92% position fit"
+       "text": "Positions: 92% position fit",
+       "area": "positions"
+      },
+      {
+       "tier": 2,
+       "ok": false,
+       "text": "Minutes 30'–38' (outfield), targets ± 7'. Outside the band: Ava 32' (target 42'), Ben 35' (target 42'), Cal 38' (target 24'), Dan 35' (target 24')",
+       "area": "minutes"
       },
       {
        "tier": 5,
        "ok": true,
-       "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves"
+       "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 0 position moves",
+       "area": "smoothness"
       }
      ]
     }
@@ -8055,37 +8148,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing midfield (Cal + Dan) 5'–19'; All-Developing midfield (Cal + Dan) 35'–36'"
+      "text": "All-Developing midfield (Cal + Dan) 5'–19'; All-Developing midfield (Cal + Dan) 35'–36'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Eli plays only 5' (0'–5'), under the 8' minimum spell; Eli plays only 5' (7'–12'), under the 8' minimum spell (+17 more)"
+      "text": "Eli plays only 5' (0'–5'), under the 8' minimum spell; Eli plays only 5' (7'–12'), under the 8' minimum spell (+17 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once"
+      "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 30'–35' (outfield), targets ± 4'. Everyone within the band"
+      "text": "Minutes 30'–35' (outfield), targets ± 4'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (5'–7')"
+      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (5'–7')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 94% position fit"
+      "text": "Positions: 94% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves"
+      "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -8328,37 +8428,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Cal + Dan) 5'–19'; All-Developing midfield (Cal + Dan) 35'–36'"
+        "text": "All-Developing midfield (Cal + Dan) 5'–19'; All-Developing midfield (Cal + Dan) 35'–36'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Finn comes on for only 4' at the end (46'–50'); Ava comes on for only 1' at the end (49'–50') (+1 more)"
+        "text": "Finn comes on for only 4' at the end (46'–50'); Ava comes on for only 1' at the end (49'–50') (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once"
+        "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 30'–35' (outfield), targets ± 3'. Outside the band: Cal 30' (target 33')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.9 (5'–7')"
+        "text": "Minutes 30'–35' (outfield), targets ± 3'. Outside the band: Cal 30' (target 33')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 95% position fit; 14' short of the variety target"
+        "text": "Positions: 95% position fit; 14' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.9 (5'–7')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves"
+        "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -8599,37 +8706,44 @@
       {
        "tier": 1,
        "ok": false,
-       "text": "All-Developing midfield (Cal + Dan) 5'–19'; All-Developing midfield (Cal + Dan) 35'–36'"
+       "text": "All-Developing midfield (Cal + Dan) 5'–19'; All-Developing midfield (Cal + Dan) 35'–36'",
+       "area": "guarantees"
       },
       {
        "tier": 1,
        "ok": false,
-       "text": "Finn comes on for only 4' at the end (46'–50'); Ava comes on for only 1' at the end (49'–50') (+1 more)"
+       "text": "Finn comes on for only 4' at the end (46'–50'); Ava comes on for only 1' at the end (49'–50') (+1 more)",
+       "area": "guarantees"
       },
       {
        "tier": 1,
        "ok": false,
-       "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once"
+       "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once",
+       "area": "guarantees"
       },
       {
        "tier": 2,
        "ok": false,
-       "text": "Minutes 30'–35' (outfield), targets ± 3'. Outside the band: Cal 30' (target 33')"
-      },
-      {
-       "tier": 3,
-       "ok": true,
-       "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.9 (5'–7')"
+       "text": "Minutes 30'–35' (outfield), targets ± 3'. Outside the band: Cal 30' (target 33')",
+       "area": "minutes"
       },
       {
        "tier": 4,
        "ok": true,
-       "text": "Positions: 95% position fit; 14' short of the variety target"
+       "text": "Positions: 95% position fit; 14' short of the variety target",
+       "area": "positions"
+      },
+      {
+       "tier": 3,
+       "ok": true,
+       "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.9 (5'–7')",
+       "area": "strength"
       },
       {
        "tier": 5,
        "ok": true,
-       "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves"
+       "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves",
+       "area": "smoothness"
       }
      ]
     },
@@ -8965,37 +9079,44 @@
       {
        "tier": 1,
        "ok": false,
-       "text": "All-Developing midfield (Cal + Dan) 5'–19'; All-Developing midfield (Cal + Dan) 35'–36'"
+       "text": "All-Developing midfield (Cal + Dan) 5'–19'; All-Developing midfield (Cal + Dan) 35'–36'",
+       "area": "guarantees"
       },
       {
        "tier": 1,
        "ok": false,
-       "text": "Eli plays only 5' (0'–5'), under the 8' minimum spell; Eli plays only 5' (7'–12'), under the 8' minimum spell (+17 more)"
+       "text": "Eli plays only 5' (0'–5'), under the 8' minimum spell; Eli plays only 5' (7'–12'), under the 8' minimum spell (+17 more)",
+       "area": "guarantees"
       },
       {
        "tier": 1,
        "ok": false,
-       "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once"
-      },
-      {
-       "tier": 2,
-       "ok": false,
-       "text": "Minutes 30'–35' (outfield), targets ± 5'. Outside the band: Ava 32' (target 39'), Dan 34' (target 27')"
+       "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once",
+       "area": "guarantees"
       },
       {
        "tier": 3,
        "ok": true,
-       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (5'–7')"
+       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (5'–7')",
+       "area": "strength"
+      },
+      {
+       "tier": 2,
+       "ok": false,
+       "text": "Minutes 30'–35' (outfield), targets ± 5'. Outside the band: Ava 32' (target 39'), Dan 34' (target 27')",
+       "area": "minutes"
       },
       {
        "tier": 4,
        "ok": true,
-       "text": "Positions: 93% position fit"
+       "text": "Positions: 93% position fit",
+       "area": "positions"
       },
       {
        "tier": 5,
        "ok": true,
-       "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves"
+       "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves",
+       "area": "smoothness"
       }
      ]
     },
@@ -9343,32 +9464,38 @@
       {
        "tier": 1,
        "ok": false,
-       "text": "Eli plays only 5' (0'–5'), under the 9' minimum spell; Eli plays only 5' (7'–12'), under the 9' minimum spell (+23 more)"
+       "text": "Eli plays only 5' (0'–5'), under the 9' minimum spell; Eli plays only 5' (7'–12'), under the 9' minimum spell (+23 more)",
+       "area": "guarantees"
       },
       {
        "tier": 1,
        "ok": false,
-       "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once"
-      },
-      {
-       "tier": 2,
-       "ok": false,
-       "text": "Minutes 30'–35' (outfield), targets ± 7'. Outside the band: Ava 32' (target 42'), Ben 35' (target 42'), Dan 34' (target 24')"
+       "text": "3 changes at 5', more than 2 at once; 3 changes at 31', more than 2 at once",
+       "area": "guarantees"
       },
       {
        "tier": 3,
        "ok": true,
-       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (5'–7')"
+       "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (5'–7')",
+       "area": "strength"
       },
       {
        "tier": 4,
        "ok": true,
-       "text": "Positions: 93% position fit"
+       "text": "Positions: 93% position fit",
+       "area": "positions"
+      },
+      {
+       "tier": 2,
+       "ok": false,
+       "text": "Minutes 30'–35' (outfield), targets ± 7'. Outside the band: Ava 32' (target 42'), Ben 35' (target 42'), Dan 34' (target 24')",
+       "area": "minutes"
       },
       {
        "tier": 5,
        "ok": true,
-       "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves"
+       "text": "34 subs: 32 during play at 19 stoppages, 2 at period breaks; 11 position moves",
+       "area": "smoothness"
       }
      ]
     }
@@ -10208,37 +10335,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Dov comes on for only 4' at the end (46'–50'); Fox comes on for only 4' at the end (46'–50')"
+      "text": "Dov comes on for only 4' at the end (46'–50'); Fox comes on for only 4' at the end (46'–50')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 8', more than 2 at once"
+      "text": "3 changes at 8', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 25'–32' (outfield), targets ± 4'. Outside the band: Gil 25' (target 30'), Hux 32' (target 28')"
+      "text": "Minutes 25'–32' (outfield), targets ± 4'. Outside the band: Gil 25' (target 30'), Hux 32' (target 28')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "No unit is ever all-Developing"
+      "text": "No unit is ever all-Developing",
+      "area": "strength"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.4 (9'–14')"
+      "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.4 (9'–14')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 99% position fit"
+      "text": "Positions: 99% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "17 subs: 17 during play at 11 stoppages, 0 at period breaks; 4 position moves"
+      "text": "17 subs: 17 during play at 11 stoppages, 0 at period breaks; 4 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -10455,37 +10589,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Dov comes on for only 4' at the end (46'–50'); Fox comes on for only 4' at the end (46'–50')"
+        "text": "Dov comes on for only 4' at the end (46'–50'); Fox comes on for only 4' at the end (46'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once"
+        "text": "3 changes at 8', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 25'–32' (outfield), targets ± 4'. Outside the band: Gil 25' (target 30'), Hux 32' (target 28')"
+        "text": "Minutes 25'–32' (outfield), targets ± 4'. Outside the band: Gil 25' (target 30'), Hux 32' (target 28')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "No unit is ever all-Developing"
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.4 (9'–14')"
+        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.4 (9'–14')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 99% position fit"
+        "text": "Positions: 99% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "17 subs: 17 during play at 11 stoppages, 0 at period breaks; 4 position moves"
+        "text": "17 subs: 17 during play at 11 stoppages, 0 at period breaks; 4 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -11076,37 +11217,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Cy sits out 21' (12'–33'), over the 19' maximum; Fox sits out 21' (21'–42'), over the 19' maximum"
+      "text": "Cy sits out 21' (12'–33'), over the 19' maximum; Fox sits out 21' (21'–42'), over the 19' maximum",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 12', more than 2 at once"
+      "text": "3 changes at 12', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 24'–36' (outfield), targets ± 4'. Outside the band: Ada 24' (target 32'), Gil 36' (target 30')"
+      "text": "Minutes 24'–36' (outfield), targets ± 4'. Outside the band: Ada 24' (target 32'), Gil 36' (target 30')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "No unit is ever all-Developing"
+      "text": "No unit is ever all-Developing",
+      "area": "strength"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.4 (14'–21')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.4 (14'–21')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 99% position fit"
+      "text": "Positions: 99% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "11 subs: 11 during play at 6 stoppages, 0 at period breaks; 3 position moves"
+      "text": "11 subs: 11 during play at 6 stoppages, 0 at period breaks; 3 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -11311,32 +11459,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 12', more than 2 at once"
+        "text": "3 changes at 12', more than 2 at once",
+        "area": "guarantees"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.4 (14'–21')",
+        "area": "strength"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 24'–36' (outfield), targets ± 5'. Outside the band: Ada 24' (target 35'), Cy 29' (target 35'), Gil 36' (target 30')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "No unit is ever all-Developing"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.4 (14'–21')"
+        "text": "Minutes 24'–36' (outfield), targets ± 5'. Outside the band: Ada 24' (target 35'), Cy 29' (target 35'), Gil 36' (target 30')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit"
+        "text": "Positions: 98% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "11 subs: 11 during play at 6 stoppages, 0 at period breaks; 3 position moves"
+        "text": "11 subs: 11 during play at 6 stoppages, 0 at period breaks; 3 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -13249,37 +13403,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Ada plays only 5' (0'–5'), under the 8' minimum spell; Ada plays only 5' (7'–12'), under the 8' minimum spell (+35 more)"
+      "text": "Ada plays only 5' (0'–5'), under the 8' minimum spell; Ada plays only 5' (7'–12'), under the 8' minimum spell (+35 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "4 changes at 5', more than 2 at once; 3 changes at 12', more than 2 at once (+1 more)"
+      "text": "4 changes at 5', more than 2 at once; 3 changes at 12', more than 2 at once (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 29'–31' (outfield), targets ± 4'. Everyone within the band"
+      "text": "Minutes 29'–31' (outfield), targets ± 4'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "No unit is ever all-Developing"
+      "text": "No unit is ever all-Developing",
+      "area": "strength"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.5 (41'–42')"
+      "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.5 (41'–42')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 99% position fit"
+      "text": "Positions: 99% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "46 subs: 45 during play at 27 stoppages, 1 at period breaks; 10 position moves"
+      "text": "46 subs: 45 during play at 27 stoppages, 1 at period breaks; 10 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -13520,37 +13681,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Dov comes on for only 1' at the end (49'–50'); Gil comes on for only 4' at the end (46'–50') (+2 more)"
+        "text": "Dov comes on for only 1' at the end (49'–50'); Gil comes on for only 4' at the end (46'–50') (+2 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "4 changes at 5', more than 2 at once; 3 changes at 12', more than 2 at once (+1 more)"
+        "text": "4 changes at 5', more than 2 at once; 3 changes at 12', more than 2 at once (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 29'–31' (outfield), targets ± 3'. Everyone within the band"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "No unit is ever all-Developing"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.5 (41'–42')"
+        "text": "Minutes 29'–31' (outfield), targets ± 3'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 99% position fit; 22' short of the variety target"
+        "text": "Positions: 99% position fit; 22' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.5 (41'–42')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "46 subs: 45 during play at 27 stoppages, 1 at period breaks; 10 position moves"
+        "text": "46 subs: 45 during play at 27 stoppages, 1 at period breaks; 10 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -14402,47 +14570,56 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing midfield (Noor + Hana + Lou) 16'–21'"
+      "text": "All-Developing midfield (Noor + Hana + Lou) 16'–21'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Bo gets 8', below their floor of 14'"
+      "text": "Bo gets 8', below their floor of 14'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Jade sits out 21' (8'–29'), over the 19' maximum"
+      "text": "Jade sits out 21' (8'–29'), over the 19' maximum",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Fay comes on for only 5' at the end (45'–50')"
+      "text": "Fay comes on for only 5' at the end (45'–50')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "6 changes at 8', more than 2 at once; 5 changes at 21', more than 2 at once (+1 more)"
+      "text": "6 changes at 8', more than 2 at once; 5 changes at 21', more than 2 at once (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 8'–25' (outfield), targets ± 4'. Outside the band: Bo 8' (target 22'), Hana 25' (target 20'), Jade 18' (target 23'), Lou 24' (target 20')"
+      "text": "Minutes 8'–25' (outfield), targets ± 4'. Outside the band: Bo 8' (target 22'), Hana 25' (target 20'), Jade 18' (target 23'), Lou 24' (target 20')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 2.7 (39'–40')"
+      "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 2.7 (39'–40')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 94% position fit"
+      "text": "Positions: 94% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "23 subs: 22 during play at 9 stoppages, 1 at period breaks; 4 position moves"
+      "text": "23 subs: 22 during play at 9 stoppages, 1 at period breaks; 4 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -14720,47 +14897,56 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Noor + Hana + Lou) 16'–21'"
+        "text": "All-Developing midfield (Noor + Hana + Lou) 16'–21'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Bo gets 8', below their floor of 14'"
+        "text": "Bo gets 8', below their floor of 14'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Jade sits out 21' (8'–29'), over the 19' maximum"
+        "text": "Jade sits out 21' (8'–29'), over the 19' maximum",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Fay comes on for only 5' at the end (45'–50')"
+        "text": "Fay comes on for only 5' at the end (45'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "6 changes at 8', more than 2 at once; 5 changes at 21', more than 2 at once (+1 more)"
+        "text": "6 changes at 8', more than 2 at once; 5 changes at 21', more than 2 at once (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 8'–25' (outfield), targets ± 4'. Outside the band: Bo 8' (target 22'), Hana 25' (target 20'), Jade 18' (target 23'), Lou 24' (target 20')"
+        "text": "Minutes 8'–25' (outfield), targets ± 4'. Outside the band: Bo 8' (target 22'), Hana 25' (target 20'), Jade 18' (target 23'), Lou 24' (target 20')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 2.7 (39'–40')"
+        "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 2.7 (39'–40')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 94% position fit"
+        "text": "Positions: 94% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "23 subs: 22 during play at 9 stoppages, 1 at period breaks; 4 position moves"
+        "text": "23 subs: 22 during play at 9 stoppages, 1 at period breaks; 4 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -15424,47 +15610,56 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing midfield (Noor + Hana + Lou) 24'–31'"
+      "text": "All-Developing midfield (Noor + Hana + Lou) 24'–31'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Bo gets 12', below their floor of 14'"
+      "text": "Bo gets 12', below their floor of 14'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Dee sits out 31' (12'–43'), over the 19' maximum; Jade sits out 31' (12'–43'), over the 19' maximum (+1 more)"
+      "text": "Dee sits out 31' (12'–43'), over the 19' maximum; Jade sits out 31' (12'–43'), over the 19' maximum (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Max comes on for only 1' at the end (49'–50')"
+      "text": "Max comes on for only 1' at the end (49'–50')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "6 changes at 12', more than 2 at once; 4 changes at 31', more than 2 at once (+1 more)"
+      "text": "6 changes at 12', more than 2 at once; 4 changes at 31', more than 2 at once (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 12'–30' (outfield), targets ± 4'. Outside the band: Bo 12' (target 22'), Gus 30' (target 22'), Jade 19' (target 23'), Noor 26' (target 20')"
+      "text": "Minutes 12'–30' (outfield), targets ± 4'. Outside the band: Bo 12' (target 22'), Gus 30' (target 22'), Jade 19' (target 23'), Noor 26' (target 20')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 2.7 (24'–25')"
+      "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 2.7 (24'–25')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 94% position fit"
+      "text": "Positions: 94% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "16 subs: 15 during play at 5 stoppages, 1 at period breaks; 3 position moves"
+      "text": "16 subs: 15 during play at 5 stoppages, 1 at period breaks; 3 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -15748,42 +15943,50 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Noor + Hana + Lou) 24'–31'"
+        "text": "All-Developing midfield (Noor + Hana + Lou) 24'–31'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Dee sits out 31' (12'–43'), over the 20' maximum; Jade sits out 31' (12'–43'), over the 20' maximum (+1 more)"
+        "text": "Dee sits out 31' (12'–43'), over the 20' maximum; Jade sits out 31' (12'–43'), over the 20' maximum (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Max comes on for only 1' at the end (49'–50')"
+        "text": "Max comes on for only 1' at the end (49'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "6 changes at 12', more than 2 at once; 4 changes at 31', more than 2 at once (+1 more)"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 12'–30' (outfield), targets ± 5'. Outside the band: Bo 12' (target 22'), Gus 30' (target 22'), Jade 19' (target 26'), Noor 26' (target 18')"
+        "text": "6 changes at 12', more than 2 at once; 4 changes at 31', more than 2 at once (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 2.7 (24'–25')"
+        "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 2.7 (24'–25')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 12'–30' (outfield), targets ± 5'. Outside the band: Bo 12' (target 22'), Gus 30' (target 22'), Jade 19' (target 26'), Noor 26' (target 18')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 93% position fit"
+        "text": "Positions: 93% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "16 subs: 15 during play at 5 stoppages, 1 at period breaks; 3 position moves"
+        "text": "16 subs: 15 during play at 5 stoppages, 1 at period breaks; 3 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -17715,42 +17918,50 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing midfield (Eli + Noor + Hana) 29'–31'; All-Developing midfield (Eli + Lou + Hana) 31'–32' (+1 more)"
+      "text": "All-Developing midfield (Eli + Noor + Hana) 29'–31'; All-Developing midfield (Eli + Lou + Hana) 31'–32' (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Bo gets 11', below their floor of 14'"
+      "text": "Bo gets 11', below their floor of 14'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Bo plays only 6' (5'–11'), under the 8' minimum spell; Bo plays only 5' (16'–21'), under the 8' minimum spell (+53 more)"
+      "text": "Bo plays only 6' (5'–11'), under the 8' minimum spell; Bo plays only 5' (16'–21'), under the 8' minimum spell (+53 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "6 changes at 5', more than 2 at once; 5 changes at 11', more than 2 at once (+7 more)"
+      "text": "6 changes at 5', more than 2 at once; 5 changes at 11', more than 2 at once (+7 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 11'–25' (outfield), targets ± 4'. Outside the band: Bo 11' (target 22')"
+      "text": "Minutes 11'–25' (outfield), targets ± 4'. Outside the band: Bo 11' (target 22')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 3.1 (10'–11')"
+      "text": "Strength on the pitch averages 4.6 out of 10; weakest spell 3.1 (10'–11')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 94% position fit"
+      "text": "Positions: 94% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "52 subs: 51 during play at 23 stoppages, 1 at period breaks; 7 position moves"
+      "text": "52 subs: 51 during play at 23 stoppages, 1 at period breaks; 7 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -18114,42 +18325,50 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Eli + Noor + Hana) 29'–31'; All-Developing midfield (Eli + Lou + Hana) 31'–32' (+1 more)"
+        "text": "All-Developing midfield (Eli + Noor + Hana) 29'–31'; All-Developing midfield (Eli + Lou + Hana) 31'–32' (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Bo gets 11', below their floor of 17'"
+        "text": "Bo gets 11', below their floor of 17'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Col comes on for only 3' at the end (47'–50'); Fay comes on for only 3' at the end (47'–50') (+4 more)"
+        "text": "Col comes on for only 3' at the end (47'–50'); Fay comes on for only 3' at the end (47'–50') (+4 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "6 changes at 5', more than 2 at once; 5 changes at 11', more than 2 at once (+7 more)"
+        "text": "6 changes at 5', more than 2 at once; 5 changes at 11', more than 2 at once (+7 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 11'–25' (outfield), targets ± 3'. Outside the band: Bo 11' (target 21'), Dee 25' (target 21')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.2 (10'–11')"
+        "text": "Minutes 11'–25' (outfield), targets ± 3'. Outside the band: Bo 11' (target 21'), Dee 25' (target 21')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 95% position fit; 23' short of the variety target"
+        "text": "Positions: 95% position fit; 23' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.2 (10'–11')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "52 subs: 51 during play at 23 stoppages, 1 at period breaks; 7 position moves"
+        "text": "52 subs: 51 during play at 23 stoppages, 1 at period breaks; 7 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -18698,27 +18917,32 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Tam comes on for only 2' at the end (48'–50')"
+      "text": "Tam comes on for only 2' at the end (48'–50')",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 42'–48' (outfield), targets ± 4'. Outside the band: Uma 48' (target 43')"
+      "text": "Minutes 42'–48' (outfield), targets ± 4'. Outside the band: Uma 48' (target 43')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (8'–16')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (8'–16')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 98% position fit"
+      "text": "Positions: 98% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "6 subs: 6 during play at 6 stoppages, 0 at period breaks; 2 position moves"
+      "text": "6 subs: 6 during play at 6 stoppages, 0 at period breaks; 2 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -18893,27 +19117,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Tam comes on for only 2' at the end (48'–50')"
+        "text": "Tam comes on for only 2' at the end (48'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 42'–48' (outfield), targets ± 4'. Outside the band: Uma 48' (target 43')"
+        "text": "Minutes 42'–48' (outfield), targets ± 4'. Outside the band: Uma 48' (target 43')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (8'–16')"
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (8'–16')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit"
+        "text": "Positions: 98% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "6 subs: 6 during play at 6 stoppages, 0 at period breaks; 2 position moves"
+        "text": "6 subs: 6 during play at 6 stoppages, 0 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -19305,22 +19534,26 @@
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 37'–50' (outfield), targets ± 4'. Outside the band: Pip 37' (target 43'), Quin 37' (target 43'), Sol 50' (target 43'), Tam 50' (target 43') +2"
+      "text": "Minutes 37'–50' (outfield), targets ± 4'. Outside the band: Pip 37' (target 43'), Quin 37' (target 43'), Sol 50' (target 43'), Tam 50' (target 43') +2",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (13'–26')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (13'–26')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 98% position fit"
+      "text": "Positions: 98% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "3 subs: 3 during play at 3 stoppages, 0 at period breaks; 1 position moves"
+      "text": "3 subs: 3 during play at 3 stoppages, 0 at period breaks; 1 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -19486,24 +19719,28 @@
       "withLevels": false,
       "lines": [
        {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 37'–50' (outfield), targets ± 5'. Outside the band: Pip 37' (target 43'), Quin 37' (target 43'), Sol 50' (target 43'), Tam 50' (target 43') +2"
-       },
-       {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (13'–26')"
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (13'–26')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 37'–50' (outfield), targets ± 5'. Outside the band: Pip 37' (target 43'), Quin 37' (target 43'), Sol 50' (target 43'), Tam 50' (target 43') +2",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit"
+        "text": "Positions: 98% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "3 subs: 3 during play at 3 stoppages, 0 at period breaks; 1 position moves"
+        "text": "3 subs: 3 during play at 3 stoppages, 0 at period breaks; 1 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -20770,27 +21007,32 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Pip plays only 5' (0'–5'), under the 8' minimum spell; Pip comes on for only 1' at the end (49'–50') (+2 more)"
+      "text": "Pip plays only 5' (0'–5'), under the 8' minimum spell; Pip comes on for only 1' at the end (49'–50') (+2 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 42'–44' (outfield), targets ± 4'. Everyone within the band"
+      "text": "Minutes 42'–44' (outfield), targets ± 4'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (5'–7')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (5'–7')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 98% position fit"
+      "text": "Positions: 98% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "20 subs: 19 during play at 19 stoppages, 1 at period breaks; 9 position moves"
+      "text": "20 subs: 19 during play at 19 stoppages, 1 at period breaks; 9 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -20971,27 +21213,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Pip comes on for only 1' at the end (49'–50'); Quin comes on for only 3' at the end (47'–50')"
+        "text": "Pip comes on for only 1' at the end (49'–50'); Quin comes on for only 3' at the end (47'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 42'–44' (outfield), targets ± 3'. Everyone within the band"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (5'–7')"
+        "text": "Minutes 42'–44' (outfield), targets ± 3'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 99% position fit; 26' short of the variety target"
+        "text": "Positions: 99% position fit; 26' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (5'–7')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "20 subs: 19 during play at 19 stoppages, 1 at period breaks; 9 position moves"
+        "text": "20 subs: 19 during play at 19 stoppages, 1 at period breaks; 9 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -21223,22 +21470,26 @@
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 50'–50' (outfield), targets ± 4'. Everyone within the band"
+      "text": "Minutes 50'–50' (outfield), targets ± 4'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')"
+      "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 100% position fit"
+      "text": "Positions: 100% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves"
+      "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -21396,22 +21647,26 @@
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 50'–50' (outfield), targets ± 4'. Everyone within the band"
+        "text": "Minutes 50'–50' (outfield), targets ± 4'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')"
+        "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 100% position fit"
+        "text": "Positions: 100% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves"
+        "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -21643,22 +21898,26 @@
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 50'–50' (outfield), targets ± 4'. Everyone within the band"
+      "text": "Minutes 50'–50' (outfield), targets ± 4'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')"
+      "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 100% position fit"
+      "text": "Positions: 100% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves"
+      "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -21814,24 +22073,28 @@
       "withLevels": false,
       "lines": [
        {
-        "tier": 2,
-        "ok": true,
-        "text": "Minutes 50'–50' (outfield), targets ± 5'. Everyone within the band"
-       },
-       {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')"
+        "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": true,
+        "text": "Minutes 50'–50' (outfield), targets ± 5'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 100% position fit"
+        "text": "Positions: 100% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves"
+        "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -22063,22 +22326,26 @@
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 50'–50' (outfield), targets ± 4'. Everyone within the band"
+      "text": "Minutes 50'–50' (outfield), targets ± 4'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')"
+      "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 100% position fit"
+      "text": "Positions: 100% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves"
+      "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -22236,22 +22503,26 @@
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 50'–50' (outfield), targets ± 3'. Everyone within the band"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')"
+        "text": "Minutes 50'–50' (outfield), targets ± 3'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 100% position fit; 30' short of the variety target"
+        "text": "Positions: 100% position fit; 30' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 5 out of 10; weakest spell 5 (0'–50')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves"
+        "text": "0 subs: 0 during play at 0 stoppages, 0 at period breaks; 0 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -22838,32 +23109,38 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Dax comes on for only 4' at the end (36'–40')"
+      "text": "Dax comes on for only 4' at the end (36'–40')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 8', more than 2 at once"
+      "text": "3 changes at 8', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 17'–22' (outfield), targets ± 3'. Everyone within the band"
+      "text": "Minutes 17'–22' (outfield), targets ± 3'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (8'–10')"
+      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (8'–10')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 94% position fit"
+      "text": "Positions: 94% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "10 subs: 9 during play at 6 stoppages, 1 at period breaks; 9 position moves"
+      "text": "10 subs: 9 during play at 6 stoppages, 1 at period breaks; 9 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -23044,32 +23321,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Dax comes on for only 4' at the end (36'–40')"
+        "text": "Dax comes on for only 4' at the end (36'–40')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once"
+        "text": "3 changes at 8', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 17'–22' (outfield), targets ± 3'. Everyone within the band"
+        "text": "Minutes 17'–22' (outfield), targets ± 3'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (8'–10')"
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (8'–10')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 94% position fit"
+        "text": "Positions: 94% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "10 subs: 9 during play at 6 stoppages, 1 at period breaks; 9 position moves"
+        "text": "10 subs: 9 during play at 6 stoppages, 1 at period breaks; 9 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -23554,32 +23837,38 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Elle sits out 19' (12'–31'), over the 17' maximum; Fin sits out 21' (19'–40'), over the 17' maximum (+1 more)"
+      "text": "Elle sits out 19' (12'–31'), over the 17' maximum; Fin sits out 21' (19'–40'), over the 17' maximum (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 12', more than 2 at once"
+      "text": "3 changes at 12', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 18'–24' (outfield), targets ± 3'. Outside the band: Dax 24' (target 20')"
+      "text": "Minutes 18'–24' (outfield), targets ± 3'. Outside the band: Dax 24' (target 20')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (12'–19')"
+      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (12'–19')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 94% position fit"
+      "text": "Positions: 94% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "7 subs: 6 during play at 3 stoppages, 1 at period breaks; 7 position moves"
+      "text": "7 subs: 6 during play at 3 stoppages, 1 at period breaks; 7 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -23760,32 +24049,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Fin sits out 21' (19'–40'), over the 18' maximum"
+        "text": "Fin sits out 21' (19'–40'), over the 18' maximum",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 12', more than 2 at once"
-       },
-       {
-        "tier": 2,
-        "ok": true,
-        "text": "Minutes 18'–24' (outfield), targets ± 4'. Everyone within the band"
+        "text": "3 changes at 12', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (12'–19')"
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (12'–19')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": true,
+        "text": "Minutes 18'–24' (outfield), targets ± 4'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 93% position fit"
+        "text": "Positions: 93% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "7 subs: 6 during play at 3 stoppages, 1 at period breaks; 7 position moves"
+        "text": "7 subs: 6 during play at 3 stoppages, 1 at period breaks; 7 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -24790,32 +25085,38 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Bix comes on for only 4' at the end (36'–40'); Dax plays only 5' (0'–5'), under the 7' minimum spell (+18 more)"
+      "text": "Bix comes on for only 4' at the end (36'–40'); Dax plays only 5' (0'–5'), under the 7' minimum spell (+18 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 5', more than 2 at once"
+      "text": "3 changes at 5', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 15'–23' (outfield), targets ± 3'. Outside the band: Ari 15' (target 20')"
+      "text": "Minutes 15'–23' (outfield), targets ± 3'. Outside the band: Ari 15' (target 20')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (5'–6')"
+      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.5 (5'–6')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 94% position fit"
+      "text": "Positions: 94% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "22 subs: 22 during play at 14 stoppages, 0 at period breaks; 15 position moves"
+      "text": "22 subs: 22 during play at 14 stoppages, 0 at period breaks; 15 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -25014,37 +25315,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Ari gets 15', below their floor of 16'"
+        "text": "Ari gets 15', below their floor of 16'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Bix comes on for only 4' at the end (36'–40'); Dax comes on for only 3' at the end (37'–40') (+1 more)"
+        "text": "Bix comes on for only 4' at the end (36'–40'); Dax comes on for only 3' at the end (37'–40') (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 5', more than 2 at once"
+        "text": "3 changes at 5', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 15'–23' (outfield), targets ± 2'. Outside the band: Ari 15' (target 20'), Dax 23' (target 20')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.6 (5'–6')"
+        "text": "Minutes 15'–23' (outfield), targets ± 2'. Outside the band: Ari 15' (target 20'), Dax 23' (target 20')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 95% position fit; 10' short of the variety target"
+        "text": "Positions: 95% position fit; 10' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.6 (5'–6')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "22 subs: 22 during play at 14 stoppages, 0 at period breaks; 15 position moves"
+        "text": "22 subs: 22 during play at 14 stoppages, 0 at period breaks; 15 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -26055,37 +26363,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Tov comes on for only 4' at the end (56'–60')"
+      "text": "Tov comes on for only 4' at the end (56'–60')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 8', more than 2 at once; 3 changes at 16', more than 2 at once (+1 more)"
+      "text": "3 changes at 8', more than 2 at once; 3 changes at 16', more than 2 at once (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 22'–44' (outfield), targets ± 5'. Outside the band: Jo 22' (target 30'), Kemi 36' (target 41'), Lars 44' (target 38'), Mo 44' (target 35') +6"
+      "text": "Minutes 22'–44' (outfield), targets ± 5'. Outside the band: Jo 22' (target 30'), Kemi 36' (target 41'), Lars 44' (target 38'), Mo 44' (target 35') +6",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "No unit is ever all-Developing"
+      "text": "No unit is ever all-Developing",
+      "area": "strength"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.5 out of 10; weakest spell 3.3 (12'–16')"
+      "text": "Strength on the pitch averages 4.5 out of 10; weakest spell 3.3 (12'–16')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 96% position fit"
+      "text": "Positions: 96% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "17 subs: 17 during play at 10 stoppages, 0 at period breaks; 8 position moves"
+      "text": "17 subs: 17 during play at 10 stoppages, 0 at period breaks; 8 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -26328,37 +26643,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Tov comes on for only 4' at the end (56'–60')"
+        "text": "Tov comes on for only 4' at the end (56'–60')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 16', more than 2 at once (+1 more)"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 16', more than 2 at once (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 22'–44' (outfield), targets ± 5'. Outside the band: Jo 22' (target 30'), Kemi 36' (target 41'), Lars 44' (target 38'), Mo 44' (target 35') +6"
+        "text": "Minutes 22'–44' (outfield), targets ± 5'. Outside the band: Jo 22' (target 30'), Kemi 36' (target 41'), Lars 44' (target 38'), Mo 44' (target 35') +6",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "No unit is ever all-Developing"
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.5 out of 10; weakest spell 3.3 (12'–16')"
+        "text": "Strength on the pitch averages 4.5 out of 10; weakest spell 3.3 (12'–16')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 96% position fit"
+        "text": "Positions: 96% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "17 subs: 17 during play at 10 stoppages, 0 at period breaks; 8 position moves"
+        "text": "17 subs: 17 during play at 10 stoppages, 0 at period breaks; 8 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -27151,47 +27473,56 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Jo gets 18', below their floor of 20'"
+      "text": "Jo gets 18', below their floor of 20'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Mo sits out 24' (24'–48'), over the 20' maximum; Pia sits out 24' (24'–48'), over the 20' maximum (+2 more)"
+      "text": "Mo sits out 24' (24'–48'), over the 20' maximum; Pia sits out 24' (24'–48'), over the 20' maximum (+2 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Raf comes on for only 5' at the end (55'–60')"
+      "text": "Raf comes on for only 5' at the end (55'–60')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 12', more than 2 at once; 3 changes at 24', more than 2 at once (+1 more)"
+      "text": "3 changes at 12', more than 2 at once; 3 changes at 24', more than 2 at once (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 18'–48' (outfield), targets ± 5'. Outside the band: Jo 18' (target 30'), Kemi 36' (target 41'), Nia 48' (target 38'), Tov 48' (target 41')"
+      "text": "Minutes 18'–48' (outfield), targets ± 5'. Outside the band: Jo 18' (target 30'), Kemi 36' (target 41'), Nia 48' (target 38'), Tov 48' (target 41')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "No unit is ever all-Developing"
+      "text": "No unit is ever all-Developing",
+      "area": "strength"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.3 (19'–24')"
+      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.3 (19'–24')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 95% position fit"
+      "text": "Positions: 95% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "12 subs: 12 during play at 6 stoppages, 0 at period breaks; 5 position moves"
+      "text": "12 subs: 12 during play at 6 stoppages, 0 at period breaks; 5 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -27458,42 +27789,50 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Mo sits out 24' (24'–48'), over the 22' maximum; Pia sits out 24' (24'–48'), over the 22' maximum (+2 more)"
+        "text": "Mo sits out 24' (24'–48'), over the 22' maximum; Pia sits out 24' (24'–48'), over the 22' maximum (+2 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Raf comes on for only 5' at the end (55'–60')"
+        "text": "Raf comes on for only 5' at the end (55'–60')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 12', more than 2 at once; 3 changes at 24', more than 2 at once (+1 more)"
+        "text": "3 changes at 12', more than 2 at once; 3 changes at 24', more than 2 at once (+1 more)",
+        "area": "guarantees"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.3 (19'–24')",
+        "area": "strength"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 18'–48' (outfield), targets ± 7'. Outside the band: Jo 18' (target 30'), Kemi 36' (target 45'), Nia 48' (target 38')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "No unit is ever all-Developing"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.3 (19'–24')"
+        "text": "Minutes 18'–48' (outfield), targets ± 7'. Outside the band: Jo 18' (target 30'), Kemi 36' (target 45'), Nia 48' (target 38')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 95% position fit"
+        "text": "Positions: 95% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "12 subs: 12 during play at 6 stoppages, 0 at period breaks; 5 position moves"
+        "text": "12 subs: 12 during play at 6 stoppages, 0 at period breaks; 5 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -30366,37 +30705,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Kemi plays only 5' (0'–5'), under the 8' minimum spell; Kemi plays only 5' (7'–12'), under the 8' minimum spell (+48 more)"
+      "text": "Kemi plays only 5' (0'–5'), under the 8' minimum spell; Kemi plays only 5' (7'–12'), under the 8' minimum spell (+48 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "4 changes at 5', more than 2 at once; 4 changes at 7', more than 2 at once (+4 more)"
+      "text": "4 changes at 5', more than 2 at once; 4 changes at 7', more than 2 at once (+4 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 20'–40' (outfield), targets ± 5'. Outside the band: Jo 20' (target 30')"
+      "text": "Minutes 20'–40' (outfield), targets ± 5'. Outside the band: Jo 20' (target 30')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "No unit is ever all-Developing"
+      "text": "No unit is ever all-Developing",
+      "area": "strength"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.6 (14'–17')"
+      "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.6 (14'–17')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 95% position fit"
+      "text": "Positions: 95% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "63 subs: 61 during play at 35 stoppages, 2 at period breaks; 20 position moves"
+      "text": "63 subs: 61 during play at 35 stoppages, 2 at period breaks; 20 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -30867,42 +31213,50 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Jo gets 20', below their floor of 24'"
+        "text": "Jo gets 20', below their floor of 24'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Kemi plays only 5' (0'–5'), under the 7' minimum spell; Kemi plays only 5' (7'–12'), under the 7' minimum spell (+33 more)"
+        "text": "Kemi plays only 5' (0'–5'), under the 7' minimum spell; Kemi plays only 5' (7'–12'), under the 7' minimum spell (+33 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "4 changes at 5', more than 2 at once; 4 changes at 7', more than 2 at once (+4 more)"
+        "text": "4 changes at 5', more than 2 at once; 4 changes at 7', more than 2 at once (+4 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 20'–40' (outfield), targets ± 4'. Outside the band: Jo 20' (target 30')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "No unit is ever all-Developing"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.6 (14'–17')"
+        "text": "Minutes 20'–40' (outfield), targets ± 4'. Outside the band: Jo 20' (target 30')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 96% position fit; 32' short of the variety target"
+        "text": "Positions: 96% position fit; 32' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.6 (14'–17')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "63 subs: 61 during play at 35 stoppages, 2 at period breaks; 20 position moves"
+        "text": "63 subs: 61 during play at 35 stoppages, 2 at period breaks; 20 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -32093,37 +32447,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Df2 comes on for only 7' at the end (63'–70'); Md2 comes on for only 2' at the end (68'–70')"
+      "text": "Df2 comes on for only 7' at the end (63'–70'); Md2 comes on for only 2' at the end (68'–70')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "4 changes at 9', more than 2 at once; 3 changes at 23', more than 2 at once (+1 more)"
+      "text": "4 changes at 9', more than 2 at once; 3 changes at 23', more than 2 at once (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 41'–52' (outfield), targets ± 6'. Outside the band: Df4 52' (target 43'), Df5 41' (target 47'), Df6 52' (target 43'), Md1 43' (target 50') +3"
+      "text": "Minutes 41'–52' (outfield), targets ± 6'. Outside the band: Df4 52' (target 43'), Df5 41' (target 47'), Df6 52' (target 43'), Md1 43' (target 50') +3",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "No unit is ever all-Developing"
+      "text": "No unit is ever all-Developing",
+      "area": "strength"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4 (14'–18')"
+      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4 (14'–18')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 99% position fit"
+      "text": "Positions: 99% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "23 subs: 23 during play at 11 stoppages, 0 at period breaks; 2 position moves"
+      "text": "23 subs: 23 during play at 11 stoppages, 0 at period breaks; 2 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -32402,37 +32763,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Df2 comes on for only 7' at the end (63'–70'); Md2 comes on for only 2' at the end (68'–70')"
+        "text": "Df2 comes on for only 7' at the end (63'–70'); Md2 comes on for only 2' at the end (68'–70')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "4 changes at 9', more than 2 at once; 3 changes at 23', more than 2 at once (+1 more)"
+        "text": "4 changes at 9', more than 2 at once; 3 changes at 23', more than 2 at once (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 41'–52' (outfield), targets ± 6'. Outside the band: Df4 52' (target 43'), Df5 41' (target 47'), Df6 52' (target 43'), Md1 43' (target 50') +3"
+        "text": "Minutes 41'–52' (outfield), targets ± 6'. Outside the band: Df4 52' (target 43'), Df5 41' (target 47'), Df6 52' (target 43'), Md1 43' (target 50') +3",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "No unit is ever all-Developing"
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4 (14'–18')"
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4 (14'–18')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 99% position fit"
+        "text": "Positions: 99% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "23 subs: 23 during play at 11 stoppages, 0 at period breaks; 2 position moves"
+        "text": "23 subs: 23 during play at 11 stoppages, 0 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -33289,42 +33657,50 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Df3 sits out 30' (30'–60'), over the 22' maximum; Df4 sits out 30' (37'–67'), over the 22' maximum (+3 more)"
+      "text": "Df3 sits out 30' (30'–60'), over the 22' maximum; Df4 sits out 30' (37'–67'), over the 22' maximum (+3 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Df4 comes on for only 3' at the end (67'–70'); Md3 comes on for only 3' at the end (67'–70') (+1 more)"
+      "text": "Df4 comes on for only 3' at the end (67'–70'); Md3 comes on for only 3' at the end (67'–70') (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "4 changes at 15', more than 2 at once; 3 changes at 37', more than 2 at once (+1 more)"
+      "text": "4 changes at 15', more than 2 at once; 3 changes at 37', more than 2 at once (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 40'–55' (outfield), targets ± 6'. Outside the band: Df2 55' (target 47'), Df3 40' (target 47'), Md2 40' (target 50'), Md3 40' (target 47') +2"
+      "text": "Minutes 40'–55' (outfield), targets ± 6'. Outside the band: Df2 55' (target 47'), Df3 40' (target 47'), Md2 40' (target 50'), Md3 40' (target 47') +2",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "No unit is ever all-Developing"
+      "text": "No unit is ever all-Developing",
+      "area": "strength"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 5 out of 10; weakest spell 4 (22'–30')"
+      "text": "Strength on the pitch averages 5 out of 10; weakest spell 4 (22'–30')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 98% position fit"
+      "text": "Positions: 98% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "15 subs: 15 during play at 6 stoppages, 0 at period breaks; 1 position moves"
+      "text": "15 subs: 15 during play at 6 stoppages, 0 at period breaks; 1 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -33639,42 +34015,50 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Df3 sits out 30' (30'–60'), over the 24' maximum; Df4 sits out 30' (37'–67'), over the 24' maximum (+3 more)"
+        "text": "Df3 sits out 30' (30'–60'), over the 24' maximum; Df4 sits out 30' (37'–67'), over the 24' maximum (+3 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Df4 comes on for only 3' at the end (67'–70'); Md3 comes on for only 3' at the end (67'–70') (+1 more)"
+        "text": "Df4 comes on for only 3' at the end (67'–70'); Md3 comes on for only 3' at the end (67'–70') (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "4 changes at 15', more than 2 at once; 3 changes at 37', more than 2 at once (+1 more)"
+        "text": "4 changes at 15', more than 2 at once; 3 changes at 37', more than 2 at once (+1 more)",
+        "area": "guarantees"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 5 out of 10; weakest spell 4 (22'–30')",
+        "area": "strength"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 40'–55' (outfield), targets ± 8'. Outside the band: Df2 55' (target 47'), Md2 40' (target 55'), At3 52' (target 38'), At4 55' (target 47')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "No unit is ever all-Developing"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 5 out of 10; weakest spell 4 (22'–30')"
+        "text": "Minutes 40'–55' (outfield), targets ± 8'. Outside the band: Df2 55' (target 47'), Md2 40' (target 55'), At3 52' (target 38'), At4 55' (target 47')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit"
+        "text": "Positions: 98% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "15 subs: 15 during play at 6 stoppages, 0 at period breaks; 1 position moves"
+        "text": "15 subs: 15 during play at 6 stoppages, 0 at period breaks; 1 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -38017,37 +38401,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Df1 plays only 5' (0'–5'), under the 9' minimum spell; Df1 plays only 5' (7'–12'), under the 9' minimum spell (+61 more)"
+      "text": "Df1 plays only 5' (0'–5'), under the 9' minimum spell; Df1 plays only 5' (7'–12'), under the 9' minimum spell (+61 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "5 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+9 more)"
+      "text": "5 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+9 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 45'–48' (outfield), targets ± 6'. Everyone within the band"
+      "text": "Minutes 45'–48' (outfield), targets ± 6'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "No unit is ever all-Developing"
+      "text": "No unit is ever all-Developing",
+      "area": "strength"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.9 (16'–17')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.9 (16'–17')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 98% position fit"
+      "text": "Positions: 98% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "89 subs: 88 during play at 47 stoppages, 1 at period breaks; 13 position moves"
+      "text": "89 subs: 88 during play at 47 stoppages, 1 at period breaks; 13 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -38650,37 +39041,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Df1 plays only 5' (0'–5'), under the 8' minimum spell; Df1 plays only 5' (7'–12'), under the 8' minimum spell (+46 more)"
+        "text": "Df1 plays only 5' (0'–5'), under the 8' minimum spell; Df1 plays only 5' (7'–12'), under the 8' minimum spell (+46 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "5 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+9 more)"
+        "text": "5 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+9 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 45'–48' (outfield), targets ± 4'. Everyone within the band"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "No unit is ever all-Developing"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4 (16'–17')"
+        "text": "Minutes 45'–48' (outfield), targets ± 4'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 99% position fit; 54' short of the variety target"
+        "text": "Positions: 99% position fit; 54' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4 (16'–17')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "89 subs: 88 during play at 47 stoppages, 1 at period breaks; 13 position moves"
+        "text": "89 subs: 88 during play at 47 stoppages, 1 at period breaks; 13 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -39355,27 +39753,32 @@
      {
       "tier": 0,
       "ok": false,
-      "text": "Can't be used as it is: Max plays 8' while not available; Zoe plays 6' while not available"
+      "text": "Can't be used as it is: Max plays 8' while not available; Zoe plays 6' while not available",
+      "area": "rules"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Pat 29' (target 33'), Tia 29' (target 33')"
+      "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Pat 29' (target 33'), Tia 29' (target 33')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (10'–15')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (10'–15')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 98% position fit"
+      "text": "Positions: 98% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "12 subs: 12 during play at 8 stoppages, 0 at period breaks; 4 position moves"
+      "text": "12 subs: 12 during play at 8 stoppages, 0 at period breaks; 4 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -39576,27 +39979,32 @@
        {
         "tier": 0,
         "ok": false,
-        "text": "Can't be used as it is: Max plays 8' while not available; Zoe plays 6' while not available"
+        "text": "Can't be used as it is: Max plays 8' while not available; Zoe plays 6' while not available",
+        "area": "rules"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Pat 29' (target 33'), Tia 29' (target 33')"
+        "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Pat 29' (target 33'), Tia 29' (target 33')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (10'–15')"
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (10'–15')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit"
+        "text": "Positions: 98% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "12 subs: 12 during play at 8 stoppages, 0 at period breaks; 4 position moves"
+        "text": "12 subs: 12 during play at 8 stoppages, 0 at period breaks; 4 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -40178,32 +40586,38 @@
      {
       "tier": 0,
       "ok": false,
-      "text": "Can't be used as it is: Max plays 12' while not available; Zoe plays 15' while not available"
+      "text": "Can't be used as it is: Max plays 12' while not available; Zoe plays 15' while not available",
+      "area": "rules"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Sky comes on for only 5' at the end (45'–50')"
+      "text": "Sky comes on for only 5' at the end (45'–50')",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 30'–38' (outfield), targets ± 4'. Outside the band: Pat 38' (target 33'), Tia 38' (target 33')"
+      "text": "Minutes 30'–38' (outfield), targets ± 4'. Outside the band: Pat 38' (target 33'), Tia 38' (target 33')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (15'–22')"
+      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (15'–22')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 97% position fit"
+      "text": "Positions: 97% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "9 subs: 8 during play at 5 stoppages, 1 at period breaks; 4 position moves"
+      "text": "9 subs: 8 during play at 5 stoppages, 1 at period breaks; 4 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -40411,32 +40825,38 @@
        {
         "tier": 0,
         "ok": false,
-        "text": "Can't be used as it is: Max plays 12' while not available; Zoe plays 15' while not available"
+        "text": "Can't be used as it is: Max plays 12' while not available; Zoe plays 15' while not available",
+        "area": "rules"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Sky comes on for only 5' at the end (45'–50')"
-       },
-       {
-        "tier": 2,
-        "ok": true,
-        "text": "Minutes 30'–38' (outfield), targets ± 5'. Everyone within the band"
+        "text": "Sky comes on for only 5' at the end (45'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (15'–22')"
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (15'–22')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": true,
+        "text": "Minutes 30'–38' (outfield), targets ± 5'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 97% position fit"
+        "text": "Positions: 97% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "9 subs: 8 during play at 5 stoppages, 1 at period breaks; 4 position moves"
+        "text": "9 subs: 8 during play at 5 stoppages, 1 at period breaks; 4 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -41922,37 +42342,44 @@
      {
       "tier": 0,
       "ok": false,
-      "text": "Can't be used as it is: Max plays 10' while not available; Zoe plays 6' while not available"
+      "text": "Can't be used as it is: Max plays 10' while not available; Zoe plays 6' while not available",
+      "area": "rules"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Lia plays only 5' (0'–5'), under the 8' minimum spell; Lia plays only 5' (7'–12'), under the 8' minimum spell (+28 more)"
+      "text": "Lia plays only 5' (0'–5'), under the 8' minimum spell; Lia plays only 5' (7'–12'), under the 8' minimum spell (+28 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+3 more)"
+      "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+3 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 28'–35' (outfield), targets ± 4'. Outside the band: Zoe 28' (target 33')"
+      "text": "Minutes 28'–35' (outfield), targets ± 4'. Outside the band: Zoe 28' (target 33')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (5'–7')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (5'–7')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 97% position fit"
+      "text": "Positions: 97% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "39 subs: 36 during play at 19 stoppages, 3 at period breaks; 8 position moves"
+      "text": "39 subs: 36 during play at 19 stoppages, 3 at period breaks; 8 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -42202,37 +42629,44 @@
        {
         "tier": 0,
         "ok": false,
-        "text": "Can't be used as it is: Max plays 10' while not available; Zoe plays 6' while not available"
+        "text": "Can't be used as it is: Max plays 10' while not available; Zoe plays 6' while not available",
+        "area": "rules"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Oli comes on for only 1' at the end (49'–50'); Rex comes on for only 3' at the end (47'–50') (+1 more)"
+        "text": "Oli comes on for only 1' at the end (49'–50'); Rex comes on for only 3' at the end (47'–50') (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+3 more)"
+        "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+3 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 28'–35' (outfield), targets ± 3'. Outside the band: Zoe 28' (target 33')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (5'–7')"
+        "text": "Minutes 28'–35' (outfield), targets ± 3'. Outside the band: Zoe 28' (target 33')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit; 24' short of the variety target"
+        "text": "Positions: 98% position fit; 24' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (5'–7')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "39 subs: 36 during play at 19 stoppages, 3 at period breaks; 8 position moves"
+        "text": "39 subs: 36 during play at 19 stoppages, 3 at period breaks; 8 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -42719,27 +43153,32 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 8', more than 2 at once; 3 changes at 15', more than 2 at once (+2 more)"
+      "text": "3 changes at 8', more than 2 at once; 3 changes at 15', more than 2 at once (+2 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Dot 29' (target 33'), Mel 29' (target 33'), Amy 29' (target 33')"
+      "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Dot 29' (target 33'), Mel 29' (target 33'), Amy 29' (target 33')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (8'–15')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (8'–15')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 99% position fit"
+      "text": "Positions: 99% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "12 subs: 12 during play at 4 stoppages, 0 at period breaks; 0 position moves"
+      "text": "12 subs: 12 during play at 4 stoppages, 0 at period breaks; 0 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -42952,27 +43391,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 15', more than 2 at once (+2 more)"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 15', more than 2 at once (+2 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Dot 29' (target 33'), Mel 29' (target 33'), Amy 29' (target 33')"
+        "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Dot 29' (target 33'), Mel 29' (target 33'), Amy 29' (target 33')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (8'–15')"
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (8'–15')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 99% position fit"
+        "text": "Positions: 99% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "12 subs: 12 during play at 4 stoppages, 0 at period breaks; 0 position moves"
+        "text": "12 subs: 12 during play at 4 stoppages, 0 at period breaks; 0 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -43403,27 +43847,32 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 12', more than 2 at once; 3 changes at 22', more than 2 at once (+1 more)"
+      "text": "3 changes at 12', more than 2 at once; 3 changes at 22', more than 2 at once (+1 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 30'–38' (outfield), targets ± 4'. Outside the band: Dot 38' (target 33'), Mel 38' (target 33'), Amy 38' (target 33')"
+      "text": "Minutes 30'–38' (outfield), targets ± 4'. Outside the band: Dot 38' (target 33'), Mel 38' (target 33'), Amy 38' (target 33')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (12'–22')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (12'–22')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 98% position fit"
+      "text": "Positions: 98% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "9 subs: 9 during play at 3 stoppages, 0 at period breaks; 0 position moves"
+      "text": "9 subs: 9 during play at 3 stoppages, 0 at period breaks; 0 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -43630,27 +44079,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 12', more than 2 at once; 3 changes at 22', more than 2 at once (+1 more)"
-       },
-       {
-        "tier": 2,
-        "ok": true,
-        "text": "Minutes 30'–38' (outfield), targets ± 5'. Everyone within the band"
+        "text": "3 changes at 12', more than 2 at once; 3 changes at 22', more than 2 at once (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (12'–22')"
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (12'–22')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": true,
+        "text": "Minutes 30'–38' (outfield), targets ± 5'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit"
+        "text": "Positions: 98% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "9 subs: 9 during play at 3 stoppages, 0 at period breaks; 0 position moves"
+        "text": "9 subs: 9 during play at 3 stoppages, 0 at period breaks; 0 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -44999,32 +45453,38 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Dan plays only 5' (0'–5'), under the 8' minimum spell; Dan plays only 5' (7'–12'), under the 8' minimum spell (+40 more)"
+      "text": "Dan plays only 5' (0'–5'), under the 8' minimum spell; Dan plays only 5' (7'–12'), under the 8' minimum spell (+40 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+12 more)"
+      "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+12 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 33'–34' (outfield), targets ± 4'. Everyone within the band"
+      "text": "Minutes 33'–34' (outfield), targets ± 4'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (5'–7')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (5'–7')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 99% position fit"
+      "text": "Positions: 99% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "45 subs: 42 during play at 14 stoppages, 3 at period breaks; 0 position moves"
+      "text": "45 subs: 42 during play at 14 stoppages, 3 at period breaks; 0 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -45333,32 +45793,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Don comes on for only 1' at the end (49'–50'); Dot comes on for only 3' at the end (47'–50') (+4 more)"
+        "text": "Don comes on for only 1' at the end (49'–50'); Dot comes on for only 3' at the end (47'–50') (+4 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+12 more)"
+        "text": "3 changes at 5', more than 2 at once; 3 changes at 7', more than 2 at once (+12 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 33'–34' (outfield), targets ± 3'. Everyone within the band"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (5'–7')"
+        "text": "Minutes 33'–34' (outfield), targets ± 3'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 99% position fit; 17' short of the variety target"
+        "text": "Positions: 99% position fit; 17' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.9 (5'–7')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "45 subs: 42 during play at 14 stoppages, 3 at period breaks; 0 position moves"
+        "text": "45 subs: 42 during play at 14 stoppages, 3 at period breaks; 0 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -46281,32 +46747,38 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing attack (Gee + Ina) 0'–8'; All-Developing defence (Jem + Di) 8'–10' (+15 more)"
+      "text": "All-Developing attack (Gee + Ina) 0'–8'; All-Developing defence (Jem + Di) 8'–10' (+15 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Jem comes on for only 6' at the end (44'–50')"
+      "text": "Jem comes on for only 6' at the end (44'–50')",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 29'–36' (outfield), targets ± 4'. Everyone within the band"
+      "text": "Minutes 29'–36' (outfield), targets ± 4'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (10'–15')"
+      "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (10'–15')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 97% position fit"
+      "text": "Positions: 97% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "12 subs: 12 during play at 9 stoppages, 0 at period breaks; 6 position moves"
+      "text": "12 subs: 12 during play at 9 stoppages, 0 at period breaks; 6 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -46705,32 +47177,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing attack (Gee + Ina) 0'–8'; All-Developing defence (Jem + Di) 8'–10' (+15 more)"
+        "text": "All-Developing attack (Gee + Ina) 0'–8'; All-Developing defence (Jem + Di) 8'–10' (+15 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Jem comes on for only 6' at the end (44'–50')"
+        "text": "Jem comes on for only 6' at the end (44'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 29'–36' (outfield), targets ± 4'. Everyone within the band"
+        "text": "Minutes 29'–36' (outfield), targets ± 4'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (10'–15')"
+        "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (10'–15')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 97% position fit"
+        "text": "Positions: 97% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "12 subs: 12 during play at 9 stoppages, 0 at period breaks; 6 position moves"
+        "text": "12 subs: 12 during play at 9 stoppages, 0 at period breaks; 6 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -47387,27 +47865,32 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing attack (Gee + Ina) 0'–12'; All-Developing defence (Jem + Di) 12'–15' (+10 more)"
+      "text": "All-Developing attack (Gee + Ina) 0'–12'; All-Developing defence (Jem + Di) 12'–15' (+10 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 30'–38' (outfield), targets ± 4'. Outside the band: Ed 38' (target 33'), Jem 38' (target 33')"
+      "text": "Minutes 30'–38' (outfield), targets ± 4'. Outside the band: Ed 38' (target 33'), Jem 38' (target 33')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (15'–22')"
+      "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (15'–22')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 96% position fit"
+      "text": "Positions: 96% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 4 position moves"
+      "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 4 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -47740,27 +48223,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing attack (Gee + Ina) 0'–12'; All-Developing defence (Jem + Di) 12'–15' (+10 more)"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 30'–38' (outfield), targets ± 5'. Outside the band: Bo 32' (target 39'), Cy 32' (target 39'), Ed 38' (target 32'), Jem 38' (target 32')"
+        "text": "All-Developing attack (Gee + Ina) 0'–12'; All-Developing defence (Jem + Di) 12'–15' (+10 more)",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (15'–22')"
+        "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (15'–22')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 30'–38' (outfield), targets ± 5'. Outside the band: Bo 32' (target 39'), Cy 32' (target 39'), Ed 38' (target 32'), Jem 38' (target 32')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 96% position fit"
+        "text": "Positions: 96% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 4 position moves"
+        "text": "8 subs: 8 during play at 5 stoppages, 0 at period breaks; 4 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -49753,37 +50241,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing attack (Gee + Ina) 0'–5'; All-Developing defence (Jem + Ed) 5'–7' (+33 more)"
+      "text": "All-Developing attack (Gee + Ina) 0'–5'; All-Developing defence (Jem + Ed) 5'–7' (+33 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Bo plays only 5' (0'–5'), under the 8' minimum spell; Bo plays only 5' (7'–12'), under the 8' minimum spell (+29 more)"
+      "text": "Bo plays only 5' (0'–5'), under the 8' minimum spell; Bo plays only 5' (7'–12'), under the 8' minimum spell (+29 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 5', more than 2 at once; 3 changes at 27', more than 2 at once (+2 more)"
+      "text": "3 changes at 5', more than 2 at once; 3 changes at 27', more than 2 at once (+2 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 32'–35' (outfield), targets ± 4'. Everyone within the band"
+      "text": "Minutes 32'–35' (outfield), targets ± 4'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (5'–7')"
+      "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (5'–7')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 97% position fit"
+      "text": "Positions: 97% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "39 subs: 37 during play at 21 stoppages, 2 at period breaks; 10 position moves"
+      "text": "39 subs: 37 during play at 21 stoppages, 2 at period breaks; 10 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -50428,37 +50923,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing attack (Gee + Ina) 0'–5'; All-Developing defence (Jem + Ed) 5'–7' (+33 more)"
+        "text": "All-Developing attack (Gee + Ina) 0'–5'; All-Developing defence (Jem + Ed) 5'–7' (+33 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Gee comes on for only 1' at the end (49'–50'); Jem comes on for only 3' at the end (47'–50')"
+        "text": "Gee comes on for only 1' at the end (49'–50'); Jem comes on for only 3' at the end (47'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 5', more than 2 at once; 3 changes at 27', more than 2 at once (+2 more)"
+        "text": "3 changes at 5', more than 2 at once; 3 changes at 27', more than 2 at once (+2 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 32'–35' (outfield), targets ± 3'. Everyone within the band"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (5'–7')"
+        "text": "Minutes 32'–35' (outfield), targets ± 3'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit; 24' short of the variety target"
+        "text": "Positions: 98% position fit; 24' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 2.6 out of 10; weakest spell 1.9 (5'–7')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "39 subs: 37 during play at 21 stoppages, 2 at period breaks; 10 position moves"
+        "text": "39 subs: 37 during play at 21 stoppages, 2 at period breaks; 10 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -50951,27 +51453,32 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Dex comes on for only 3' at the end (37'–40')"
+      "text": "Dex comes on for only 3' at the end (37'–40')",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 26'–32' (outfield), targets ± 3'. Outside the band: Fae 32' (target 29')"
+      "text": "Minutes 26'–32' (outfield), targets ± 3'. Outside the band: Fae 32' (target 29')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (17'–20')"
+      "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (17'–20')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 97% position fit"
+      "text": "Positions: 97% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "8 subs: 7 during play at 6 stoppages, 1 at period breaks; 3 position moves"
+      "text": "8 subs: 7 during play at 6 stoppages, 1 at period breaks; 3 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -51136,27 +51643,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Dex comes on for only 3' at the end (37'–40')"
+        "text": "Dex comes on for only 3' at the end (37'–40')",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 26'–32' (outfield), targets ± 3'. Outside the band: Fae 32' (target 29')"
+        "text": "Minutes 26'–32' (outfield), targets ± 3'. Outside the band: Fae 32' (target 29')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (17'–20')"
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (17'–20')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 97% position fit"
+        "text": "Positions: 97% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "8 subs: 7 during play at 6 stoppages, 1 at period breaks; 3 position moves"
+        "text": "8 subs: 7 during play at 6 stoppages, 1 at period breaks; 3 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -51528,22 +52040,26 @@
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 26'–32' (outfield), targets ± 3'. Outside the band: Gio 32' (target 29')"
+      "text": "Minutes 26'–32' (outfield), targets ± 3'. Outside the band: Gio 32' (target 29')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (26'–32')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (26'–32')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 97% position fit"
+      "text": "Positions: 97% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "5 subs: 5 during play at 4 stoppages, 0 at period breaks; 1 position moves"
+      "text": "5 subs: 5 during play at 4 stoppages, 0 at period breaks; 1 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -51699,24 +52215,28 @@
       "withLevels": false,
       "lines": [
        {
-        "tier": 2,
-        "ok": true,
-        "text": "Minutes 26'–32' (outfield), targets ± 4'. Everyone within the band"
-       },
-       {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.7 (26'–32')"
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.7 (26'–32')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": true,
+        "text": "Minutes 26'–32' (outfield), targets ± 4'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 97% position fit"
+        "text": "Positions: 97% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "5 subs: 5 during play at 4 stoppages, 0 at period breaks; 1 position moves"
+        "text": "5 subs: 5 during play at 4 stoppages, 0 at period breaks; 1 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -52613,27 +53133,32 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "Ana plays only 5' (0'–5'), under the 7' minimum spell; Ana comes on for only 1' at the end (39'–40') (+3 more)"
+      "text": "Ana plays only 5' (0'–5'), under the 7' minimum spell; Ana comes on for only 1' at the end (39'–40') (+3 more)",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": true,
-      "text": "Minutes 27'–30' (outfield), targets ± 3'. Everyone within the band"
+      "text": "Minutes 27'–30' (outfield), targets ± 3'. Everyone within the band",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (5'–7')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (5'–7')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 97% position fit"
+      "text": "Positions: 97% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "22 subs: 22 during play at 17 stoppages, 0 at period breaks; 11 position moves"
+      "text": "22 subs: 22 during play at 17 stoppages, 0 at period breaks; 11 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -52810,27 +53335,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Ana comes on for only 1' at the end (39'–40'); Dex comes on for only 4' at the end (36'–40') (+1 more)"
+        "text": "Ana comes on for only 1' at the end (39'–40'); Dex comes on for only 4' at the end (36'–40') (+1 more)",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 27'–30' (outfield), targets ± 2'. Everyone within the band"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (5'–7')"
+        "text": "Minutes 27'–30' (outfield), targets ± 2'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit; 13' short of the variety target"
+        "text": "Positions: 98% position fit; 13' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 4.8 (5'–7')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "22 subs: 22 during play at 17 stoppages, 0 at period breaks; 11 position moves"
+        "text": "22 subs: 22 during play at 17 stoppages, 0 at period breaks; 11 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -53896,37 +54426,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing defence (Ros + Ulf) 11'–15'; All-Developing defence (Ros + Ulf) 20'–23'"
+      "text": "All-Developing defence (Ros + Ulf) 11'–15'; All-Developing defence (Ros + Ulf) 20'–23'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Pru comes on for only 2' at the end (58'–60'); Sev comes on for only 3' at the end (57'–60')"
+      "text": "Pru comes on for only 2' at the end (58'–60'); Sev comes on for only 3' at the end (57'–60')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 8', more than 2 at once"
+      "text": "3 changes at 8', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 25'–38' (outfield), targets ± 5'. Outside the band: Mae 25' (target 33')"
+      "text": "Minutes 25'–38' (outfield), targets ± 5'. Outside the band: Mae 25' (target 33')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.9 (11'–15')"
+      "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.9 (11'–15')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 98% position fit"
+      "text": "Positions: 98% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "18 subs: 18 during play at 13 stoppages, 0 at period breaks; 12 position moves"
+      "text": "18 subs: 18 during play at 13 stoppages, 0 at period breaks; 12 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -54167,37 +54704,44 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing defence (Ros + Ulf) 11'–15'; All-Developing defence (Ros + Ulf) 20'–23'"
+        "text": "All-Developing defence (Ros + Ulf) 11'–15'; All-Developing defence (Ros + Ulf) 20'–23'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Pru comes on for only 2' at the end (58'–60'); Sev comes on for only 3' at the end (57'–60')"
+        "text": "Pru comes on for only 2' at the end (58'–60'); Sev comes on for only 3' at the end (57'–60')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once"
+        "text": "3 changes at 8', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 25'–38' (outfield), targets ± 5'. Outside the band: Mae 25' (target 33')"
+        "text": "Minutes 25'–38' (outfield), targets ± 5'. Outside the band: Mae 25' (target 33')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.9 (11'–15')"
+        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.9 (11'–15')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit"
+        "text": "Positions: 98% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "18 subs: 18 during play at 13 stoppages, 0 at period breaks; 12 position moves"
+        "text": "18 subs: 18 during play at 13 stoppages, 0 at period breaks; 12 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -55081,47 +55625,56 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing defence (Ros + Ulf) 17'–35'"
+      "text": "All-Developing defence (Ros + Ulf) 17'–35'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Mae gets 17', below their floor of 22'"
+      "text": "Mae gets 17', below their floor of 22'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Mae sits out 23' (12'–35'), over the 20' maximum; Nat sits out 22' (17'–39'), over the 20' maximum (+2 more)"
+      "text": "Mae sits out 23' (12'–35'), over the 20' maximum; Nat sits out 22' (17'–39'), over the 20' maximum (+2 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Oto comes on for only 3' at the end (57'–60'); Ros comes on for only 4' at the end (56'–60')"
+      "text": "Oto comes on for only 3' at the end (57'–60'); Ros comes on for only 4' at the end (56'–60')",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "3 changes at 12', more than 2 at once"
+      "text": "3 changes at 12', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 17'–45' (outfield), targets ± 5'. Outside the band: Mae 17' (target 33'), Pru 37' (target 30'), Quy 45' (target 33')"
+      "text": "Minutes 17'–45' (outfield), targets ± 5'. Outside the band: Mae 17' (target 33'), Pru 37' (target 30'), Quy 45' (target 33')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.9 (17'–20')"
+      "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.9 (17'–20')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 97% position fit"
+      "text": "Positions: 97% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "12 subs: 11 during play at 9 stoppages, 1 at period breaks; 7 position moves"
+      "text": "12 subs: 11 during play at 9 stoppages, 1 at period breaks; 7 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -55356,42 +55909,50 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing defence (Ros + Ulf) 17'–35'"
+        "text": "All-Developing defence (Ros + Ulf) 17'–35'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Sev sits out 28' (20'–48'), over the 22' maximum"
+        "text": "Sev sits out 28' (20'–48'), over the 22' maximum",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Oto comes on for only 3' at the end (57'–60'); Ros comes on for only 4' at the end (56'–60')"
+        "text": "Oto comes on for only 3' at the end (57'–60'); Ros comes on for only 4' at the end (56'–60')",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 12', more than 2 at once"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 17'–45' (outfield), targets ± 7'. Outside the band: Mae 17' (target 33'), Oto 31' (target 39'), Pru 37' (target 27'), Quy 45' (target 33')"
+        "text": "3 changes at 12', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.8 (17'–20')"
+        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.8 (17'–20')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 17'–45' (outfield), targets ± 7'. Outside the band: Mae 17' (target 33'), Oto 31' (target 39'), Pru 37' (target 27'), Quy 45' (target 33')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 97% position fit"
+        "text": "Positions: 97% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "12 subs: 11 during play at 9 stoppages, 1 at period breaks; 7 position moves"
+        "text": "12 subs: 11 during play at 9 stoppages, 1 at period breaks; 7 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -57717,37 +58278,44 @@
      {
       "tier": 1,
       "ok": false,
-      "text": "All-Developing defence (Ros + Ulf) 26'–29'; All-Developing defence (Ros + Ulf) 34'–36'"
+      "text": "All-Developing defence (Ros + Ulf) 26'–29'; All-Developing defence (Ros + Ulf) 34'–36'",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "Kip comes on for only 5' at the end (55'–60'); Lev plays only 5' (0'–5'), under the 8' minimum spell (+34 more)"
+      "text": "Kip comes on for only 5' at the end (55'–60'); Lev plays only 5' (0'–5'), under the 8' minimum spell (+34 more)",
+      "area": "guarantees"
      },
      {
       "tier": 1,
       "ok": false,
-      "text": "4 changes at 5', more than 2 at once; 3 changes at 12', more than 2 at once"
+      "text": "4 changes at 5', more than 2 at once; 3 changes at 12', more than 2 at once",
+      "area": "guarantees"
      },
      {
       "tier": 2,
       "ok": false,
-      "text": "Minutes 23'–36' (outfield), targets ± 5'. Outside the band: Mae 23' (target 33')"
+      "text": "Minutes 23'–36' (outfield), targets ± 5'. Outside the band: Mae 23' (target 33')",
+      "area": "minutes"
      },
      {
       "tier": 3,
       "ok": true,
-      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.5 (14'–17')"
+      "text": "Strength on the pitch averages 4.9 out of 10; weakest spell 3.5 (14'–17')",
+      "area": "strength"
      },
      {
       "tier": 4,
       "ok": true,
-      "text": "Positions: 97% position fit"
+      "text": "Positions: 97% position fit",
+      "area": "positions"
      },
      {
       "tier": 5,
       "ok": true,
-      "text": "48 subs: 47 during play at 34 stoppages, 1 at period breaks; 9 position moves"
+      "text": "48 subs: 47 during play at 34 stoppages, 1 at period breaks; 9 position moves",
+      "area": "smoothness"
      }
     ]
    },
@@ -58168,42 +58736,50 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing defence (Ros + Ulf) 26'–29'; All-Developing defence (Ros + Ulf) 34'–36'"
+        "text": "All-Developing defence (Ros + Ulf) 26'–29'; All-Developing defence (Ros + Ulf) 34'–36'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Mae gets 23', below their floor of 26'"
+        "text": "Mae gets 23', below their floor of 26'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Kip comes on for only 5' at the end (55'–60'); Lev plays only 5' (0'–5'), under the 7' minimum spell (+28 more)"
+        "text": "Kip comes on for only 5' at the end (55'–60'); Lev plays only 5' (0'–5'), under the 7' minimum spell (+28 more)",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "4 changes at 5', more than 2 at once; 3 changes at 12', more than 2 at once"
+        "text": "4 changes at 5', more than 2 at once; 3 changes at 12', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 23'–36' (outfield), targets ± 4'. Outside the band: Mae 23' (target 33')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.5 (14'–17')"
+        "text": "Minutes 23'–36' (outfield), targets ± 4'. Outside the band: Mae 23' (target 33')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 98% position fit; 24' short of the variety target"
+        "text": "Positions: 98% position fit; 24' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 5 out of 10; weakest spell 3.5 (14'–17')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "48 subs: 47 during play at 34 stoppages, 1 at period breaks; 9 position moves"
+        "text": "48 subs: 47 during play at 34 stoppages, 1 at period breaks; 9 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -59632,32 +60208,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Cal + Dan) 10'–35'"
+        "text": "All-Developing midfield (Cal + Dan) 10'–35'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')"
+        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 29'–36' (outfield), targets ± 3'. Outside the band: Gus 29' (target 33'), Cal 29' (target 33')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.9 (10'–15')"
+        "text": "Minutes 29'–36' (outfield), targets ± 3'. Outside the band: Gus 29' (target 33'), Cal 29' (target 33')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 96% position fit; 21' short of the variety target"
+        "text": "Positions: 96% position fit; 21' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.9 (10'–15')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves"
+        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      },
@@ -59855,32 +60437,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 33'–34' (outfield), targets ± 3'. Everyone within the band"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "No unit is ever all-Developing"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (0'–8')"
+        "text": "Minutes 33'–34' (outfield), targets ± 3'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 94% position fit; 13' short of the variety target"
+        "text": "Positions: 94% position fit; 13' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 4.8 (0'–8')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 3 position moves"
+        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 3 position moves",
+        "area": "smoothness"
        }
       ]
      },
@@ -60090,32 +60678,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Cal + Dan) 25'–50'"
+        "text": "All-Developing midfield (Cal + Dan) 25'–50'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 32'–34' (outfield), targets ± 3'. Everyone within the band"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.9 (42'–50')"
+        "text": "Minutes 32'–34' (outfield), targets ± 3'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 94% position fit; 13' short of the variety target"
+        "text": "Positions: 94% position fit; 13' short of the variety target",
+        "area": "positions"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.9 (42'–50')",
+        "area": "strength"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 2 position moves"
+        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -60350,32 +60944,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Cal + Dan) 10'–35'"
+        "text": "All-Developing midfield (Cal + Dan) 10'–35'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')"
+        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Gus 29' (target 33'), Dan 36' (target 31')"
+        "text": "Minutes 29'–36' (outfield), targets ± 4'. Outside the band: Gus 29' (target 33'), Dan 36' (target 31')",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')"
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 95% position fit"
+        "text": "Positions: 95% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves"
+        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      },
@@ -60573,32 +61173,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 33'–34' (outfield), targets ± 4'. Everyone within the band"
+        "text": "Minutes 33'–34' (outfield), targets ± 4'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "No unit is ever all-Developing"
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.7 (0'–8')"
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.7 (0'–8')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 93% position fit"
+        "text": "Positions: 93% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 3 position moves"
+        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 3 position moves",
+        "area": "smoothness"
        }
       ]
      },
@@ -60808,32 +61414,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Cal + Dan) 25'–50'"
+        "text": "All-Developing midfield (Cal + Dan) 25'–50'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 2,
         "ok": true,
-        "text": "Minutes 32'–34' (outfield), targets ± 4'. Everyone within the band"
+        "text": "Minutes 32'–34' (outfield), targets ± 4'. Everyone within the band",
+        "area": "minutes"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.9 (42'–50')"
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.9 (42'–50')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 93% position fit"
+        "text": "Positions: 93% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 2 position moves"
+        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -61068,32 +61680,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Cal + Dan) 10'–35'"
+        "text": "All-Developing midfield (Cal + Dan) 10'–35'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 29'–36' (outfield), targets ± 5'. Outside the band: Ava 33' (target 39'), Ben 33' (target 39'), Dan 36' (target 27')"
+        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')"
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 29'–36' (outfield), targets ± 5'. Outside the band: Ava 33' (target 39'), Ben 33' (target 39'), Dan 36' (target 27')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 94% position fit"
+        "text": "Positions: 94% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves"
+        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      },
@@ -61291,32 +61909,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once",
+        "area": "guarantees"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "No unit is ever all-Developing",
+        "area": "strength"
+       },
+       {
+        "tier": 3,
+        "ok": true,
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.6 (0'–8')",
+        "area": "strength"
        },
        {
         "tier": 2,
         "ok": false,
-        "text": "Minutes 33'–34' (outfield), targets ± 5'. Outside the band: Ava 33' (target 39'), Ben 33' (target 39'), Cal 33' (target 27'), Dan 33' (target 27')"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "No unit is ever all-Developing"
-       },
-       {
-        "tier": 3,
-        "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.6 (0'–8')"
+        "text": "Minutes 33'–34' (outfield), targets ± 5'. Outside the band: Ava 33' (target 39'), Ben 33' (target 39'), Cal 33' (target 27'), Dan 33' (target 27')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 92% position fit"
+        "text": "Positions: 92% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 3 position moves"
+        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 3 position moves",
+        "area": "smoothness"
        }
       ]
      },
@@ -61526,32 +62150,38 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "All-Developing midfield (Cal + Dan) 25'–50'"
+        "text": "All-Developing midfield (Cal + Dan) 25'–50'",
+        "area": "guarantees"
        },
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 32'–34' (outfield), targets ± 5'. Outside the band: Ava 33' (target 39'), Cal 33' (target 27'), Dan 34' (target 27')"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.9 (42'–50')"
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.9 (42'–50')",
+        "area": "strength"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 32'–34' (outfield), targets ± 5'. Outside the band: Ava 33' (target 39'), Cal 33' (target 27'), Dan 34' (target 27')",
+        "area": "minutes"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 92% position fit"
+        "text": "Positions: 92% position fit",
+        "area": "positions"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 2 position moves"
+        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      }
@@ -61774,27 +62404,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 29'–36' (outfield), targets ± 7'. Outside the band: Ava 33' (target 42'), Ben 33' (target 42'), Dan 36' (target 24')"
+        "text": "Gus comes on for only 2' at the end (48'–50'); Ben comes on for only 4' at the end (46'–50')",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')"
+        "text": "Strength on the pitch averages 4.8 out of 10; weakest spell 3.8 (10'–15')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 94% position fit"
+        "text": "Positions: 94% position fit",
+        "area": "positions"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 29'–36' (outfield), targets ± 7'. Outside the band: Ava 33' (target 42'), Ben 33' (target 42'), Dan 36' (target 24')",
+        "area": "minutes"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves"
+        "text": "13 subs: 13 during play at 10 stoppages, 0 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      },
@@ -61992,27 +62627,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 33'–34' (outfield), targets ± 7'. Outside the band: Ava 33' (target 42'), Ben 33' (target 42'), Cal 33' (target 24'), Dan 33' (target 24')"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.6 (0'–8')"
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 4.6 (0'–8')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 92% position fit"
+        "text": "Positions: 92% position fit",
+        "area": "positions"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 33'–34' (outfield), targets ± 7'. Outside the band: Ava 33' (target 42'), Ben 33' (target 42'), Cal 33' (target 24'), Dan 33' (target 24')",
+        "area": "minutes"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 3 position moves"
+        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 3 position moves",
+        "area": "smoothness"
        }
       ]
      },
@@ -62210,27 +62850,32 @@
        {
         "tier": 1,
         "ok": false,
-        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once"
-       },
-       {
-        "tier": 2,
-        "ok": false,
-        "text": "Minutes 32'–34' (outfield), targets ± 7'. Outside the band: Ava 33' (target 42'), Ben 34' (target 42'), Cal 33' (target 24'), Dan 34' (target 24')"
+        "text": "3 changes at 8', more than 2 at once; 3 changes at 33', more than 2 at once",
+        "area": "guarantees"
        },
        {
         "tier": 3,
         "ok": true,
-        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.9 (42'–50')"
+        "text": "Strength on the pitch averages 4.7 out of 10; weakest spell 3.9 (42'–50')",
+        "area": "strength"
        },
        {
         "tier": 4,
         "ok": true,
-        "text": "Positions: 91% position fit"
+        "text": "Positions: 91% position fit",
+        "area": "positions"
+       },
+       {
+        "tier": 2,
+        "ok": false,
+        "text": "Minutes 32'–34' (outfield), targets ± 7'. Outside the band: Ava 33' (target 42'), Ben 34' (target 42'), Cal 33' (target 24'), Dan 34' (target 24')",
+        "area": "minutes"
        },
        {
         "tier": 5,
         "ok": true,
-        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 2 position moves"
+        "text": "13 subs: 10 during play at 4 stoppages, 3 at period breaks; 2 position moves",
+        "area": "smoothness"
        }
       ]
      }

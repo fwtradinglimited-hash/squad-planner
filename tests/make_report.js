@@ -12,6 +12,7 @@ const STYLES = ['Balanced', 'Fewer subs', 'Maximum fairness'];
 const ETHOS = {development: 'Development', balanced: 'Balanced', competitive: 'Competitive', performance: 'Performance'};
 const PLAN_NAMES = {engine: "Today's engine (Balanced)", staggered: 'Staggered pairs', naive: 'Best XI first, then rotate'};
 const TIER_WORDS = {0: 'a rule clash', 1: 'a broken guarantee', 2: 'minutes', 3: 'strength', 4: 'positions', 5: 'smoothness', 6: 'a tie'};
+const AREA_TAG = {rules: 'Rules', guarantees: 'Guarantee', minutes: 'Minutes', strength: 'Strength', positions: 'Positions', smoothness: 'Changes'};
 
 const mid = byId.midfield;
 const midPlayers = Object.fromEntries(mid.squad.map(p => [p.id, p]));
@@ -33,7 +34,7 @@ function rotaTable(plan) {
   return `<div class="scroll"><table class="rota"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function linesHtml(lines) {
-  return `<ul class="lines">${lines.map(l => `<li class="${l.ok ? 'ok' : 'warn'} tier${l.tier}"><span class="tier-tag">${l.tier}</span><span>${esc(l.text)}</span></li>`).join('')}</ul>`;
+  return `<ul class="lines">${lines.map(l => `<li class="${l.ok ? 'ok' : 'warn'} tier${l.tier}"><span class="tier-tag">${AREA_TAG[l.area] || l.tier}</span><span>${esc(l.text)}</span></li>`).join('')}</ul>`;
 }
 
 // ---------- findings ----------
@@ -171,13 +172,14 @@ table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .plans { display: grid; gap: 28px; }
 .plan { min-width: 0; }
 .lines { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
-.lines li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; padding: 6px 10px; border-radius: 4px; background: var(--panel); border: 1px solid var(--line); }
+.lines li { display: grid; grid-template-columns: 78px 1fr; gap: 10px; align-items: start; padding: 6px 10px; border-radius: 4px; background: var(--panel); border: 1px solid var(--line); }
 .lines li.warn { background: var(--warn-soft); border-color: transparent; }
 .lines li.tier0.warn, .lines li.tier1.warn { background: var(--crit-soft); }
-.tier-tag { font: 700 14px/22px var(--display); text-align: center; border-radius: 3px; background: var(--line); color: var(--ink); }
+.tier-tag { font: 700 13px/22px var(--display); letter-spacing: .03em; text-transform: uppercase; text-align: center; border-radius: 3px; background: var(--line); color: var(--ink); }
 .lines li.warn .tier-tag { background: var(--warn); color: var(--panel); }
 .lines li.tier0.warn .tier-tag, .lines li.tier1.warn .tier-tag { background: var(--crit); }
 .grid { width: 100%; min-width: 640px; font-size: 14px; }
+.grid.order { min-width: 0; margin: 8px 0 6px; }
 .grid th, .grid td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .grid thead th { font: 700 12px/1.2 var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); border-bottom: 2px solid var(--ink); }
 .grid td.num { font-family: var(--mono); text-align: right; white-space: nowrap; }
@@ -208,19 +210,27 @@ footer { color: var(--muted); font-size: 13px; }
   <div class="eyebrow">Engine redesign · Phase 2 review</div>
   <h1>Scorecard Baseline</h1>
   <p class="lede">The new scorecard marks any plan against your rules, tier by tier, and says why. Here it marks three plans for your midfield squad and every plan today's engine makes for 14 test squads. Nothing in the app has changed yet.</p>
-  <div class="callout"><strong>What I need from you:</strong> check that the scorecard ranks plans the way you would. If it does, I build the new planner on top of it. If it doesn't, we fix the scorecard first, because the planner will chase whatever the scorecard rewards.</div>
+  <div class="callout"><strong>Reviewed:</strong> you agreed the ranking and the Balanced numbers, and asked for the order of minutes, strength and positions to follow the coach's ethos. That change is in. The new planner is built on this scorecard.</div>
 </header>
 
 <section class="prose" aria-labelledby="h-tiers">
   <h2 id="h-tiers">How a plan is judged</h2>
-  <p>A higher tier always wins. Each tier leaves a little room so the tiers below can still improve the plan. Numbers shown are the proposed Balanced ethos for a 50-minute 7v7 match; other ethos settings move the numbers, never the order.</p>
+  <p>Rules come first and guarantees second, for every coach. Minutes, strength and positions come next, in the order the coach's ethos sets: a coach who wants the strongest side in position ranks minutes last. Each step leaves a little room so the steps below can still improve the plan. Numbers shown are the Balanced ethos for a 50-minute 7v7 match.</p>
   <div class="tiers">
-    <div class="tier-row"><div class="n">0</div><div><h3>Rules that can't be broken</h3><p>One player per position, the right numbers, no "Do not use" positions, only keepers in goal, nobody playing when they aren't there, caps and league minimums.</p></div></div>
-    <div class="tier-row"><div class="n">1</div><div><h3>Guarantees</h3><p>Broken as little as possible, and every break is listed.</p><p class="nums">Minute floor ${Math.round(sb.floorFrac * 100)}% of an equal share · no all-Developing unit · rest at most ${sb.maxTimeOff}' · spells at least ${sb.minSpell}' · at most ${sb.maxChangesPerStoppage} changes at once during play (period breaks are free)</p></div></div>
-    <div class="tier-row"><div class="n">2</div><div><h3>Minutes</h3><p>Each player's minutes against their target. Inside the band costs nothing; outside it, the cost grows quickly. Keeper time doesn't count, so keepers are owed outfield time too.</p><p class="nums">Band ± ${sb.band}' around each target</p></div></div>
-    <div class="tier-row"><div class="n">3</div><div><h3>Strength</h3><p>Level × position fit for everyone on the pitch. Balanced lifts the weakest spell towards the average, with some weight on the first and last minutes. Shown per player on the 0–10 level scale.</p></div></div>
-    <div class="tier-row"><div class="n">4</div><div><h3>Positions</h3><p>How well players fit where they play (Preferred 1.0, Comfortable 0.85, Can play 0.6), plus variety and "plays well with" or "keep apart" pairs when set.</p></div></div>
-    <div class="tier-row"><div class="n">5</div><div><h3>Smoothness</h3><p>Fewer stoppages, fewer subs and position moves, and keeping the plan the coach has already seen.</p></div></div>
+    <div class="tier-row"><div class="n">1</div><div><h3>Rules that can't be broken</h3><p>One player per position, the right numbers, no "Do not use" positions, only keepers in goal, nobody playing when they aren't there, caps and league minimums.</p></div></div>
+    <div class="tier-row"><div class="n">2</div><div><h3>Guarantees</h3><p>Broken as little as possible, and every break is listed. The minute floor lives here, so even a strength-first ethos can't push a child below it.</p><p class="nums">Minute floor ${Math.round(sb.floorFrac * 100)}% of an equal share · no all-Developing unit · rest at most ${sb.maxTimeOff}' · spells at least ${sb.minSpell}' · at most ${sb.maxChangesPerStoppage} changes at once during play (period breaks are free)</p></div></div>
+    <div class="tier-row"><div class="n">3</div><div><h3>Minutes, strength and positions, in the ethos's order</h3>
+      <p><strong>Minutes:</strong> each player against their target; inside the band (± ${sb.band}') costs nothing. Keeper time doesn't count, so keepers are owed outfield time too.<br>
+      <strong>Strength:</strong> level × position fit for everyone on the pitch, shown per player on the 0–10 scale.<br>
+      <strong>Positions:</strong> Preferred 1.0, Comfortable 0.85, Can play 0.6, plus variety and pairs when set.</p>
+      <div class="scroll"><table class="grid order"><thead><tr><th scope="col">Ethos</th><th scope="col">First</th><th scope="col">Then</th><th scope="col">Then</th></tr></thead><tbody>
+        <tr><th scope="row">Development</th><td>Minutes</td><td>Positions</td><td>Strength</td></tr>
+        <tr><th scope="row">Balanced</th><td>Minutes</td><td>Strength</td><td>Positions</td></tr>
+        <tr><th scope="row">Competitive</th><td>Strength</td><td>Minutes</td><td>Positions</td></tr>
+        <tr><th scope="row">Performance</th><td>Strength</td><td>Positions</td><td>Minutes</td></tr>
+      </tbody></table></div>
+      <p class="why">Any coach can change the order; the questionnaire sets it from their answers.</p></div></div>
+    <div class="tier-row"><div class="n">4</div><div><h3>Smoothness</h3><p>Fewer stoppages, fewer subs and position moves, and keeping the plan the coach has already seen.</p></div></div>
   </div>
 </section>
 
@@ -253,13 +263,13 @@ footer { color: var(--muted); font-size: 13px; }
 </section>
 
 <section class="prose" aria-labelledby="h-ask">
-  <h2 id="h-ask">Questions for you</h2>
+  <h2 id="h-ask">Your decisions</h2>
   <ol class="asks">
-    <li><strong>The order of the tiers.</strong> Rules, then guarantees, then minutes, then strength, then positions, then smoothness. Does that match how you'd judge a plan from the touchline?</li>
-    <li><strong>The midfield ranking.</strong> The staggered plan wins under every ethos, and today's engine comes last under three of the four. Is that your judgement too?</li>
-    <li><strong>The Balanced numbers.</strong> A ± ${sb.band}' band, a floor of ${Math.round(sb.floorFrac * 100)}% of an equal share, no rest longer than ${sb.maxTimeOff}', no spell shorter than ${sb.minSpell}', and at most ${sb.maxChangesPerStoppage} changes at once during play. Too strict, too loose, or about right?</li>
-    <li><strong>Changes at period breaks.</strong> I've made changes at half-time (and quarter breaks) free of the "at once" limit, because play has stopped anyway. Agree?</li>
-    <li><strong>Keepers.</strong> With keeper time not counting, the scorecard expects a keeper who kept goal for a half to get a full outfield share in the other half as well. Is that what you want?</li>
+    <li><strong>The order.</strong> Decided: rules and guarantees always first; minutes, strength and positions in the order the ethos sets (table above); smoothness last.</li>
+    <li><strong>The midfield ranking.</strong> Agreed.</li>
+    <li><strong>The Balanced numbers.</strong> Agreed: ± ${sb.band}' band, floor ${Math.round(sb.floorFrac * 100)}% of an equal share, rest at most ${sb.maxTimeOff}', spells at least ${sb.minSpell}', at most ${sb.maxChangesPerStoppage} changes at once during play.</li>
+    <li><strong>Changes at period breaks.</strong> Agreed: free of the "at once" limit.</li>
+    <li><strong>Keepers.</strong> Agreed: a keeper is owed a full outfield share as well as their time in goal.</li>
   </ol>
 </section>
 
