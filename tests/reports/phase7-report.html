@@ -1,0 +1,133 @@
+<title>Planner Rebuild Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: one reading column; a summary band of four figures, then tables that scroll inside their own frames. Palette and display face follow the app (turf, chalk, amber). */
+:root {
+  --bg:#F5F4EE; --surface:#FFFFFF; --ink:#14251B; --soft:#56685C; --line:#DCDCD0;
+  --turf:#1F4A33; --amber:#C98A1E; --good:#2E7D4F; --goodbg:#E3F1E8; --old:#B9BDB2;
+  --display:"Oswald", "Arial Narrow", sans-serif; --body:"Source Sans 3", -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0F1913; --surface:#17241B; --ink:#ECEBE2; --soft:#A6B8AB; --line:#2A3A2F; --turf:#7CC79A; --amber:#E6B04F; --good:#7CC79A; --goodbg:#1D3426; --old:#4A5A4F; color-scheme:dark } }
+:root[data-theme="dark"] { --bg:#0F1913; --surface:#17241B; --ink:#ECEBE2; --soft:#A6B8AB; --line:#2A3A2F; --turf:#7CC79A; --amber:#E6B04F; --good:#7CC79A; --goodbg:#1D3426; --old:#4A5A4F; color-scheme:dark }
+body { background:var(--bg); color:var(--ink); font-family:var(--body); font-size:16px; line-height:1.55; }
+.wrap { max-width:880px; margin:0 auto; padding-inline:16px; padding-block:28px 56px; display:flex; flex-direction:column; gap:30px; }
+h1,h2 { font-family:var(--display); font-weight:600; text-wrap:balance; margin:0; letter-spacing:.01em; }
+h1 { font-size:clamp(28px,6vw,40px); line-height:1.1; }
+h2 { font-size:22px; }
+.eyebrow { font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:var(--soft); font-weight:600; }
+p { margin:0; max-width:68ch; }
+section { display:flex; flex-direction:column; gap:12px; }
+.figs { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; }
+.fig { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:2px; }
+.fig b { font-family:var(--display); font-size:28px; font-weight:500; color:var(--turf); font-variant-numeric:tabular-nums; }
+.fig span { font-size:13.5px; color:var(--soft); }
+.frame { overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+table { border-collapse:collapse; width:100%; font-size:14px; }
+th,td { padding:9px 12px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+thead th { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--soft); font-weight:600; white-space:nowrap; }
+tbody tr:last-child th, tbody tr:last-child td { border-bottom:0; }
+tbody th { font-weight:600; white-space:nowrap; }
+.num { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.bars { display:flex; flex-direction:column; gap:2px; margin-top:4px; width:120px; }
+.bar { display:block; height:5px; border-radius:3px; }
+.bar.old { background:var(--old); } .bar.new { background:var(--turf); }
+.pill { display:inline-block; font-size:12px; font-weight:700; padding:1px 8px; border-radius:20px; }
+.pill.good { background:var(--goodbg); color:var(--good); }
+.pill.tie { background:var(--line); color:var(--ink); }
+td small { display:block; font-size:12px; color:var(--soft); }
+td small.dim { opacity:.85; }
+ul { margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px; max-width:72ch; }
+.note { border-left:3px solid var(--amber); padding:4px 0 4px 14px; }
+.legend { font-size:13px; color:var(--soft); display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+.legend i { display:inline-block; width:18px; height:5px; border-radius:3px; margin-right:6px; vertical-align:middle; }
+</style>
+<div class="wrap">
+<header style="display:flex;flex-direction:column;gap:8px;">
+  <div class="eyebrow">Grassroots Squad &amp; Rotation Planner · branch engine-redesign · 12 Oct 2026</div>
+  <h1>Planner rebuild: phases 1 to 7</h1>
+  <p>The new planner, live re-planning, the team approach and "Why?" screens, and onboarding with the questionnaire are built and tested. This page compares the new planner with today's engine on the 56 benchmark plans (14 squads, each under all four approaches), marked by the same scorecard you approved.</p>
+</header>
+
+<section>
+  <div class="figs">
+    <div class="fig"><b>53 of 56</b><span>plans better than today's engine; 3 level, 0 worse</span></div>
+    <div class="fig"><b>43 → 7</b><span>plans that break a guarantee (minimum minutes, time off, spells, changes at once)</span></div>
+    <div class="fig"><b>18 → 11</b><span>subs per match on average; stoppages 9.7 → 4.4</span></div>
+    <div class="fig"><b>277 ms</b><span>average time to plan a match on this test machine (slowest 715 ms)</span></div>
+  </div>
+  <p>Rule clashes (someone in a "Do not use" position, a non-keeper in goal) went from 8 to 0. Broken guarantees went from 260 to 19, and the minutes they cover from 1130 to 170.</p>
+</section>
+
+<section>
+  <h2>By approach</h2>
+  <div class="legend"><span><i style="background:var(--old)"></i>Today's engine</span><span><i style="background:var(--turf)"></i>New planner</span><span>Averages per match; guarantee breaks are totals over 14 squads.</span></div>
+  <div class="frame"><table>
+    <thead><tr><th>Approach</th><th>Subs</th><th>Stoppages</th><th>Guarantee breaks</th><th>Minutes range</th><th>Distance from targets</th></tr></thead>
+    <tbody><tr><th scope="row">Development</th>
+<td class="num">40 → <b>13</b><div class="bars"><span class="bar old" style="width:100.0%"></span><span class="bar new" style="width:33.4%"></span></div></td>
+<td class="num">21.9 → <b>5.6</b></td>
+<td class="num">111 → <b>8</b></td>
+<td class="num">7.0' → <b>6.6'</b></td>
+<td class="num">13 → <b>29</b></td></tr><tr><th scope="row">Balanced</th>
+<td class="num">13 → <b>10</b><div class="bars"><span class="bar old" style="width:32.7%"></span><span class="bar new" style="width:25.9%"></span></div></td>
+<td class="num">7.8 → <b>4.2</b></td>
+<td class="num">55 → <b>4</b></td>
+<td class="num">9.5' → <b>10.2'</b></td>
+<td class="num">14 → <b>18</b></td></tr><tr><th scope="row">Competitive</th>
+<td class="num">9 → <b>10</b><div class="bars"><span class="bar old" style="width:22.1%"></span><span class="bar new" style="width:25.2%"></span></div></td>
+<td class="num">4.6 → <b>4.4</b></td>
+<td class="num">56 → <b>5</b></td>
+<td class="num">13.1' → <b>15.6'</b></td>
+<td class="num">31 → <b>5</b></td></tr><tr><th scope="row">Performance</th>
+<td class="num">9 → <b>9</b><div class="bars"><span class="bar old" style="width:22.1%"></span><span class="bar new" style="width:22.3%"></span></div></td>
+<td class="num">4.6 → <b>3.6</b></td>
+<td class="num">38 → <b>2</b></td>
+<td class="num">13.1' → <b>19.9'</b></td>
+<td class="num">39 → <b>15</b></td></tr></tbody></table></div>
+  <p class="note">One trade-off to know about. On Development, today's engine lands minutes closer to equal (13 against 29 on the distance score), but it gets there with about 40 subs at 22 stoppages a match and 111 broken guarantees across the squads, mostly 2 to 6 changes at once and very short spells. The new planner keeps the minutes range as tight (6.6' against 7.0') with about 13 subs, because guarantees come before minutes in the order you agreed. On Competitive and Performance the range is wider on purpose: targets follow level.</p>
+</section>
+
+<section>
+  <h2>Every squad, every approach</h2>
+  <p>The verdict is the scorecard comparison; the line under it is the first area where the plans differ.</p>
+  <div class="frame"><table>
+    <thead><tr><th>Squad</th><th>Development</th><th>Balanced</th><th>Competitive</th><th>Performance</th></tr></thead>
+    <tbody><tr><th scope="row">Demo squad (7v7)</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">41→11 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">12→9 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">9→11 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">9→9 subs</small></td></tr><tr><th scope="row">Your midfield problem (7v7)</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">34→12 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">13→11 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">8→11 subs</small></td><td><span class="pill good">Better</span><small>strength</small><small class="dim">8→9 subs</small></td></tr><tr><th scope="row">Mixed levels (7v7)</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">46→16 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">17→13 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">11→14 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">11→10 subs</small></td></tr><tr><th scope="row">Big squad: 14 for 7v7</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">52→23 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">23→18 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">16→17 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">16→16 subs</small></td></tr><tr><th scope="row">Short squad: 8 for 7v7</th><td><span class="pill good">Better</span><small>positions</small><small class="dim">20→6 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">6→6 subs</small></td><td><span class="pill good">Better</span><small>minutes</small><small class="dim">3→6 subs</small></td><td><span class="pill good">Better</span><small>fewer changes</small><small class="dim">3→3 subs</small></td></tr><tr><th scope="row">Exactly seven (no subs)</th><td><span class="pill good">Better</span><small>positions</small><small class="dim">0→0 subs</small></td><td><span class="pill tie">Tie</span><small>same score</small><small class="dim">0→0 subs</small></td><td><span class="pill tie">Tie</span><small>same score</small><small class="dim">0→0 subs</small></td><td><span class="pill tie">Tie</span><small>same score</small><small class="dim">0→0 subs</small></td></tr><tr><th scope="row">5v5, four quarters, rotating keeper</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">22→9 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">10→9 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">7→9 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">7→8 subs</small></td></tr><tr><th scope="row">9v9, 60 minutes</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">63→21 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">17→15 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">12→15 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">12→14 subs</small></td></tr><tr><th scope="row">11v11, 70 minutes</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">89→21 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">23→19 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">15→17 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">15→16 subs</small></td></tr><tr><th scope="row">Late arrival and early leaver (7v7)</th><td><span class="pill good">Better</span><small>rules</small><small class="dim">39→11 subs</small></td><td><span class="pill good">Better</span><small>rules</small><small class="dim">12→9 subs</small></td><td><span class="pill good">Better</span><small>rules</small><small class="dim">9→7 subs</small></td><td><span class="pill good">Better</span><small>rules</small><small class="dim">9→8 subs</small></td></tr><tr><th scope="row">Specialists with &quot;Do not use&quot;</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">45→11 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">12→9 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">9→8 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">9→7 subs</small></td></tr><tr><th scope="row">Mostly Developing (7v7)</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">39→14 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">12→6 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">8→10 subs</small></td><td><span class="pill good">Better</span><small>strength</small><small class="dim">8→10 subs</small></td></tr><tr><th scope="row">5v5 with no keeper</th><td><span class="pill good">Better</span><small>fewer changes</small><small class="dim">22→11 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">8→6 subs</small></td><td><span class="pill good">Better</span><small>fewer changes</small><small class="dim">5→6 subs</small></td><td><span class="pill good">Better</span><small>fewer changes</small><small class="dim">5→6 subs</small></td></tr><tr><th scope="row">Three periods, three keepers (7v7, 60&#x27;)</th><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">48→21 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">18→15 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">12→10 subs</small></td><td><span class="pill good">Better</span><small>guarantees</small><small class="dim">12→9 subs</small></td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>What a coach gets now</h2>
+  <ul>
+    <li><b>Live re-planning.</b> The past stays exactly as played; only the rest is re-planned, starting from the plan the coach has seen. Help level is a team setting (off, big problems only, keep the next change, full re-plan). "Go strongest now" re-plans from that minute.</li>
+    <li><b>Mark available again.</b> A player who was out rejoins the plan; their time out is never counted as minutes owed.</li>
+    <li><b>Team approach.</b> Four approach cards with a live preview from the squad, five fine-tune sliders, and Advanced settings. Every value says where it came from.</li>
+    <li><b>Today and player exceptions</b> on each fixture: late, early, a minutes limit, extra minutes, must start, bench start, keeper today.</li>
+    <li><b>Scorecard strip and "Why?"</b> on every change and every player. For example: "If Noah came off instead: Leo sits out 22', over the 19' maximum."</li>
+    <li><b>Onboarding.</b> Team, formats and squad, then 15 to 18 plain questions over 5 pages, a setup review where each setting shows "Set for you" with the reason, and a tour that calls out what was set.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Choices I made that you may want to change</h2>
+  <ul>
+    <li>A team set up through onboarding plans with the new planner straight away (the review page has a box to turn it off). Existing teams stay on today's engine until they switch it on in Squad › Team approach. Making it the default for everyone is phase 8.</li>
+    <li>When a coach makes their own change while a planned change is waiting for Done, any waiting change that touches the same players or positions is treated as skipped. Waiting changes elsewhere stay.</li>
+    <li>If no keeper is left, the player the coach puts in goal counts as today's keeper and stays in goal for the rest of the match, including the next period.</li>
+    <li>The questionnaire asks for an answer to every question rather than pre-selecting one; "Skip" gives Balanced.</li>
+    <li>"When can you make changes?" is asked once per team, even if the team plays more than one format.</li>
+    <li>Pairs (together or apart) are a light preference, below positions.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Tests and what's next</h2>
+  <p>222 checks across seven phase suites pass, plus all 27 older regression scripts. One older script fails now and then on timing alone; it passes when rerun.</p>
+  <ul>
+    <li><b>Phase 8, switch over:</b> make the new planner the default for new matches. Gate: beta feedback and clean diagnostics.</li>
+    <li><b>Phase 9, CP-SAT service</b> as the primary solver, with the on-device planner as the offline fallback. This needs the cloud backend.</li>
+    <li><b>Phase 10, advanced extras.</b></li>
+    <li><b>Still yours to do:</b> your full name in the privacy policy, the Web3Forms data processing agreement, ICO registration, and a lawyer's review.</li>
+  </ul>
+</section>
+</div>

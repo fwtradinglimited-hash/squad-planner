@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-12T15:12:21.317Z",
+ "generated": "2026-10-12T16:47:30.726Z",
  "rows": [
   {
    "benchmark": "demo",
@@ -11,7 +11,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 476,
+   "ms": 378,
    "old": {
     "t0": 0,
     "t1": 25,
@@ -269,7 +269,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 236,
+   "ms": 328,
    "old": {
     "t0": 0,
     "t1": 6,
@@ -496,7 +496,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 291,
+   "ms": 261,
    "old": {
     "t0": 0,
     "t1": 10,
@@ -735,7 +735,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 182,
+   "ms": 185,
    "old": {
     "t0": 0,
     "t1": 9,
@@ -955,7 +955,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 431,
+   "ms": 381,
    "old": {
     "t0": 0,
     "t1": 21,
@@ -1206,7 +1206,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 336,
+   "ms": 291,
    "old": {
     "t0": 0,
     "t1": 35,
@@ -1445,7 +1445,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 351,
+   "ms": 365,
    "old": {
     "t0": 0,
     "t1": 35,
@@ -1678,7 +1678,7 @@
     "why": "team strength closer to the ethos"
    },
    "firstWorse": false,
-   "ms": 306,
+   "ms": 315,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -1899,7 +1899,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 632,
+   "ms": 496,
    "old": {
     "t0": 0,
     "t1": 12,
@@ -2189,7 +2189,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 314,
+   "ms": 287,
    "old": {
     "t0": 0,
     "t1": 11,
@@ -2434,7 +2434,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 342,
+   "ms": 285,
    "old": {
     "t0": 0,
     "t1": 3,
@@ -2686,7 +2686,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 252,
+   "ms": 231,
    "old": {
     "t0": 0,
     "t1": 3,
@@ -2926,7 +2926,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 514,
+   "ms": 527,
    "old": {
     "t0": 0,
     "t1": 62.1,
@@ -3254,7 +3254,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 317,
+   "ms": 353,
    "old": {
     "t0": 0,
     "t1": 40.5,
@@ -3530,7 +3530,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 415,
+   "ms": 392,
    "old": {
     "t0": 0,
     "t1": 61,
@@ -3826,7 +3826,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 274,
+   "ms": 303,
    "old": {
     "t0": 0,
     "t1": 55,
@@ -4103,7 +4103,7 @@
     "why": "better position fit"
    },
    "firstWorse": false,
-   "ms": 163,
+   "ms": 171,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -4330,7 +4330,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 119,
+   "ms": 127,
    "old": {
     "t0": 0,
     "t1": 6,
@@ -4557,7 +4557,7 @@
     "why": "minutes closer to targets"
    },
    "firstWorse": false,
-   "ms": 103,
+   "ms": 126,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -4778,7 +4778,7 @@
     "why": "fewer changes"
    },
    "firstWorse": false,
-   "ms": 83,
+   "ms": 98,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -4973,7 +4973,7 @@
     "why": "better position fit"
    },
    "firstWorse": false,
-   "ms": 68,
+   "ms": 135,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -5181,7 +5181,7 @@
     "why": "equally good"
    },
    "firstWorse": false,
-   "ms": 58,
+   "ms": 71,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -5389,7 +5389,7 @@
     "why": "equally good"
    },
    "firstWorse": false,
-   "ms": 38,
+   "ms": 49,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -5571,7 +5571,7 @@
     "why": "equally good"
    },
    "firstWorse": false,
-   "ms": 45,
+   "ms": 57,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -5753,7 +5753,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 85,
+   "ms": 83,
    "old": {
     "t0": 0,
     "t1": 4,
@@ -5937,7 +5937,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 62,
+   "ms": 67,
    "old": {
     "t0": 0,
     "t1": 6,
@@ -6115,7 +6115,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 53,
+   "ms": 58,
    "old": {
     "t0": 0,
     "t1": 6,
@@ -6293,7 +6293,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 51,
+   "ms": 70,
    "old": {
     "t0": 0,
     "t1": 3,
@@ -6465,7 +6465,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 524,
+   "ms": 543,
    "old": {
     "t0": 0,
     "t1": 28,
@@ -6819,7 +6819,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 404,
+   "ms": 427,
    "old": {
     "t0": 0,
     "t1": 13,
@@ -7116,7 +7116,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 360,
+   "ms": 424,
    "old": {
     "t0": 0,
     "t1": 21,
@@ -7404,7 +7404,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 331,
+   "ms": 333,
    "old": {
     "t0": 0,
     "t1": 15,
@@ -7659,7 +7659,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 652,
+   "ms": 685,
    "old": {
     "t0": 0,
     "t1": 45,
@@ -8022,7 +8022,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 548,
+   "ms": 608,
    "old": {
     "t0": 0,
     "t1": 21,
@@ -8362,7 +8362,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 693,
+   "ms": 715,
    "old": {
     "t0": 0,
     "t1": 63,
@@ -8691,7 +8691,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 506,
+   "ms": 483,
    "old": {
     "t0": 0,
     "t1": 51,
@@ -8991,7 +8991,7 @@
     "why": "fewer rule clashes"
    },
    "firstWorse": false,
-   "ms": 352,
+   "ms": 493,
    "old": {
     "t0": 2,
     "t1": 15,
@@ -9217,7 +9217,7 @@
     "why": "fewer rule clashes"
    },
    "firstWorse": false,
-   "ms": 199,
+   "ms": 243,
    "old": {
     "t0": 2,
     "t1": 0,
@@ -9444,7 +9444,7 @@
     "why": "fewer rule clashes"
    },
    "firstWorse": false,
-   "ms": 124,
+   "ms": 128,
    "old": {
     "t0": 2,
     "t1": 3,
@@ -9664,7 +9664,7 @@
     "why": "fewer rule clashes"
    },
    "firstWorse": false,
-   "ms": 185,
+   "ms": 222,
    "old": {
     "t0": 2,
     "t1": 4,
@@ -9897,7 +9897,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 159,
+   "ms": 199,
    "old": {
     "t0": 0,
     "t1": 42,
@@ -10117,7 +10117,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 148,
+   "ms": 184,
    "old": {
     "t0": 0,
     "t1": 12,
@@ -10344,7 +10344,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 119,
+   "ms": 196,
    "old": {
     "t0": 0,
     "t1": 9,
@@ -10571,7 +10571,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 172,
+   "ms": 232,
    "old": {
     "t0": 0,
     "t1": 9,
@@ -10785,7 +10785,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": true,
-   "ms": 229,
+   "ms": 234,
    "old": {
     "t0": 0,
     "t1": 94,
@@ -11062,7 +11062,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": true,
-   "ms": 312,
+   "ms": 348,
    "old": {
     "t0": 0,
     "t1": 84,
@@ -11301,7 +11301,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 176,
+   "ms": 264,
    "old": {
     "t0": 0,
     "t1": 86,
@@ -11547,7 +11547,7 @@
     "why": "team strength closer to the ethos"
    },
    "firstWorse": false,
-   "ms": 152,
+   "ms": 227,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -11755,7 +11755,7 @@
     "why": "fewer changes"
    },
    "firstWorse": false,
-   "ms": 194,
+   "ms": 133,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -11960,7 +11960,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 89,
+   "ms": 79,
    "old": {
     "t0": 0,
     "t1": 4,
@@ -12143,7 +12143,7 @@
     "why": "fewer changes"
    },
    "firstWorse": false,
-   "ms": 51,
+   "ms": 82,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -12309,7 +12309,7 @@
     "why": "fewer changes"
    },
    "firstWorse": false,
-   "ms": 144,
+   "ms": 149,
    "old": {
     "t0": 0,
     "t1": 0,
@@ -12486,7 +12486,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 414,
+   "ms": 555,
    "old": {
     "t0": 0,
     "t1": 17.2,
@@ -12808,7 +12808,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 300,
+   "ms": 297,
    "old": {
     "t0": 0,
     "t1": 21,
@@ -13066,7 +13066,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 208,
+   "ms": 275,
    "old": {
     "t0": 0,
     "t1": 38,
@@ -13304,7 +13304,7 @@
     "why": "guarantees broken by less"
    },
    "firstWorse": false,
-   "ms": 207,
+   "ms": 240,
    "old": {
     "t0": 0,
     "t1": 21,
