@@ -152,6 +152,21 @@
   .set-from { font-size: 10.5px; color: var(--ink-soft); font-weight: 400; }
   .set-for { font-size: 10.5px; color: var(--turf-1); font-weight: 600; }
   .ex-badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 5px; margin-left: 4px; background: var(--bench-card); border: 1px solid var(--card-line); color: var(--ink-soft); }
+  .q-block { margin-bottom: 14px; }
+  .q-text { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .q-opts { display: flex; flex-direction: column; gap: 6px; }
+  .q-opt { border: 1px solid var(--card-line); border-radius: 10px; padding: 9px 12px; font-size: 13px; cursor: pointer; background: var(--card); }
+  .q-opt.selected { border-color: var(--turf-1); box-shadow: inset 0 0 0 1px var(--turf-1); font-weight: 600; }
+  .q-opt.selected::before { content: "✓ "; color: var(--turf-1); }
+  .review-row { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--card-line); font-size: 13px; }
+  .review-row b { display: block; font-size: 12.5px; }
+  .review-row span { color: var(--ink-soft); }
+  .review-row small { display: block; font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+  .lvl-chips { display: flex; gap: 4px; }
+  .lvl-chips .preset-chip { padding: 4px 8px; font-size: 11.5px; }
+  .tour-setfor { background: var(--bench-card); border-radius: 10px; padding: 8px 10px; margin: 0 0 10px; font-size: 12.5px; }
+  .tour-setfor b { display: block; margin-bottom: 2px; color: var(--ink); }
+  .tour-setfor ul { margin: 0 !important; padding-left: 16px; font-size: 12.5px !important; }
   .prio-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; }
   .prio-row .n { width: 18px; color: var(--ink-soft); }
   .prio-row .nm { flex: 1; }
@@ -414,6 +429,7 @@
       <div class="check-row" style="margin:6px 0 10px;"><input type="checkbox" id="dm-gk"><label for="dm-gk">Uses a goalkeeper</label></div>
       <div class="field"><label>Formation</label><select id="dm-formation"></select></div>
       <div class="config-note" id="dmSummary"></div>
+      <div id="dmOthers"></div>
     </section>
   </div>
 
@@ -497,6 +513,7 @@
 
     <!-- STEP 2: TEAM & MATCH PLANNING (only shown once format is confirmed) -->
     <div id="setupStepPlan" style="display:none;">
+      <div class="radio-row" id="formatChips" style="display:none; flex-wrap:wrap;"></div>
       <div class="config-note" style="margin-bottom:10px;"><span id="formatSummaryLine"></span> — <span id="changeFormatLink" style="text-decoration:underline; cursor:pointer; color:var(--turf-1);">change format</span></div>
 
       <section id="secFixture">
@@ -1293,7 +1310,7 @@ document.getElementById('confirmFormatBtn').addEventListener('click', () => {
   applyMatchFormat(players, hasGk, duration, periods, shape);
   syncMinShiftSliderMax();
   gkKeepers = new Array(PERIODS).fill(null);
-  gkMode = PERIODS > 1 ? 'rotate' : 'single';
+  gkMode = PERIODS > 1 && matchDefaults.gkMode !== 'single' ? 'rotate' : 'single';
   gkAuto = false;
 
   setupBaseShape = {...shape}; selectedPresetId = null;
@@ -1351,6 +1368,7 @@ function renderSetupScreen() {
   renderPresetChips();
   validateSetup();
   renderTodayAndExceptions();
+  renderFormatChips();
 }
 
 function availableGkEligible() {
@@ -2437,6 +2455,7 @@ function renderDefaultsUI() {
   const bounds = periodBoundaries(d.duration, d.periods);
   document.getElementById('dmSummary').textContent =
     `New fixtures start as ${d.players}v${d.players}${d.hasGk ? '' : ' (no GK)'} · ${d.duration}' · ${d.periods} period${d.periods > 1 ? 's' : ''} of ${bounds.slice(1).map((b, i) => b - bounds[i] + "'").join(', ')}${d.formation !== 'auto' ? ' · ' + d.formation : ''}.`;
+  try { renderOtherFormats(); } catch (e) { /* defined further down */ }
 }
 populateSelectOptions('dm-players', Array.from({length: 9}, (_, i) => i + 3));
 populateSelectOptions('dm-duration', Array.from({length: 17}, (_, i) => (i + 2) * 5));
@@ -2444,6 +2463,7 @@ populateSelectOptions('dm-periods', Array.from({length: 9}, (_, i) => i + 1));
 function onDefaultsChange(e) {
   const prevPlayers = matchDefaults.players, prevGk = matchDefaults.hasGk;
   matchDefaults = {
+    ...matchDefaults,
     players: parseInt(document.getElementById('dm-players').value, 10) || 7,
     duration: parseInt(document.getElementById('dm-duration').value, 10) || 50,
     periods: parseInt(document.getElementById('dm-periods').value, 10) || 2,
@@ -2459,18 +2479,8 @@ renderDefaultsUI();
 
 /* ================= NEW FIXTURE (lives under the Matches tab) ================= */
 function startNewFixture() {
-  const d = matchDefaults;
   applyDefaultRotation();
-  document.getElementById('fmt-players').value = d.players;
-  document.getElementById('fmt-duration').value = d.duration;
-  document.getElementById('fmt-periods').value = d.periods;
-  document.getElementById('fmt-gk').checked = !!d.hasGk;
-  refillShapeSuggestion();
-  updatePeriodPreview();
-  if (d.formation !== 'auto') {
-    const sel = document.getElementById('fmt-formation');
-    if ([...sel.options].some(o => o.value === d.formation)) { sel.value = d.formation; sel.dispatchEvent(new Event('change')); }
-  }
+  loadFormatIntoSetup(matchDefaults);
   document.getElementById('setupStepPlan').style.display = 'none';
   document.getElementById('setupStepFormat').style.display = 'block';
   showScreen('setup');
@@ -7680,7 +7690,7 @@ function openBackupModal() {
 }
 
 /* ================= REGISTRATION WIZARD ================= */
-const WIZ_STEPS = ['team', 'format', 'squad', 'rotation', 'awards', 'lineup', 'done'];
+const WIZ_STEPS = ['team', 'format', 'squad', 'questions', 'review', 'awards', 'lineup', 'done'];
 let wizStep = 0;
 let wzNamesOk = false;
 function posKind(p) { const t = p.positions || {}; return t.DEF === 3 ? 'DEF' : t.MID === 3 ? 'MID' : t.ATT === 3 ? 'ATT' : 'ALL'; }
@@ -7746,14 +7756,19 @@ function renderWizard() {
       </div>
       <div class="check-row" style="margin:4px 0 10px;"><input type="checkbox" id="wzGk" ${d.hasGk ? 'checked' : ''}><label for="wzGk">Uses a goalkeeper</label></div>
       <div class="field"><label>Formation</label><select id="wzForm"><option value="auto">Balanced (planner suggests)</option>${combos.map(c => `<option value="${formationLabel(c)}" ${formationLabel(c) === d.formation ? 'selected' : ''}>${formationLabel(c)}</option>`).join('')}</select></div>
+      <div style="margin-top:6px;"><div class="config-note" style="color:var(--ink); margin-bottom:4px;">Do you play any other formats (a cup in 9v9, say)?</div>
+        ${(d.others || []).map((f, i) => `<div class="prio-row"><span class="nm">${esc(formatLabel(f))}</span><button data-wzfmt-del="${i}" aria-label="Remove">✕</button></div>`).join('')}
+        <span class="decision-link" id="wzAddFormat">+ Add another format</span></div>
       ${nav(0, 'Next')}</div>`;
     const read = () => {
       const pp = matchDefaults.players, gg = matchDefaults.hasGk;
-      matchDefaults = {players: parseInt(body.querySelector('#wzPlayers').value, 10), duration: parseInt(body.querySelector('#wzDur').value, 10), periods: parseInt(body.querySelector('#wzPer').value, 10), hasGk: body.querySelector('#wzGk').checked, formation: body.querySelector('#wzForm').value};
+      matchDefaults = {...matchDefaults, players: parseInt(body.querySelector('#wzPlayers').value, 10), duration: parseInt(body.querySelector('#wzDur').value, 10), periods: parseInt(body.querySelector('#wzPer').value, 10), hasGk: body.querySelector('#wzGk').checked, formation: body.querySelector('#wzForm').value};
       if (matchDefaults.players !== pp || matchDefaults.hasGk !== gg) matchDefaults.formation = 'auto';
       saveDefaults(); renderDefaultsUI();
     };
     ['#wzPlayers', '#wzDur', '#wzPer', '#wzGk', '#wzForm'].forEach(sel => body.querySelector(sel).addEventListener('change', () => { const rebuild = sel === '#wzPlayers' || sel === '#wzGk'; read(); if (rebuild) renderWizard(); }));
+    body.querySelectorAll('[data-wzfmt-del]').forEach(b => b.addEventListener('click', () => { read(); matchDefaults.others.splice(+b.dataset.wzfmtDel, 1); saveDefaults(); renderWizard(); }));
+    body.querySelector('#wzAddFormat').addEventListener('click', () => { read(); openFormatModal(f => { matchDefaults.others = (matchDefaults.others || []).concat([f]); saveDefaults(); renderWizard(); }); });
     body.querySelector('#wizBack').addEventListener('click', () => wizGo(0));
     body.querySelector('#wizNext').addEventListener('click', () => { read(); wizGo(2); });
   } else if (step === 'squad') {
@@ -7791,25 +7806,22 @@ function renderWizard() {
       if (pending) return fail('You have names typed in the box - tap "Add these players" first.');
       if (squad.length < matchDefaults.players) return fail(`Add at least ${matchDefaults.players} players for ${wizFormatSummary()} (you have ${squad.length}).`);
       if (matchDefaults.hasGk && !squad.some(q => q.gk)) return fail('Tick GK for at least one player who can go in goal.');
-      wizGo(3);
+      wizGo(WIZ_STEPS.indexOf('questions'));
     });
-  } else if (step === 'rotation') {
-    body.innerHTML = `${dots}<div class="form-card">
-      <div class="wiz-hero">How do you like to rotate?</div>
-      <div class="config-note" style="margin-bottom:10px;">Pick your usual style. It becomes your default for new fixtures. You can tweak the detail, and save your own rotation presets, whenever you plan a match.</div>
-      ${rotations.presets.map(pr => `<div class="wiz-card ${pr.id === rotations.defaultId ? 'selected' : ''}" data-rot="${pr.id}"><b>${esc(pr.name)}</b><small>${esc(pr.blurb || '')}</small></div>`).join('')}
-      ${nav(2, 'Next')}</div>`;
-    body.querySelectorAll('[data-rot]').forEach(c => c.addEventListener('click', () => { rotations.defaultId = c.dataset.rot; saveRotations(); renderRotList(); renderWizard(); }));
-    body.querySelector('#wizBack').addEventListener('click', () => wizGo(2));
-    body.querySelector('#wizNext').addEventListener('click', () => wizGo(4));
+  } else if (step === 'questions') {
+    renderQuestionsStep(body, dots, nav, err);
+  } else if (step === 'review') {
+    // Onboarding plans with the new planner unless the coach turns it off here.
+    if (!t.reviewSeen) { t.reviewSeen = true; saveProfile(); teamEthos.engine = 'window'; saveEthos(); }
+    renderReviewStep(body, dots, nav);
   } else if (step === 'awards') {
     body.innerHTML = `${dots}<div class="form-card">
       <div class="wiz-hero">Match awards</div>
       <div class="config-note" style="margin-bottom:10px;">Many teams give out more than one Man of the Match - the coach's pick, the opposition manager's, the parents'. Choose the awards you give; after each match you pick a winner for each. Change these any time in the Squad tab.</div>
       <div id="wzAwards"></div>${nav(3, 'Next')}</div>`;
     renderAwardsEditor(body.querySelector('#wzAwards'));
-    body.querySelector('#wizBack').addEventListener('click', () => wizGo(3));
-    body.querySelector('#wizNext').addEventListener('click', () => wizGo(5));
+    body.querySelector('#wizBack').addEventListener('click', () => wizGo(WIZ_STEPS.indexOf('review')));
+    body.querySelector('#wizNext').addEventListener('click', () => wizGo(WIZ_STEPS.indexOf('lineup')));
   } else if (step === 'lineup') {
     const d = matchDefaults; const shape = defaultShapeFor(d.players, d.hasGk, d.formation);
     const mine = presets.filter(pr => pr.players === d.players && !!pr.hasGk === !!d.hasGk);
@@ -7819,24 +7831,24 @@ function renderWizard() {
       ${mine.length ? mine.map(pr => `<div class="wiz-card selected"><b>${esc(pr.name)}</b><small>${shapeLabel(pr.shape)}${pr.hasGk && pr.lineup.GK ? ' · GK ' + esc(pr.lineup.GK) : ''}</small></div>`).join('') : ''}
       <button class="btn btn-primary" id="wzStrong" style="margin-bottom:8px;">${mine.length ? '+ Add another line-up' : 'Pick my strongest team'}</button>
       ${mine.length ? '<div style="display:flex; gap:8px;"><button class="btn btn-ghost" id="wzDef" style="flex:1;">+ Defensive</button><button class="btn btn-ghost" id="wzAtt" style="flex:1;">+ Attacking</button></div>' : ''}
-      ${nav(3, mine.length ? 'Next' : 'Skip for now')}</div>`;
+      ${nav(WIZ_STEPS.indexOf('awards'), mine.length ? 'Next' : 'Skip for now')}</div>`;
     const open = nm => openPresetEditor({from: {name: nm, players: d.players, hasGk: d.hasGk, shape, lineup: suggestLineupFor(squad, d.hasGk, shape)}});
     const watch = () => { const iv = setInterval(() => { if (!document.querySelector('.modal-overlay')) { clearInterval(iv); renderWizard(); } }, 300); };
     body.querySelector('#wzStrong').addEventListener('click', () => { open(mine.length ? '' : 'Strongest'); watch(); });
     const df = body.querySelector('#wzDef'), at = body.querySelector('#wzAtt');
     if (df) df.addEventListener('click', () => { open('Defensive'); watch(); });
     if (at) at.addEventListener('click', () => { open('Attacking'); watch(); });
-    body.querySelector('#wizBack').addEventListener('click', () => wizGo(4));
-    body.querySelector('#wizNext').addEventListener('click', () => wizGo(6));
+    body.querySelector('#wizBack').addEventListener('click', () => wizGo(WIZ_STEPS.indexOf('awards')));
+    body.querySelector('#wizNext').addEventListener('click', () => wizGo(WIZ_STEPS.indexOf('done')));
   } else {
     body.innerHTML = `${dots}<div class="form-card" style="text-align:center;">
       <div class="wiz-hero">${esc(teamDisplayName(t))} is ready</div>
-      <div class="config-note" style="margin:6px 0 14px;">${squad.length} players · ${wizFormatSummary()} · ${esc((defaultRotation() || {}).name || '')} rotation · ${presets.length} saved line-up${presets.length === 1 ? '' : 's'}.<br>Head to Matches to plan your first fixture. Everything here can be changed later from the Squad tab.</div>
+      <div class="config-note" style="margin:6px 0 14px;">${squad.length} players · ${teamFormats().map(formatLabel).map(esc).join(', ')} · ${esc(ETHOS_PRESETS[teamEthos.preset].label)} approach · ${presets.length} saved line-up${presets.length === 1 ? '' : 's'}.<br>Head to Matches to plan your first fixture. Everything here can be changed later from the Squad tab.</div>
       <button class="btn btn-primary" id="wizFinish">Show me around (1 min)</button>
       <button class="btn btn-ghost" id="wizSkip">Skip the tour</button></div>`;
     const done = tour => {
       t.setupDone = true; saveProfile();
-      refreshTeamHeader(); renderSquadList(); renderPresetList(); renderRotList(); renderDefaultsUI();
+      refreshTeamHeader(); renderSquadList(); renderPresetList(); renderRotList(); renderDefaultsUI(); renderApproachSection(); refreshPlannerVisibility();
       showScreen('squad');
       if (tour) startTour('squad'); else { profile.tourDone = true; saveProfile(); showTourBanner(); }
     };
@@ -7932,7 +7944,7 @@ let tourIdx = 0, tourSteps = [], tourReturn = 'squad';
 // progress (it would detach that match), so they show their illustration instead.
 function tourUsesMock(st) { return !!(st.needsClosedMatch && currentMatchId); }
 function tourSelFor(st) { return st.sel && !tourUsesMock(st) ? st.sel : null; }
-function tourAvailableSteps() { return TOUR_STEPS.slice(); }
+function tourAvailableSteps() { return newPlannerOn() ? newPlannerTourSteps(TOUR_STEPS) : TOUR_STEPS.slice(); }
 function startTour(returnTo) {
   document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
   tourSteps = tourAvailableSteps(); tourIdx = 0;
@@ -7971,6 +7983,7 @@ function tourShow() {
   const card = layer.querySelector('#tourCard');
   card.innerHTML = `<div class="tour-step">${tourIdx + 1} / ${tourSteps.length}</div><h3>${esc(st.title)}</h3>${tourUsesMock(st) || !st.sel ? tourMockHtml(st) : ''}<p>${esc(st.text)}</p>
     ${st.bullets ? `<ul>${st.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+    ${(() => { const L = st.setFor ? st.setFor() : []; return L.length ? `<div class="tour-setfor"><b>Set up from your answers</b><ul>${L.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''; })()}
     <div class="tour-btns">${last ? '' : '<span class="tour-skip" id="tourSkip">Skip tour</span>'}${tourIdx > 0 ? '<button class="btn btn-ghost" id="tourPrev">Back</button>' : ''}<button class="btn btn-primary" id="tourNext">${last ? 'Finish' : 'Next'}</button></div>`;
   card.querySelector('#tourNext').addEventListener('click', () => { if (last) endTour(true); else { tourIdx++; tourShow(); } });
   const prev = card.querySelector('#tourPrev'); if (prev) prev.addEventListener('click', () => { tourIdx--; tourShow(); });
@@ -8680,6 +8693,326 @@ function renderSettingsTabWindow(host) {
     renderSettingsTab();
   });
   host.querySelector('#stApproach').addEventListener('click', () => openApproachScreen());
+}
+
+/* ================= ONBOARDING QUESTIONNAIRE =================
+ * After the team, its formats and the squad, the coach answers plain
+ * questions (no sliders, no jargon) and every answer sets named settings on
+ * their behalf, each carrying a "Set for you" reason. A coach who skips gets
+ * the Balanced preset. A new team can start from another team's answers.
+ */
+const QUESTIONNAIRE = [
+  {page: 'Playing time', qs: [
+    {id: 'minutes', text: 'How should playing time be shared?', def: 'mostlyEqual', opts: [
+      ['equal', 'Exactly equal for everyone'], ['mostlyEqual', 'Roughly equal, a little more for stronger players'],
+      ['fairStrong', 'Fair, but stronger players play noticeably more'], ['earned', 'Mostly earned: the best players play most']]},
+    {id: 'season', text: 'Should minutes even out across the season?', def: 'some',
+      hint: "If a player got less time in one match, they get a bit more in the next. Only players who were there and on the bench are owed minutes, never anyone who was ill or away.",
+      opts: [['yes', 'Yes, even them out'], ['some', 'A little'], ['no', 'No, each match on its own']]},
+    {id: 'league', text: 'Does your league or club require a minimum playing time for every player?', def: 'no',
+      opts: [['no', 'No'], ['25', 'Yes, at least a quarter of each match'], ['50', 'Yes, at least half of each match'], ['75', 'Yes, at least three quarters']]},
+  ]},
+  {page: 'Team strength', qs: [
+    {id: 'strength', text: "How do you want your team's strength through a match?", def: 'blend', opts: [
+      ['even', 'Even all match, never a weak spell'], ['blend', 'Mostly even, a bit stronger at the start and end'],
+      ['key', 'Strongest at the start and end of each half'], ['start', 'Start strong, accept a weaker finish']]},
+    {id: 'levels', text: 'Will you give each player a private level (Developing, Core or Strong)?', def: 'yes',
+      hint: 'Only you see it, and it never appears on anything you share. It lets the planner keep a sensible team on the pitch. You can add levels later.',
+      opts: [['yes', 'Yes'], ['later', 'Not now']]},
+    {id: 'units', text: 'Should the planner avoid a defence, midfield or attack made up only of Developing players?', def: 'never', when: a => a.levels === 'yes',
+      opts: [['never', 'Never allow it'], ['avoid', 'Avoid it where possible'], ['fine', "It doesn't matter"]]},
+  ]},
+  {page: 'Positions and changes', qs: [
+    {id: 'positions', text: 'Positions: specialists or all-rounders?', def: 'some', opts: [
+      ['best', 'Keep players in their best positions'], ['some', 'Mostly best positions, with some variety'], ['rotate', 'Rotate players through positions to develop them']]},
+    {id: 'changes', text: 'How often do you like to change players?', def: 'normal', opts: [
+      ['rare', 'Rarely: long spells on the pitch'], ['normal', 'Every 8 to 10 minutes or so'], ['often', 'Often: short spells and lots of rotation']]},
+    {id: 'timing', text: 'When can you make changes?', def: 'any', hint: 'If it differs between your formats, choose the one you play most. You can change it per team later.',
+      opts: [['any', 'At any stoppage (rolling subs)'], ['interval', 'At set times, like every 10 minutes'], ['breaks', 'Only at the breaks between periods']]},
+    {id: 'interval', text: 'How often?', def: '10', when: a => a.timing === 'interval', opts: [['5', "Every 5'"], ['10', "Every 10'"], ['15', "Every 15'"], ['20', "Every 20'"]]},
+    {id: 'timingRule', text: 'Is that a rule or a guide?', def: 'rule', when: a => a.timing && a.timing !== 'any',
+      opts: [['rule', 'A rule (league or referee)'], ['guide', 'A guide: change at other times if it helps']]},
+    {id: 'unitChanges', text: 'Changing two players in the same unit (say, both defenders) at once?', def: 'fine',
+      opts: [['fine', "That's fine"], ['avoid', 'Avoid it where possible'], ['never', 'Never']]},
+  ]},
+  {page: 'Keepers', when: () => teamFormats().some(f => f.hasGk), qs: [
+    {id: 'gkPlan', text: 'Who plays in goal in a match?', def: 'rotate', opts: [['one', 'One keeper all match'], ['rotate', 'A different keeper each period']]},
+    {id: 'gkTime', text: 'Does time in goal count as playing time?', def: 'no',
+      opts: [['no', 'No: keepers still get their share of outfield time'], ['yes', 'Yes: time in goal counts']]},
+    {id: 'gkShort', text: "If you're short of keepers on the day?", def: 'keeperMore',
+      opts: [['keeperMore', 'Keep a keeper in goal for longer'], ['outfield', 'Let a player with some goal experience go in'], ['ask', 'Ask me at the time']]},
+  ]},
+  {page: 'Match day', qs: [
+    {id: 'help', text: 'During a match, if things change (a late sub, an injury), how much help do you want?', def: 'next', opts: [
+      ['off', "None: I'll handle it"], ['major', 'Only fix big problems'], ['next', 'Re-plan, but keep the next change as I expect it'], ['full', "Re-plan everything that's left"]]},
+    {id: 'first', text: 'When things pull in different directions, what matters most?', def: null, opts: [
+      ['minutes', 'Fair minutes'], ['strength', 'Team strength'], ['positions', 'Players in their best positions']]},
+    {id: 'pairs', text: "Are there players you'd like kept together, or apart?", def: 'no', hint: 'You set them up in Squad › Team approach › Advanced.',
+      opts: [['no', 'No'], ['yes', "Yes, I'll set them up after"]]},
+  ]},
+];
+const PRESET_FOR_MINUTES = {equal: 'development', mostlyEqual: 'balanced', fairStrong: 'competitive', earned: 'performance'};
+function qAnswerLabel(id, v) { for (const pg of QUESTIONNAIRE) for (const q of pg.qs) if (q.id === id) { const o = q.opts.find(x => x[0] === v); return o ? o[1] : v; } return v; }
+function qDefaults(a) {
+  const out = {...a};
+  for (const pg of QUESTIONNAIRE) for (const q of pg.qs) if (out[q.id] === undefined && q.def !== null) out[q.id] = q.def;
+  if (!out.first) out.first = ETHOS_PRESETS[PRESET_FOR_MINUTES[out.minutes] || 'balanced'].priority[0];
+  return out;
+}
+function qPages(a) { return QUESTIONNAIRE.filter(pg => !pg.when || pg.when(a)); }
+// Answers -> settings, each with the reason it was set.
+function applyAnswers(answers) {
+  const a = qDefaults(answers);
+  const said = id => `because you said "${qAnswerLabel(id, a[id])}"`;
+  const preset = PRESET_FOR_MINUTES[a.minutes] || 'balanced';
+  const pre = ETHOS_PRESETS[preset];
+  const e = normaliseEthos({engine: teamEthos.engine, pairs: teamEthos.pairs});
+  const setFor = {};
+  e.preset = preset; setFor.preset = `${pre.label}, ${said('minutes')}`;
+  const sliders = {
+    season: {yes: 70, some: 40, no: 0}[a.season],
+    strength: {even: 10, blend: 30, key: 70, start: 60}[a.strength],
+    positions: {best: 0, some: 35, rotate: 70}[a.positions],
+    changes: {rare: 20, normal: 50, often: 75}[a.changes],
+  };
+  for (const [k, v] of Object.entries(sliders)) {
+    if (typeof v !== 'number') continue;
+    if (v !== pre[k]) e.sliders[k] = v;
+    setFor['sliders.' + k] = said({season: 'season', strength: 'strength', positions: 'positions', changes: 'changes'}[k]);
+  }
+  setFor['sliders.playingTime'] = said('minutes');
+  e.rules.leagueMinPct = a.league && a.league !== 'no' ? parseInt(a.league, 10) : null;
+  if (a.league) setFor['rules.leagueMinPct'] = said('league');
+  e.rules.strengthMode = {even: 'even', blend: 'blend', key: 'keyMoments', start: 'strongStart'}[a.strength] || 'blend';
+  setFor['rules.strengthMode'] = said('strength');
+  if (a.levels === 'yes' && a.units) { e.rules.unitFloor = {never: 'strict', avoid: 'soft', fine: 'off'}[a.units]; setFor['rules.unitFloor'] = said('units'); }
+  e.timing = {mode: {any: 'anytime', interval: 'interval', breaks: 'checkpoints'}[a.timing] || 'anytime', interval: parseInt(a.interval, 10) || 10, halfway: false};
+  e.subTiming = a.timing === 'any' ? 'flexible' : (a.timingRule === 'guide' ? 'flexible' : 'strict');
+  setFor.timing = said('timing');
+  e.rules.oneChangePerUnit = {fine: 'off', avoid: 'soft', never: 'strict'}[a.unitChanges] || 'off';
+  setFor['rules.oneChangePerUnit'] = said('unitChanges');
+  if (a.gkTime || a.gkShort) {
+    e.keepers = {timeCounts: a.gkTime === 'yes', shortage: {keeperMore: 'keeperMore', outfield: 'outfieldInGoal', ask: 'ask'}[a.gkShort] || 'keeperMore'};
+    setFor.keepers = `${said('gkTime')}, and when short of keepers "${qAnswerLabel('gkShort', a.gkShort)}"`;
+  }
+  e.live = {replan: {off: 'off', major: 'major', next: 'nextStable', full: 'full'}[a.help] || 'nextStable'};
+  setFor['live.replan'] = said('help');
+  const first = PRIORITY_AREAS.includes(a.first) ? a.first : pre.priority[0];
+  const order = [first, ...pre.priority.filter(x => x !== first)];
+  if (JSON.stringify(order) !== JSON.stringify(pre.priority)) e.priority = order;
+  setFor.priority = said('first');
+  e.setFor = setFor; e.answers = answers;
+  teamEthos = normaliseEthos(e); teamEthos.answers = answers; saveEthos();
+  // Settings outside the approach: the keeper plan, and the current planner's
+  // default rotation style (so either planner reflects the answers).
+  if (a.gkPlan) { matchDefaults = {...matchDefaults, gkMode: a.gkPlan === 'one' ? 'single' : 'rotate'}; saveDefaults(); teamEthos.setFor.gkPlan = said('gkPlan'); saveEthos(); }
+  try {
+    rotations.defaultId = a.changes === 'rare' ? 'few' : (a.minutes === 'equal' && a.changes === 'often') ? 'max' : 'bal';
+    if (rotations.presets.some(p => p.id === rotations.defaultId)) saveRotations();
+  } catch (e2) { /* the classic presets are optional here */ }
+}
+// Skipping the questions: the Balanced preset, nothing labelled as set for you.
+function applySkippedQuestionnaire() {
+  teamEthos = normaliseEthos({engine: teamEthos.engine, pairs: teamEthos.pairs}); teamEthos.answers = null; teamEthos.setFor = {}; saveEthos();
+}
+// Another team's answers, to offer "same as your other team?".
+function otherTeamAnswers() {
+  const me = activeTeam();
+  for (const t of profile.teams) {
+    if (t.id === me.id) continue;
+    try { const r = lsGet(teamKey('rf_ethos_v1', t)); const e = r ? JSON.parse(r) : null; if (e && e.answers) return {team: t, answers: e.answers}; } catch (err) { /* skip */ }
+  }
+  return null;
+}
+// All the formats this team plays: the default first, then the others.
+function teamFormats() { return [matchDefaults].concat(Array.isArray(matchDefaults.others) ? matchDefaults.others : []); }
+function formatLabel(f) { return `${f.players}v${f.players}${f.hasGk ? '' : ' (no GK)'} · ${f.duration}' · ${f.periods} period${f.periods > 1 ? 's' : ''}`; }
+function normaliseFormat(f) {
+  const n = (v, lo, hi, d) => { v = parseInt(v, 10); return isFinite(v) ? clamp(v, lo, hi) : d; };
+  return {players: n(f.players, 3, 11, 7), duration: n(f.duration, 10, 90, 50), periods: n(f.periods, 1, 9, 2), hasGk: f.hasGk !== false, formation: f.formation || 'auto'};
+}
+
+/* ---------- Wizard pages for the questionnaire and the review ---------- */
+let wizQPage = 0;
+function questionHtml(q, a) {
+  return `<div class="q-block"><div class="q-text">${esc(q.text)}</div>${q.hint ? `<div class="config-note" style="margin:-2px 0 6px;">${esc(q.hint)}</div>` : ''}
+    <div class="q-opts" data-q="${q.id}">${q.opts.map(([v, l]) => `<div class="q-opt ${a[q.id] === v ? 'selected' : ''}" data-v="${v}">${esc(l)}</div>`).join('')}</div></div>`;
+}
+function renderQuestionsStep(body, dots, nav, err) {
+  const a = teamEthos.answers ? {...teamEthos.answers} : {};
+  const pages = qPages(a);
+  wizQPage = clamp(activeTeam().wizQPage || 0, 0, pages.length - 1);
+  const pg = pages[wizQPage];
+  const shown = pg.qs.filter(q => !q.when || q.when(a));
+  const other = wizQPage === 0 && !teamEthos.answers ? otherTeamAnswers() : null;
+  body.innerHTML = `${dots}<div class="form-card">
+    <div class="wiz-hero">How you run your team</div>
+    <div class="config-note" style="margin-bottom:10px;">Page ${wizQPage + 1} of ${pages.length}: ${esc(pg.page)}. Answer in your own terms: each answer sets things up for you, and you'll see what was set and why before you finish.</div>
+    ${other ? `<div class="warn-box" style="background:var(--bench-card); color:var(--ink); border-color:var(--card-line);">Same approach as ${esc(teamDisplayName(other.team))}? <span class="decision-link" id="qSame">Use the same answers</span></div>` : ''}
+    ${shown.map(q => questionHtml(q, a)).join('')}
+    ${err}${nav(true, wizQPage === pages.length - 1 ? 'See your setup' : 'Next')}
+    <div style="text-align:center; margin-top:10px;"><span class="decision-link secondary" id="qSkip">Skip the questions (use the Balanced approach)</span></div></div>`;
+  const save = () => { teamEthos.answers = a; saveEthos(); };
+  body.querySelectorAll('.q-opts').forEach(row => row.addEventListener('click', ev => {
+    const o = ev.target.closest('.q-opt'); if (!o) return;
+    a[row.dataset.q] = o.dataset.v; save();
+    // Answers can show or hide follow-up questions on the same page.
+    renderWizard();
+  }));
+  const same = body.querySelector('#qSame');
+  if (same) same.addEventListener('click', () => { teamEthos.answers = {...other.answers}; applyAnswers(teamEthos.answers); activeTeam().wizQPage = 0; wizGo(WIZ_STEPS.indexOf('review')); });
+  body.querySelector('#qSkip').addEventListener('click', () => { applySkippedQuestionnaire(); activeTeam().wizQPage = 0; wizGo(WIZ_STEPS.indexOf('review')); });
+  body.querySelector('#wizBack').addEventListener('click', () => {
+    if (wizQPage > 0) { activeTeam().wizQPage = wizQPage - 1; saveProfile(); renderWizard(); window.scrollTo(0, 0); }
+    else wizGo(WIZ_STEPS.indexOf('squad'));
+  });
+  body.querySelector('#wizNext').addEventListener('click', () => {
+    const missing = shown.filter(q => !a[q.id]);
+    if (missing.length) { const e = body.querySelector('#wizErr'); e.style.display = 'block'; e.textContent = 'Pick an answer for each question (or skip the questions below).'; return; }
+    save();
+    if (wizQPage < pages.length - 1) { activeTeam().wizQPage = wizQPage + 1; saveProfile(); renderWizard(); window.scrollTo(0, 0); return; }
+    applyAnswers(a); activeTeam().wizQPage = 0; wizGo(WIZ_STEPS.indexOf('review'));
+  });
+}
+// Plain words for a setting, for the review page and the tour.
+function setupLines() {
+  const e = teamEthos, pre = ETHOS_PRESETS[e.preset], sf = e.setFor || {};
+  const answered = !!e.answers;
+  const page = id => { const i = qPages(qDefaults(e.answers || {})).findIndex(pg => pg.qs.some(q => q.id === id)); return i < 0 ? 0 : i; };
+  const L = [];
+  const add = (key, label, value, q) => L.push({key, label, value, why: sf[key] || (answered ? '' : `the ${pre.label} preset`), page: q ? page(q) : null});
+  add('preset', 'Approach', `${pre.label}: ${ETHOS_BLURBS[e.preset]}`, 'minutes');
+  add('sliders.season', 'Across the season', {0: 'each match on its own', 40: 'evens out a little', 70: 'evens out minutes'}[ethosSlider('season')] || `${ethosSlider('season')} of 100`, 'season');
+  add('rules.leagueMinPct', 'League minimum', e.rules.leagueMinPct ? `everyone plays at least ${e.rules.leagueMinPct}% of each match` : 'none', 'league');
+  add('rules.strengthMode', 'Strength through the match', {blend: 'mostly even, a bit stronger at the start and end', even: 'even all match', keyMoments: 'strongest at key moments', strongStart: 'strong start', none: 'not weighed'}[e.rules.strengthMode], 'strength');
+  add('rules.unitFloor', 'All-Developing units', {strict: 'never', soft: 'avoided where possible', off: 'allowed'}[e.rules.unitFloor || pre.unitFloor], 'units');
+  add('sliders.positions', 'Positions', ethosSlider('positions') <= 10 ? 'best positions' : ethosSlider('positions') >= 60 ? 'rotate to develop' : 'mostly best, some variety', 'positions');
+  add('sliders.changes', 'Changes', ethosSlider('changes') <= 30 ? 'long spells, fewer changes' : ethosSlider('changes') >= 65 ? 'short spells, lots of rotation' : 'every 8 to 10 minutes or so', 'changes');
+  add('timing', 'When changes happen', `${{anytime: 'any stoppage', interval: `every ${e.timing.interval}'`, checkpoints: 'at period breaks'}[e.timing.mode]}${e.timing.mode === 'anytime' ? '' : e.subTiming === 'strict' ? ' (a rule)' : ' (a guide)'}`, 'timing');
+  add('rules.oneChangePerUnit', 'Two changes in one unit at once', {off: 'fine', soft: 'avoided', strict: 'never'}[e.rules.oneChangePerUnit], 'unitChanges');
+  if (teamFormats().some(f => f.hasGk)) {
+    add('gkPlan', 'Keeper plan', matchDefaults.gkMode === 'single' ? 'one keeper all match' : 'a different keeper each period', 'gkPlan');
+    add('keepers', 'Keepers', `time in goal ${e.keepers.timeCounts ? 'counts' : "doesn't count"} as playing time; when short, ${{keeperMore: 'a keeper stays in longer', outfieldInGoal: 'a player with some goal experience goes in', ask: 'you are asked'}[e.keepers.shortage]}`, 'gkTime');
+  }
+  add('live.replan', 'Help during a match', {off: 'none', major: 'big problems only', nextStable: 'keep the next change, re-plan the rest', full: 'full re-plan'}[e.live.replan], 'help');
+  add('priority', 'What matters most', priorityWords(e.priority || pre.priority), 'first');
+  return L;
+}
+function renderReviewStep(body, dots, nav) {
+  const e = teamEthos, lines = setupLines();
+  const a = e.answers ? qDefaults(e.answers) : null;
+  const wantsLevels = a && a.levels === 'yes';
+  body.innerHTML = `${dots}<div class="form-card">
+    <div class="wiz-hero">Your team's setup</div>
+    <div class="config-note" style="margin-bottom:10px;">${a ? 'Set up from your answers. Change anything here, or later in Squad › Team approach, where each setting keeps its "Set for you" note.' : "You skipped the questions, so you're on the Balanced approach: fair minutes with a sensible team on the pitch. Change anything in Squad › Team approach."}</div>
+    <div class="review-row"><div><b>Formats</b><span>${teamFormats().map(formatLabel).map(esc).join('; ')}</span></div><span class="decision-link" data-goto="format">Change</span></div>
+    ${lines.map(l => `<div class="review-row"><div><b>${esc(l.label)}</b><span>${esc(l.value)}</span>${l.why ? `<small><span class="set-for">Set for you</span> ${esc(l.why)}</small>` : ''}</div>${a && l.page !== null ? `<span class="decision-link" data-qpage="${l.page}">Change</span>` : ''}</div>`).join('')}
+    ${wantsLevels ? `<div class="review-row" style="display:block;"><b>Player levels <span class="private-tag">private</span></b>
+      <div class="config-note" style="margin:2px 0 6px;">One tap each. Only you see these; change them any time from the player.</div>
+      ${squad.map((p, i) => `<div class="wiz-row"><span class="nm">${esc(p.id)}</span><span class="lvl-chips" data-lvl-i="${i}">${Object.entries(LEVEL_TAPS).map(([b, v]) => `<span class="preset-chip ${typeof p.level === 'number' && levelBand(p.level) === b ? 'active' : ''}" data-v="${v}">${b}</span>`).join('')}</span></div>`).join('')}</div>` : ''}
+    ${a && a.pairs === 'yes' ? `<div class="config-note" style="margin-top:8px;">You can set up players to keep together or apart in Squad › Team approach › Advanced once you finish.</div>` : ''}
+    <div class="check-row" style="margin-top:12px;"><input type="checkbox" id="rvEngine" ${e.engine === 'window' ? 'checked' : ''}><label for="rvEngine">Plan with the new planner <span class="private-tag">beta</span> (it uses everything above, and explains every change)</label></div>
+    ${a ? '' : `<button class="btn btn-ghost" id="rvQuestions" style="margin-top:4px;">Answer the questions instead</button>`}
+    ${nav(true, 'Looks good')}</div>`;
+  body.querySelectorAll('[data-qpage]').forEach(l => l.addEventListener('click', () => { activeTeam().wizQPage = +l.dataset.qpage; saveProfile(); wizGo(WIZ_STEPS.indexOf('questions')); }));
+  body.querySelectorAll('[data-goto="format"]').forEach(l => l.addEventListener('click', () => wizGo(WIZ_STEPS.indexOf('format'))));
+  body.querySelectorAll('[data-lvl-i]').forEach(row => row.addEventListener('click', ev => {
+    const c = ev.target.closest('.preset-chip'); if (!c) return;
+    const p = squad[+row.dataset.lvlI]; const v = parseFloat(c.dataset.v);
+    squad[+row.dataset.lvlI] = normalisePlayer({...p, level: typeof p.level === 'number' && p.level === v ? undefined : v});
+    saveSquad(); renderSquadList(); renderWizard();
+  }));
+  body.querySelector('#rvEngine').addEventListener('change', ev => { teamEthos.engine = ev.target.checked ? 'window' : 'classic'; saveEthos(); });
+  const rq = body.querySelector('#rvQuestions'); if (rq) rq.addEventListener('click', () => { teamEthos.answers = {}; saveEthos(); activeTeam().wizQPage = 0; wizGo(WIZ_STEPS.indexOf('questions')); });
+  body.querySelector('#wizBack').addEventListener('click', () => wizGo(WIZ_STEPS.indexOf('questions')));
+  body.querySelector('#wizNext').addEventListener('click', () => { renderApproachSection(); refreshPlannerVisibility(); wizGo(WIZ_STEPS.indexOf('review') + 1); });
+}
+
+/* ---------- Formats on the New Fixture screen ---------- */
+function loadFormatIntoSetup(d) {
+  document.getElementById('fmt-players').value = d.players;
+  document.getElementById('fmt-duration').value = d.duration;
+  document.getElementById('fmt-periods').value = d.periods;
+  document.getElementById('fmt-gk').checked = !!d.hasGk;
+  refillShapeSuggestion();
+  updatePeriodPreview();
+  if (d.formation && d.formation !== 'auto') {
+    const sel = document.getElementById('fmt-formation');
+    if ([...sel.options].some(o => o.value === d.formation)) { sel.value = d.formation; sel.dispatchEvent(new Event('change')); }
+  }
+}
+function renderFormatChips() {
+  const host = document.getElementById('formatChips'); if (!host) return;
+  const fs = teamFormats();
+  if (fs.length < 2) { host.style.display = 'none'; return; }
+  host.style.display = 'flex';
+  const cur = {players: PLAYERS_ON_PITCH, duration: DURATION, periods: PERIODS, hasGk: HAS_GK};
+  host.innerHTML = fs.map((f, i) => `<div class="radio-opt ${f.players === cur.players && f.duration === cur.duration && f.periods === cur.periods && !!f.hasGk === !!cur.hasGk ? 'selected' : ''}" data-fmt="${i}">${f.players}v${f.players} · ${f.duration}'</div>`).join('');
+}
+document.getElementById('formatChips').addEventListener('click', e => {
+  const o = e.target.closest('[data-fmt]'); if (!o) return;
+  loadFormatIntoSetup(teamFormats()[+o.dataset.fmt]);
+  document.getElementById('confirmFormatBtn').click();
+});
+// Other formats in the Squad tab's Default match type.
+function renderOtherFormats() {
+  const host = document.getElementById('dmOthers'); if (!host) return;
+  const others = Array.isArray(matchDefaults.others) ? matchDefaults.others : [];
+  const sf = teamEthos.setFor && teamEthos.setFor.formats;
+  host.innerHTML = `${others.length ? `<div class="config-note" style="margin:8px 0 4px; color:var(--ink);">Other formats you play</div>` + others.map((f, i) => `<div class="prio-row"><span class="nm">${esc(formatLabel(f))}</span><button data-fmt-del="${i}" aria-label="Remove">✕</button></div>`).join('') : ''}
+    <span class="decision-link" id="dmAddFormat">+ Add another format you play</span>${sf ? `<div class="set-note"><span class="set-for">Set for you</span> <span class="set-from">${esc(sf)}</span></div>` : ''}`;
+  host.querySelectorAll('[data-fmt-del]').forEach(b => b.addEventListener('click', () => { matchDefaults.others.splice(+b.dataset.fmtDel, 1); saveDefaults(); renderOtherFormats(); }));
+  host.querySelector('#dmAddFormat').addEventListener('click', () => openFormatModal(f => { matchDefaults.others = others.concat([f]); saveDefaults(); renderOtherFormats(); }));
+}
+function openFormatModal(onSave, init) {
+  const f = normaliseFormat(init || {players: 9, duration: 60, periods: 2, hasGk: true});
+  const opt = (vals, sel) => vals.map(v => `<option ${v === sel ? 'selected' : ''}>${v}</option>`).join('');
+  const overlay = openModal(`<div class="picker-title">Another format</div>
+    <div class="pos-row">
+      <div class="field"><label>Players per side</label><select id="ofP">${opt(Array.from({length: 9}, (_, i) => i + 3), f.players)}</select></div>
+      <div class="field"><label>Duration</label><select id="ofD">${opt(Array.from({length: 17}, (_, i) => (i + 2) * 5), f.duration)}</select></div>
+      <div class="field"><label>Periods</label><select id="ofN">${opt(Array.from({length: 9}, (_, i) => i + 1), f.periods)}</select></div>
+    </div>
+    <div class="check-row"><input type="checkbox" id="ofG" ${f.hasGk ? 'checked' : ''}><label for="ofG">Uses a goalkeeper</label></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="ofCancel">Cancel</button><button class="btn btn-primary" id="ofSave">Add</button></div>`);
+  overlay.querySelector('#ofCancel').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#ofSave').addEventListener('click', () => {
+    onSave(normaliseFormat({players: overlay.querySelector('#ofP').value, duration: overlay.querySelector('#ofD').value, periods: overlay.querySelector('#ofN').value, hasGk: overlay.querySelector('#ofG').checked}));
+    overlay.remove();
+  });
+}
+
+/* ---------- The tour: the new planner's screens, and what was set for you ---------- */
+function setForTourLines(keys) {
+  const sf = teamEthos.setFor || {};
+  const lines = setupLines().filter(l => keys.includes(l.key) && sf[l.key]).map(l => `${l.label}: ${l.value} (${l.why})`);
+  return lines;
+}
+const ETHOS_TOUR_KEYS = ['preset', 'sliders.season', 'rules.leagueMinPct', 'rules.strengthMode', 'rules.unitFloor', 'sliders.positions', 'sliders.changes', 'timing', 'rules.oneChangePerUnit', 'keepers', 'live.replan', 'priority'];
+function newPlannerTourSteps(base) {
+  const out = [];
+  for (const st of base) {
+    if (st.sel === '#secRotations') {
+      out.push({screen: 'squad', sel: '#secApproach', title: 'Team approach', text: 'How the planner runs your team: your approach, fine-tuning, and Advanced settings. Every setting says where it came from, and anything set from your answers is marked "Set for you" with the reason.',
+        setFor: () => setForTourLines(ETHOS_TOUR_KEYS)});
+      continue;
+    }
+    if (st.sel === '#secDefaults') { out.push({...st, text: 'The formats you play: players per side, length, periods and formation. New fixtures start from your main one, and you can switch to another format in one tap.', setFor: () => (teamEthos.setFor && teamEthos.setFor.formats ? [teamEthos.setFor.formats] : [])}); continue; }
+    if (st.sel === '#squadList') { out.push({...st, text: st.text + ' Each player can also have a private level that only you see.'}); continue; }
+    if (st.sel === '#secAvail') { out.push({...st, text: "Untick anyone who can't play. Tap a name for anything different today: arriving late, leaving early, a minutes limit, must start, or keeper today.", setFor: () => setForTourLines(['gkPlan'])}); continue; }
+    if (st.sel === '#rotPresetSection') {
+      out.push({screen: 'setup', sel: '#secToday', title: '5. Today', text: 'One tap to lean this match: Development, Normal, Strong or Must-win. A cup pre-selects Strong and a friendly Development. Your team rules still apply.', needsClosedMatch: true});
+      continue;
+    }
+    if (st.mock === 'config') {
+      out.push({title: 'The scorecard and "Why?"', text: 'Above the pitch, a scorecard strip shows the minutes range, the number of subs and any problems. Tap it for the full breakdown, and tap "Why?" on any change to see the reason in your own terms.',
+        bullets: ['"If Noah came off instead: Leo sits out 22\', over the 19\' maximum"', 'Details › Settings: Today and help during the match', '"Show me another" for a different plan before kick-off']});
+      continue;
+    }
+    if (st.mock === 'live') { out.push({...st, setFor: () => setForTourLines(['live.replan'])}); continue; }
+    out.push(st);
+  }
+  return out;
 }
 
 /* ================= INIT ================= */
