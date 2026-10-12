@@ -702,7 +702,7 @@
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
 const APP_VERSION = 'beta 0.11';
-const PRIVACY_VERSION = '2026-10-09';
+const PRIVACY_VERSION = '2026-10-12';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
   let buf = [];
@@ -846,13 +846,36 @@ const DEFAULT_SQUAD = [
   {id:'Theo',    number:11, positions:{DEF:2, MID:2, ATT:1}, gk:false},
 ];
 
+// Brings any stored player (old or new) to the current shape:
+//  - goal: ability in goal, 0 Cannot, 1 Emergency, 2 Capable, 3 Main keeper;
+//  - level: private 0-10 (Developing about 2, Core 5, Strong 8), optional;
+//  - levels: optional per-area overrides {DEF, MID, ATT, GK}.
+// Keeps the keeper flag (gk) and goal in step: whichever the coach last
+// changed wins, so older screens that only set gk keep working.
+// Self-contained: it runs while the app is still loading.
+function normalisePlayer(p) {
+  const q = {...p, positions: {DEF: 2, MID: 2, ATT: 1, ...((p && p.positions) || {})}};
+  const lim = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const lvl = v => (typeof v === 'number' && isFinite(v)) ? Math.round(lim(v, 0, 10) * 2) / 2 : undefined;
+  let goal = typeof q.goal === 'number' && isFinite(q.goal) ? lim(Math.round(q.goal), 0, 3) : (q.gk ? 2 : 0);
+  if (typeof q.gk === 'boolean' && (goal >= 2) !== q.gk) goal = q.gk ? Math.max(goal, 2) : Math.min(goal, 1);
+  q.goal = goal; q.gk = goal >= 2;
+  const l = lvl(q.level);
+  if (l === undefined) delete q.level; else q.level = l;
+  if (q.levels && typeof q.levels === 'object') {
+    const ls = {};
+    ['DEF', 'MID', 'ATT', 'GK'].forEach(g => { const v = lvl(q.levels[g]); if (v !== undefined) ls[g] = v; });
+    if (Object.keys(ls).length) q.levels = ls; else delete q.levels;
+  } else delete q.levels;
+  return q;
+}
 function loadSquad() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) { const list = JSON.parse(raw); if (Array.isArray(list)) return list.map(normalisePlayer); }
   } catch (e) { console.warn('Could not read saved squad, using defaults', e); }
   // Only an install that pre-dates profiles keeps the demo squad; every new team starts empty.
-  return activeTeam().legacy ? DEFAULT_SQUAD.map(p => ({...p})) : [];
+  return activeTeam().legacy ? DEFAULT_SQUAD.map(normalisePlayer) : [];
 }
 function saveSquad() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(squad)); }
@@ -988,10 +1011,12 @@ document.getElementById('pf-save').addEventListener('click', () => {
   };
   if (editingPlayerId) {
     const idx = squad.findIndex(x => x.id === editingPlayerId);
-    squad[idx] = newPlayer;
+    // Keep everything the form doesn't show (level, goal ability...).
+    squad[idx] = normalisePlayer({...squad[idx], ...newPlayer});
+    if (editingPlayerId !== newPlayer.id && typeof renamePlayerInEthos === 'function') renamePlayerInEthos(editingPlayerId, newPlayer.id);
   } else {
     if (squad.some(x => x.id === newPlayer.id)) { showAlert('A player with this name already exists.'); return; }
-    squad.push(newPlayer);
+    squad.push(normalisePlayer(newPlayer));
   }
   saveSquad();
   renderSquadList();
@@ -1000,6 +1025,7 @@ document.getElementById('pf-save').addEventListener('click', () => {
 document.getElementById('pf-delete').addEventListener('click', () => {
   showConfirm(`Remove ${editingPlayerId} from the squad?`, () => {
     squad = squad.filter(x => x.id !== editingPlayerId);
+    if (typeof renamePlayerInEthos === 'function') renamePlayerInEthos(editingPlayerId, null);
     saveSquad();
     renderSquadList();
     showScreen('squad');
@@ -2396,7 +2422,7 @@ function waterFill(ids, weights, caps, pool) {
 // coach who wants the strongest side kept in position ranks minutes last.
 const PRIORITY_AREAS = ['minutes', 'strength', 'positions'];
 const ETHOS_PRESETS = {
-  development: {label: 'Development', playingTime: 0, strength: 10, positions: 70, changes: 70, season: 70, unitFloor: 'strict', priority: ['minutes', 'positions', 'strength']},
+  development: {label: 'Development', playingTime: 0, strength: 10, positions: 70, changes: 70, season: 70, unitFloor: 'strict', priority: ['minutes', 'positions', 'strength'], minSpellMode: 'soft'},
   balanced: {label: 'Balanced', playingTime: 25, strength: 30, positions: 35, changes: 50, season: 50, unitFloor: 'strict', priority: ['minutes', 'strength', 'positions']},
   competitive: {label: 'Competitive', playingTime: 60, strength: 70, positions: 15, changes: 35, season: 25, unitFloor: 'strict', priority: ['strength', 'minutes', 'positions']},
   performance: {label: 'Performance', playingTime: 90, strength: 85, positions: 0, changes: 20, season: 0, unitFloor: 'off', priority: ['strength', 'positions', 'minutes']},
@@ -2432,6 +2458,9 @@ function buildSpec(o) {
     maxChangesPerStoppage: rules.maxChangesPerStoppage !== undefined ? rules.maxChangesPerStoppage : Math.floor(2 + s.changes),
     limitChangesAtBreaks: !!rules.limitChangesAtBreaks,
     unitFloor: rules.unitFloor || base.unitFloor,            // 'strict' | 'soft' | 'off'
+    minSpellMode: rules.minSpell || base.minSpellMode || 'strict', // 'strict' | 'soft' | 'off'
+    subTiming: o.subTiming || {strictness: 'open', mode: 'anytime'},
+    startPins: o.startPins || {}, keeperPins: o.keeperPins || [],
     oneChangePerUnit: rules.oneChangePerUnit || 'off',      // 'strict' | 'soft' | 'off'
     strength: {mode: rules.strengthMode || 'blend', k: s.strength, keyMinutes: Math.max(3, Math.round(duration / 6))},
     fit,
@@ -2567,6 +2596,20 @@ function computePlanTargets(players, spec, facts) {
   return {targets, equal, floors, caps, pool, basis: spec.gkCountsForFairness ? 'total' : 'outfield'};
 }
 
+// Whether the coach's sub timing allows a change at minute t: anytime; every
+// N minutes from kick-off; or only at period breaks (and halfway, if chosen).
+function subTimingAllows(timing, t, plan) {
+  const mode = (timing && timing.mode) || 'anytime';
+  if (mode === 'interval') return timing.interval > 0 && t % timing.interval === 0;
+  if (mode === 'checkpoints') {
+    const pb = plan.periodBounds || [];
+    if (pb.slice(1, -1).includes(t)) return true;
+    if (timing.halfway) for (let i = 0; i + 1 < pb.length; i++) if (Math.round((pb[i] + pb[i + 1]) / 2) === t) return true;
+    return false;
+  }
+  return true;
+}
+
 /* ---------- The evaluator ---------- */
 function evaluatePlan(plan, players, spec) {
   const f = planFacts(plan, players, spec);
@@ -2618,6 +2661,25 @@ function evaluatePlan(plan, players, spec) {
     }
   }
 
+  // Coach pins for this fixture: must start / start on the bench / keeper today.
+  const first = plan.segments[0];
+  if (first && spec.startPins) for (const [pid, pin] of Object.entries(spec.startPins)) {
+    if (!byId[pid]) continue;
+    const starts = Object.values(first.onPitch).includes(pid);
+    if (pin === 'start' && !starts) t0.push({code: 'MUST_START', pid, text: `${pid} was marked "must start" but starts on the bench`, minutes: 1});
+    if (pin === 'bench' && starts) t0.push({code: 'START_ON_BENCH', pid, text: `${pid} was marked "start on the bench" but starts`, minutes: 1});
+  }
+  if (spec.keeperPins && spec.keeperPins.length) for (const pid of spec.keeperPins) {
+    if (!byId[pid] || !plan.segments.some(seg => seg.slots.some(sl => sl.group === 'GK'))) continue;
+    if (!f.gkMinutes[pid]) t0.push({code: 'KEEPER_TODAY', pid, text: `${pid} was named keeper today but never goes in goal`, minutes: 1});
+  }
+  // Sub timing: a change at a moment the coach's timing doesn't allow.
+  // Strict: not allowed at all. Flexible: allowed, at a small cost. Period
+  // breaks are always allowed.
+  const timing = spec.subTiming || {strictness: 'open'};
+  const offTiming = f.moments.filter(m => !m.isBreak && (m.on.length || m.moved.length) && !subTimingAllows(timing, m.time, plan));
+  if (timing.strictness === 'strict') offTiming.forEach(m => t0.push({code: 'OFF_TIMING', text: `A change at ${m.time}' that your sub timing doesn't allow`, minutes: 1}));
+
   // ---- Targets (tier 2 inputs)
   const T = computePlanTargets(players, spec, f);
   const basisMinutes = id => spec.gkCountsForFairness ? f.minutes[id] : f.minutes[id] - f.gkMinutes[id];
@@ -2660,16 +2722,20 @@ function evaluatePlan(plan, players, spec) {
       if (len > spec.maxTimeOff + SPEC_GRACE) t1.push({code: 'TIME_OFF', pid: id, text: `${nm(id)} sits out ${len}' (${b.from}'–${b.to}'), over the ${spec.maxTimeOff}' maximum`, magnitude: len - spec.maxTimeOff});
     }
   }
-  if (spec.minSpell > 0) {
+  const shortSpells = [];
+  if (spec.minSpell > 0 && spec.minSpellMode !== 'off') {
     for (const id of ids) {
       const a = f.avail(id);
       for (const s of f.spells[id]) {
         const len = s.to - s.from;
-        if (len < spec.minSpell - SPEC_GRACE && s.to < a.to) t1.push({code: 'SHORT_SPELL', pid: id, text: `${nm(id)} plays only ${len}' (${s.from}'–${s.to}'), under the ${spec.minSpell}' minimum spell`, magnitude: spec.minSpell - len});
-        else if (len < spec.minSpell - SPEC_GRACE && s.to === plan.duration && s.from > 0) t1.push({code: 'SHORT_SPELL', pid: id, text: `${nm(id)} comes on for only ${len}' at the end (${s.from}'–${s.to}')`, magnitude: spec.minSpell - len});
+        if (len < spec.minSpell - SPEC_GRACE && s.to < a.to) shortSpells.push({code: 'SHORT_SPELL', pid: id, text: `${nm(id)} plays only ${len}' (${s.from}'–${s.to}'), under the ${spec.minSpell}' minimum spell`, magnitude: spec.minSpell - len});
+        else if (len < spec.minSpell - SPEC_GRACE && s.to === plan.duration && s.from > 0) shortSpells.push({code: 'SHORT_SPELL', pid: id, text: `${nm(id)} comes on for only ${len}' at the end (${s.from}'–${s.to}')`, magnitude: spec.minSpell - len});
       }
     }
   }
+  // Minimum spell: a guarantee when strict; when soft, a cost the planner
+  // weighs against fairness (so maximum fairness can override it).
+  if (spec.minSpellMode !== 'soft') t1.push(...shortSpells);
   const softUnitChanges = {count: 0};
   for (const mo of f.moments) {
     if (mo.isBreak && !spec.limitChangesAtBreaks) continue;
@@ -2787,7 +2853,9 @@ function evaluatePlan(plan, players, spec) {
       }
     }
   }
-  const t5value = nonBreakMoments.length * 2 + subs + moves + softUnitChanges.count * 2 + stability * 3;
+  const softShort = spec.minSpellMode === 'soft' ? shortSpells.length : 0;
+  const flexTiming = timing.strictness === 'flexible' ? offTiming.length : 0;
+  const t5value = nonBreakMoments.length * 2 + subs + moves + softUnitChanges.count * 2 + stability * 3 + softShort * 2 + flexTiming * 3;
 
   const card = {
     tiers: {
@@ -2801,7 +2869,8 @@ function evaluatePlan(plan, players, spec) {
       t4: {value: round1(t4value), fitLoss: round1(fitLoss), fitPct: outMin ? Math.round(fitSum / outMin * 100) : 100,
         varietyShort: round1(varietyShort), pairWith, pairApart},
       t5: {value: t5value, subMoments: nonBreakMoments.length, breakSubs: f.moments.filter(m => m.isBreak).reduce((a, m) => a + m.on.length, 0),
-        subs, positionMoves: moves, softUnitChanges: softUnitChanges.count, stability},
+        subs, positionMoves: moves, softUnitChanges: softUnitChanges.count, stability, softShortSpells: softShort, offTiming: offTiming.length,
+        offTimingAllowed: timing.strictness === 'flexible' ? offTiming.map(m => m.time) : []},
     },
     withLevels,
   };
@@ -2828,6 +2897,8 @@ function scorecardLines(card, spec) {
     const items = byCode(code);
     if (items.length) L.push({tier: 1, ok: false, text: items.slice(0, 2).map(x => x.text).join('; ') + (items.length > 2 ? ` (+${items.length - 2} more)` : '')});
   }
+  if (t5.softShortSpells) L.push({tier: 5, ok: false, text: `${t5.softShortSpells} short spell${t5.softShortSpells === 1 ? '' : 's'} (allowed by your ethos, kept to a minimum)`});
+  if (t5.offTimingAllowed && t5.offTimingAllowed.length) L.push({tier: 5, ok: false, text: `Changes outside your usual sub timing at ${t5.offTimingAllowed.map(t => t + "'").join(', ')}`});
   L.push({tier: 5, ok: true, text: `${t5.subs} subs: ${t5.subs - t5.breakSubs} during play at ${t5.subMoments} stoppages, ${t5.breakSubs} at period breaks; ${t5.positionMoves} position moves`});
   if (t3.weakest) L.push({tier: 3, ok: true, text: `Strength on the pitch averages ${t3.perPlayer} out of 10; weakest spell ${t3.weakest.perPlayer} (${t3.weakest.from}'–${t3.weakest.to}')`});
   L.push({tier: 4, ok: t4.fitPct >= 85, text: `Positions: ${t4.fitPct}% position fit${t4.varietyShort ? `; ${Math.round(t4.varietyShort)}' short of the variety target` : ''}`});
@@ -2862,6 +2933,239 @@ function compareScorecards(a, b, spec) {
   for (const area of (spec && spec.priority) || PRIORITY_AREAS) { const r = steps[area](); if (r) return r; }
   if (A.t5.value !== B.t5.value) return out(A.t5.value - B.t5.value, 5, 'fewer changes');
   return out(0, 6, 'equally good');
+}
+
+/* ================= TEAM ETHOS, PLAYER PROFILE & SEASON RECORD =================
+ * Everything the new planner needs to know about a team, stored with the
+ * team on this device:
+ *   - each player's private level (0-10, with per-area overrides) and goal
+ *     ability (Cannot / Emergency / Capable / Main keeper);
+ *   - the Team Ethos: preset, slider tweaks, priority order and team rules;
+ *   - per-fixture choices: the "Today" approach and player exceptions;
+ *   - the season record, built from finished matches.
+ * compileSpec() turns all of it into the Planning Spec the scorecard (and,
+ * from phase 4, the planner) works from. Nothing here changes how today's
+ * engine plans.
+ */
+const GOAL_LEVELS = ['Cannot', 'Emergency', 'Capable', 'Main keeper'];
+const LEVEL_TAPS = {Developing: 2, Core: 5, Strong: 8};
+// The player's level for a position, as the planner sees it (undefined = not set).
+function goalLevel(p) { return p.levels && typeof p.levels.GK === 'number' ? p.levels.GK : (typeof p.level === 'number' ? p.level : undefined); }
+
+/* ---------- Team Ethos ---------- */
+const ETHOS_KEY = K('rf_ethos_v1');
+function defaultEthos() {
+  return {
+    v: 1,
+    preset: 'balanced',            // development | balanced | competitive | performance
+    sliders: {},                   // only the sliders the coach has moved: {playingTime, strength, positions, changes, season} 0-100
+    priority: null,                // null = the preset's order, or e.g. ['strength', 'positions', 'minutes']
+    rules: {
+      unitFloor: null,             // null = the preset's default; 'strict' | 'soft' | 'off'
+      oneChangePerUnit: 'off',     // 'strict' | 'soft' | 'off' (off by default, as agreed)
+      leagueMinPct: null,          // Advanced: league/club minimum share of each match, off by default
+      strengthMode: 'blend',       // 'blend' (even + key moments) | 'even' | 'keyMoments' | 'strongStart' | 'none'
+      minSpell: null,              // null = the preset's default; 'strict' | 'soft' | 'off'
+    },
+    subTiming: 'flexible',         // how strictly the sub timing setting is kept: 'strict' | 'flexible' | 'open'
+    keepers: {
+      timeCounts: false,           // keeper time counts as playing time (off by default, as agreed)
+      shortage: 'keeperMore',      // too few keepers: 'keeperMore' | 'outfieldInGoal' | 'ask'
+    },
+    live: {replan: 'nextStable'},  // 'off' | 'major' | 'nextStable' (default) | 'full'
+    pairs: [],                     // [{a, b, kind: 'with' | 'apart'}]
+    setFor: {},                    // phase 7: which settings the questionnaire set, and why
+    answers: null,                 // phase 7: the questionnaire answers
+  };
+}
+const ETHOS_ENUMS = {
+  unitFloor: ['strict', 'soft', 'off'], oneChangePerUnit: ['strict', 'soft', 'off'], minSpell: ['strict', 'soft', 'off'],
+  strengthMode: ['blend', 'even', 'keyMoments', 'strongStart', 'none'], subTiming: ['strict', 'flexible', 'open'],
+  shortage: ['keeperMore', 'outfieldInGoal', 'ask'], replan: ['off', 'major', 'nextStable', 'full'],
+};
+function normaliseEthos(e) {
+  const d = defaultEthos();
+  if (!e || typeof e !== 'object') return d;
+  const pick = (v, list, def) => list.includes(v) ? v : def;
+  const out = {...d, ...e};
+  out.preset = ETHOS_PRESETS[e.preset] ? e.preset : d.preset;
+  out.sliders = {};
+  for (const k of ['playingTime', 'strength', 'positions', 'changes', 'season']) {
+    const v = e.sliders && e.sliders[k];
+    if (typeof v === 'number' && isFinite(v)) out.sliders[k] = clamp(Math.round(v), 0, 100);
+  }
+  out.priority = e.priority ? normalisePriority(e.priority, ETHOS_PRESETS[out.preset].priority) : null;
+  const r = e.rules || {};
+  out.rules = {
+    unitFloor: r.unitFloor == null ? null : pick(r.unitFloor, ETHOS_ENUMS.unitFloor, null),
+    oneChangePerUnit: pick(r.oneChangePerUnit, ETHOS_ENUMS.oneChangePerUnit, 'off'),
+    leagueMinPct: typeof r.leagueMinPct === 'number' && r.leagueMinPct > 0 ? clamp(r.leagueMinPct, 1, 100) : null,
+    strengthMode: pick(r.strengthMode, ETHOS_ENUMS.strengthMode, 'blend'),
+    minSpell: r.minSpell == null ? null : pick(r.minSpell, ETHOS_ENUMS.minSpell, null),
+  };
+  out.subTiming = pick(e.subTiming, ETHOS_ENUMS.subTiming, 'flexible');
+  out.keepers = {timeCounts: !!(e.keepers && e.keepers.timeCounts), shortage: pick(e.keepers && e.keepers.shortage, ETHOS_ENUMS.shortage, 'keeperMore')};
+  out.live = {replan: pick(e.live && e.live.replan, ETHOS_ENUMS.replan, 'nextStable')};
+  out.pairs = Array.isArray(e.pairs) ? e.pairs.filter(x => x && x.a && x.b && x.a !== x.b && (x.kind === 'with' || x.kind === 'apart')).map(x => ({a: x.a, b: x.b, kind: x.kind})) : [];
+  out.setFor = e.setFor && typeof e.setFor === 'object' ? e.setFor : {};
+  return out;
+}
+function loadEthos() { try { const r = lsGet(ETHOS_KEY); return normaliseEthos(r ? JSON.parse(r) : null); } catch (e) { return defaultEthos(); } }
+function saveEthos() { lsSet(ETHOS_KEY, JSON.stringify(teamEthos)); }
+let teamEthos = loadEthos();
+
+/* ---------- Per-fixture choices ---------- */
+// "Today": one tap per fixture that leans this match only.
+const TODAY_OPTIONS = {
+  normal: {label: 'Normal'},
+  development: {label: 'Development', toward: 'development', amount: 0.5},
+  strong: {label: 'Strong', toward: 'competitive', amount: 0.5, priority: ['strength', 'minutes', 'positions']},
+  mustwin: {label: 'Must-win', toward: 'performance', amount: 1, priority: ['strength', 'positions', 'minutes']},
+};
+// Player exceptions for one fixture: {pid: {arrive, leave, cap, extra, mustStart, benchStart, keeperToday}}
+function normaliseExceptions(ex, duration) {
+  const out = {};
+  for (const [pid, x] of Object.entries(ex || {})) {
+    if (!x || typeof x !== 'object') continue;
+    const m = v => typeof v === 'number' && isFinite(v) ? clamp(Math.round(v), 0, duration) : undefined;
+    const y = {arrive: m(x.arrive), leave: m(x.leave), cap: m(x.cap), extra: typeof x.extra === 'number' ? clamp(Math.round(x.extra), -duration, duration) : undefined,
+      mustStart: !!x.mustStart, benchStart: !!x.benchStart && !x.mustStart, keeperToday: !!x.keeperToday};
+    Object.keys(y).forEach(k => { if (y[k] === undefined || y[k] === false) delete y[k]; });
+    if (y.arrive !== undefined && y.leave !== undefined && y.leave <= y.arrive) delete y.leave;
+    if (Object.keys(y).length) out[pid] = y;
+  }
+  return out;
+}
+
+/* ---------- Season record ---------- */
+// Built from finished matches. Only time a player was actually available
+// counts: a child who was ill or away is never "owed" minutes for it, a
+// child who was there and benched is.
+function buildSeasonLedger(lib) {
+  const fin = (lib || []).filter(r => r.status === 'finished' && r.stats && r.stats.players)
+    .sort((a, b) => recDate(a) < recDate(b) ? -1 : recDate(a) > recDate(b) ? 1 : (a.createdAt || 0) - (b.createdAt || 0));
+  const players = {};
+  for (const r of fin) {
+    const s = r.stats, date = recDate(r);
+    for (const [pid, ps] of Object.entries(s.players)) {
+      const a = players[pid] || (players[pid] = {id: pid, matches: 0, availMins: 0, mins: 0, gkMins: 0, starts: 0, benchStarts: 0, finishes: 0,
+        goals: 0, assists: 0, goalsForOn: 0, goalsAgainstOn: 0, lastStart: null, lastBenchStart: null, lastFinish: null});
+      const avail = typeof ps.avail === 'number' ? ps.avail : s.minutes;
+      if (avail <= 0) continue;
+      a.matches++; a.availMins += avail; a.mins += ps.mins || 0; a.gkMins += ps.gk || 0;
+      if (ps.started) { a.starts++; a.lastStart = date; } else if (ps.availAtStart !== false) { a.benchStarts++; a.lastBenchStart = date; }
+      if (ps.finished) { a.finishes++; a.lastFinish = date; }
+      a.goals += ps.goals || 0; a.assists += ps.assists || 0;
+      a.goalsForOn += ps.gfOn || 0; a.goalsAgainstOn += ps.gaOn || 0;
+    }
+  }
+  return {matches: fin.length, players};
+}
+// Minutes a player is owed (positive) or ahead (negative) across the season,
+// against the squad's share of the time each player was available.
+function seasonGaps(ledger, gkCounts) {
+  const rows = Object.values((ledger && ledger.players) || {});
+  const basis = a => gkCounts ? {m: a.mins, av: a.availMins} : {m: a.mins - a.gkMins, av: a.availMins - a.gkMins};
+  const tot = rows.reduce((t, a) => { const b = basis(a); return {m: t.m + b.m, av: t.av + b.av}; }, {m: 0, av: 0});
+  const share = tot.av > 0 ? tot.m / tot.av : 0;
+  const gaps = {};
+  rows.forEach(a => { const b = basis(a); gaps[a.id] = b.av > 0 ? share * b.av - b.m : 0; });
+  return {share, gaps};
+}
+
+/* ---------- The compiler ---------- */
+// ctx: {ethos, today, duration, periodBounds, players, exceptions, ledger, subTimingCfg}
+// Returns the Planning Spec, with every number traceable to where it came from.
+function compileSpec(ctx) {
+  const ethos = normaliseEthos(ctx.ethos);
+  const preset = ETHOS_PRESETS[ethos.preset];
+  const today = TODAY_OPTIONS[ctx.today] ? ctx.today : 'normal';
+  const T = TODAY_OPTIONS[today];
+  // Sliders: preset, then the coach's tweaks, then today's lean.
+  const sliders = {};
+  const from = {};
+  for (const k of ['playingTime', 'strength', 'positions', 'changes', 'season']) {
+    let v = preset[k], src = `${preset.label} preset`;
+    if (typeof ethos.sliders[k] === 'number') { v = ethos.sliders[k]; src = 'your setting'; }
+    if (T.toward) { const target = ETHOS_PRESETS[T.toward][k]; v = Math.round(v + (target - v) * T.amount); src += `, leaned by Today: ${T.label}`; }
+    sliders[k] = v; from[k] = src;
+  }
+  const priority = T.priority || ethos.priority || preset.priority;
+  const exceptions = normaliseExceptions(ctx.exceptions, ctx.duration);
+  const availability = {}, caps = {}, startPins = {}, keeperPins = [];
+  for (const [pid, x] of Object.entries(exceptions)) {
+    if (x.arrive !== undefined || x.leave !== undefined) availability[pid] = {from: x.arrive || 0, to: x.leave !== undefined ? x.leave : ctx.duration};
+    if (x.cap !== undefined) caps[pid] = x.cap;
+    if (x.mustStart) startPins[pid] = 'start';
+    if (x.benchStart) startPins[pid] = 'bench';
+    if (x.keeperToday) keeperPins.push(pid);
+  }
+  const players = (ctx.players || []).map(normalisePlayer);
+  // Who may go in goal: keepers always; Emergency keepers when the coach's
+  // shortage rule allows a non-keeper in goal; anyone named keeper today.
+  const allowedKeepers = players.filter(p => !p.gk && ((ethos.keepers.shortage === 'outfieldInGoal' && p.goal >= 1) || keeperPins.includes(p.id))).map(p => p.id);
+  const spec = buildSpec({
+    preset: ethos.preset, sliders, priority, duration: ctx.duration, periodBounds: ctx.periodBounds,
+    rules: {
+      unitFloor: ethos.rules.unitFloor || preset.unitFloor,
+      oneChangePerUnit: ethos.rules.oneChangePerUnit,
+      leagueMinPct: ethos.rules.leagueMinPct,
+      strengthMode: today === 'mustwin' ? 'keyMoments' : ethos.rules.strengthMode,
+    },
+    gkCountsForFairness: ethos.keepers.timeCounts, allowedKeepers, availability, caps, pairs: ethos.pairs,
+  });
+  spec.today = today;
+  spec.minSpellMode = ethos.rules.minSpell || preset.minSpellMode || 'strict';
+  spec.subTiming = {strictness: ethos.subTiming, ...(ctx.subTimingCfg || {mode: 'anytime'})};
+  spec.startPins = startPins;
+  spec.keeperPins = keeperPins;
+  spec.keeperShortage = ethos.keepers.shortage;
+  spec.replan = ethos.live.replan;
+  // Season catch-up: each target moves by up to (season slider x 50%) of the
+  // player's season gap, capped at 20% of an equal share either way.
+  const s = sliders.season / 100;
+  const ids = players.map(p => p.id);
+  const outfieldSlots = (ctx.outfieldSlots || 0), allSlots = (ctx.allSlots || 0);
+  const pool = (ethos.keepers.timeCounts ? allSlots : outfieldSlots) * ctx.duration;
+  const equal = ids.length && pool ? pool / ids.length : 0;
+  const {gaps} = seasonGaps(ctx.ledger, ethos.keepers.timeCounts);
+  const catchUp = {};
+  for (const id of ids) {
+    if (equal <= 0 || !gaps[id]) continue;
+    const move = clamp(s * 0.5 * gaps[id], -0.2 * equal, 0.2 * equal);
+    if (Math.abs(move) < 0.5) continue;
+    catchUp[id] = Math.round(move);
+    spec.targetAdjust[id] = (spec.targetAdjust[id] || 1) * (1 + move / equal);
+  }
+  for (const [pid, x] of Object.entries(exceptions)) if (x.extra && equal > 0) spec.targetAdjust[pid] = (spec.targetAdjust[pid] || 1) * Math.max(0.1, 1 + x.extra / equal);
+  spec.catchUp = catchUp;
+  spec.exceptions = exceptions;
+  Object.assign(spec.provenance, {
+    sliders: from, priority: T.priority ? `Today: ${T.label}` : (ethos.priority ? 'your order' : `${preset.label} preset`),
+    unitFloor: ethos.rules.unitFloor ? 'your team rule' : `${preset.label} preset`,
+    minSpell: ethos.rules.minSpell ? 'your setting' : `${preset.label} preset`,
+    catchUp: s > 0 ? `Across the season ${sliders.season}` : 'off',
+  });
+  return spec;
+}
+// The spec for the match currently open in the app.
+function currentMatchSpec(ledger) {
+  return compileSpec({
+    ethos: teamEthos, today: matchFixture && matchFixture.today, duration: DURATION, periodBounds: [...PERIOD_BOUNDS],
+    players: PLAYERS, exceptions: matchFixture && matchFixture.exceptions,
+    ledger: ledger || buildSeasonLedger(loadMatchLibrary()),
+    outfieldSlots: SLOTS.filter(s => s.group !== 'GK').length, allSlots: SLOTS.length,
+    subTimingCfg: {mode: cfg.subTimingMode, interval: cfg.subIntervalMinutes, halfway: !!cfg.checkpointHalfway},
+  });
+}
+// What may leave the device (feedback reports): never a child's level.
+function stripPrivatePlayerData(p) { const q = {...p}; delete q.level; delete q.levels; return q; }
+
+// Keeps "plays well with" / "keep apart" pairs pointing at the right player
+// when one is renamed (newId) or removed (newId null).
+function renamePlayerInEthos(oldId, newId) {
+  teamEthos.pairs = teamEthos.pairs.map(x => ({...x, a: x.a === oldId ? newId : x.a, b: x.b === oldId ? newId : x.b})).filter(x => x.a && x.b && x.a !== x.b);
+  saveEthos();
 }
 
 /* ================= LINE-UP PRESETS ================= */
@@ -4453,7 +4757,7 @@ function openFixtureEditor() {
   overlay.querySelector('#fe-venue').value = f.venue || ''; overlay.querySelector('#fe-comp').value = f.competition || '';
   overlay.querySelector('#feCancel').addEventListener('click', () => overlay.remove());
   overlay.querySelector('#feSave').addEventListener('click', () => {
-    matchFixture = {opponent: overlay.querySelector('#fe-opp').value.trim(), date: overlay.querySelector('#fe-date').value,
+    matchFixture = {...matchFixture, opponent: overlay.querySelector('#fe-opp').value.trim(), date: overlay.querySelector('#fe-date').value,
       venue: overlay.querySelector('#fe-venue').value.trim(), competition: overlay.querySelector('#fe-comp').value.trim()};
     overlay.remove(); renderFixtureLine(); saveLiveMatchState();
   });
@@ -5752,9 +6056,20 @@ const POS_KEYS = ['gk', 'def', 'mid', 'att'];
 
 // Minutes each player spent in each position, goals and the result, taken
 // from the match as it was actually played (the plan up to full time).
-function computeMatchStats(finishedAt, goals, sc) {
+// v2 adds, per player: the minutes they were actually available (late
+// arrival, leaving early or marked unavailable all reduce it, so nobody is
+// "owed" minutes for time they weren't there), whether they finished the
+// match, and goals scored and conceded while they were on the pitch.
+function computeMatchStats(finishedAt, goals, sc, exceptions) {
   const players = {};
-  PLAYERS.forEach(p => { players[p.id] = {mins: 0, gk: 0, def: 0, mid: 0, att: 0, started: false, goals: 0, assists: 0}; });
+  const ex = exceptions || (matchFixture && matchFixture.exceptions) || {};
+  PLAYERS.forEach(p => {
+    const x = ex[p.id] || {};
+    const from = Math.min(finishedAt, x.arrive || 0);
+    const to = Math.min(finishedAt, x.leave !== undefined ? x.leave : finishedAt, unavailableFrom[p.id] !== undefined ? unavailableFrom[p.id] : finishedAt);
+    players[p.id] = {mins: 0, gk: 0, def: 0, mid: 0, att: 0, started: false, goals: 0, assists: 0,
+      avail: Math.max(0, to - from), availAtStart: from === 0 && to > 0, finished: false, gfOn: 0, gaOn: 0};
+  });
   Object.values(startingLineup).forEach(id => { if (players[id]) players[id].started = true; });
   for (let m = 0; m < finishedAt; m++) {
     const st = computeStateAt(m);
@@ -5763,9 +6078,15 @@ function computeMatchStats(finishedAt, goals, sc) {
       pl.mins++; pl[sl.group.toLowerCase()]++;
     }
   }
-  (goals || []).forEach(g => { if (g.forUs && players[g.scorer]) players[g.scorer].goals++; if (g.forUs && g.assist && players[g.assist]) players[g.assist].assists++; });
+  if (finishedAt > 0) Object.values(computeStateAt(finishedAt - 1).onPitch).forEach(id => { if (players[id]) players[id].finished = true; });
+  (goals || []).forEach(g => {
+    if (g.forUs && players[g.scorer]) players[g.scorer].goals++;
+    if (g.forUs && g.assist && players[g.assist]) players[g.assist].assists++;
+    const on = Object.values(computeStateAt(Math.max(0, Math.min(finishedAt - 1, g.time || 0))).onPitch);
+    on.forEach(id => { if (players[id]) { if (g.forUs) players[id].gfOn++; else players[id].gaOn++; } });
+  });
   const us = sc ? sc.us : 0, them = sc ? sc.them : 0;
-  return {v: 1, minutes: finishedAt, duration: DURATION, gf: us, ga: them, result: us > them ? 'W' : us < them ? 'L' : 'D',
+  return {v: 2, minutes: finishedAt, duration: DURATION, gf: us, ga: them, result: us > them ? 'W' : us < them ? 'L' : 'D',
     subs: PLAN.rotations.filter(r => !r.type && r.time <= finishedAt).length, players};
 }
 const ENGINE_GLOBALS = () => ({PLAYERS, playersById, SLOTS, slotsById, DURATION, PLAYERS_ON_PITCH, PERIODS, HAS_GK, PERIOD_BOUNDS, confirmedShape, cfg, cfgEras,
@@ -5794,7 +6115,7 @@ function statsFromSnapshot(saved) {
     lockedEvents = JSON.parse(JSON.stringify(saved.lockedEvents || []));
     unavailableFrom = {...(saved.unavailableFrom || {})};
     regeneratePlan();
-    return computeMatchStats(saved.finishedAt ?? DURATION, saved.goalEvents, saved.score);
+    return computeMatchStats(saved.finishedAt ?? DURATION, saved.goalEvents, saved.score, (saved.fixture && saved.fixture.exceptions) || {});
   } finally { restoreEngineGlobals(keep); }
 }
 function backfillMatchStats() {
@@ -6145,6 +6466,8 @@ function fbSnapshot() {
     if (!snap) return null;
     // free-text notes are never sent (they could contain anything about a child)
     snap = JSON.parse(JSON.stringify(snap)); snap.notes = (snap.notes || []).length + ' note(s) omitted';
+    // a child's level is private to the coach and never leaves the device
+    snap.players = (snap.players || []).map(stripPrivatePlayerData);
     return snap;
   } catch (e) { return null; }
 }
