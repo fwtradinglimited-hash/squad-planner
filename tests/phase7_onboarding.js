@@ -58,7 +58,7 @@ async function answerAll(page, answers) {
   ok(pages === 5 && seen.length >= 15, `${seen.length} plain-language questions over ${pages} pages`, seen);
   ok(['interval', 'timingRule', 'units'].every(q => seen.includes(q)), 'follow-up questions appear when an answer needs them');
   ok(/Your team's setup/.test(await page.textContent('.wiz-hero')), 'then a review of the setup');
-  let s = await page.evaluate(() => ({e: teamEthos, spec: compileSpec({ethos: teamEthos, duration: 50, periodBounds: [0, 25, 50], players: squad, subTimingCfg: teamEthos.timing}), gk: matchDefaults.gkMode, rot: rotations.defaultId}));
+  let s = await page.evaluate(() => ({e: teamEthos, spec: compileSpec({ethos: teamEthos, duration: 50, periodBounds: [0, 25, 50], players: squad, subTimingCfg: teamEthos.timing}), gk: matchDefaults.gkMode}));
   const e = s.e, sp = s.spec;
   ok(e.preset === 'competitive', '"Fair, but stronger players play noticeably more" → Competitive', e.preset);
   ok(e.sliders.season === 70 && e.sliders.positions === 70 && e.sliders.changes === 75 && e.sliders.strength === undefined, 'answers that differ from Competitive become slider settings (season, positions, changes); the rest stay with the preset', e.sliders);
@@ -66,11 +66,10 @@ async function answerAll(page, answers) {
   ok(e.timing.mode === 'interval' && e.timing.interval === 10 && e.subTiming === 'strict', 'changes every 10\', as a rule', {timing: e.timing, strict: e.subTiming});
   ok(e.keepers.timeCounts === true && e.keepers.shortage === 'outfieldInGoal' && s.gk === 'single', 'keepers: time counts, an outfield player may go in, one keeper all match', {k: e.keepers, gk: s.gk});
   ok(e.live.replan === 'full' && sp.priority[0] === 'minutes', 'full re-planning during matches, and fair minutes first', {replan: e.live.replan, prio: sp.priority});
-  ok(s.rot === 'bal', 'the current planner\'s rotation style follows the answers too', s.rot);
   s = await page.evaluate(() => ({lines: [...document.querySelectorAll('.review-row')].map(r => r.textContent.replace(/\s+/g, ' ')), keys: Object.keys(teamEthos.setFor)}));
   const settingRows = s.lines.filter(l => !/^ ?Formats|Player levels/.test(l));
   ok(settingRows.length >= 12 && settingRows.every(l => /Set for you .*because you said "/.test(l)), `every one of the ${settingRows.length} settings shows "Set for you" and the reason`, settingRows.filter(l => !/Set for you/.test(l)));
-  ok(await page.isChecked('#rvEngine'), 'the new planner is on for a newly set-up team (it can be turned off here)');
+  ok(await page.locator('#rvEngine').count() === 0, 'there is no planner choice to make');
   // Levels: one tap each.
   await page.click('[data-lvl-i="0"] [data-v="8"]'); await page.click('[data-lvl-i="2"] [data-v="2"]');
   ok(await page.evaluate(() => squad[0].level === 8 && squad[2].level === 2), 'levels can be given right here with one tap each');

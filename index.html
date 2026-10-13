@@ -408,11 +408,6 @@
       <div id="presetList"></div>
       <button class="btn btn-ghost" id="addPresetBtn">+ New preset</button>
     </section>
-    <section id="secRotations">
-      <h2>Rotation presets</h2>
-      <div class="config-note" style="margin-bottom:8px;">Your regular rotation styles. The default one is used for every new fixture; you can pick another when planning.</div>
-      <div id="rotList"></div>
-    </section>
     <section id="secAwards">
       <h2>Match awards</h2>
       <div class="config-note" style="margin-bottom:8px;">The awards you give out after a match - Player of the Match, the opposition manager's pick, parents' choice... Set as many as you like; you pick the winners when a match ends (or later from the finished match).</div>
@@ -576,66 +571,6 @@
         <span class="decision-link" id="approachLineEdit">Change team approach</span>
       </section>
 
-      <section id="rotPresetSection">
-        <h2>Rotation style</h2>
-        <div class="radio-row" id="rotChips" style="flex-wrap:wrap;"></div>
-        <div style="display:flex; gap:14px; flex-wrap:wrap;">
-          <span class="decision-link" id="rotSaveLink">Save current settings as a preset</span>
-          <span class="decision-link secondary" id="rotDefaultLink">Make this my default</span>
-        </div>
-      </section>
-
-      <div class="config-card" id="rotationCard">
-        <div class="config-header" id="configHeader">
-          <div><h2>Rotation settings</h2><div class="config-summary" id="configSummary"></div></div>
-          <div class="config-cog" id="configCog">⚙</div>
-        </div>
-        <div class="config-body" id="configBody">
-          <div class="config-row">
-            <div class="config-label"><span>Substitution style</span><span class="val" id="fairnessLabel">Balanced</span></div>
-            <input type="range" id="fairnessSlider" min="0" max="1" step="0.1" value="0.5">
-            <div class="config-ends"><span>Fewer subs</span><span>Maximum fairness</span></div>
-          </div>
-          <div class="config-row">
-            <div class="config-label"><span>Position vs. fluid</span><span class="val" id="strictnessLabel">Balanced</span></div>
-            <input type="range" id="strictnessSlider" min="0" max="1" step="0.1" value="0.7">
-            <div class="config-ends"><span>Stick to best position</span><span>Fluid rotation</span></div>
-          </div>
-          <div class="config-row">
-            <div class="config-label"><span>Sub timing</span></div>
-            <div class="radio-row" id="subTimingRow">
-              <div class="radio-opt selected" data-timing="anytime">Anytime</div>
-              <div class="radio-opt" data-timing="interval">Fixed interval</div>
-              <div class="radio-opt" data-timing="checkpoints">Period checkpoints</div>
-            </div>
-            <div class="field" id="subIntervalField" style="display:none;">
-              <label>Only consider subs every</label>
-              <select id="subIntervalSelect"></select>
-            </div>
-            <div class="check-row" id="subCheckpointHalfwayRow" style="display:none;">
-              <input type="checkbox" id="checkpointHalfwayCheckbox"><label for="checkpointHalfwayCheckbox">Also halfway through each period</label>
-            </div>
-            <div class="config-note" id="subTimingNote"></div>
-          </div>
-          <div class="config-row">
-            <div class="config-label"><span>Minimum time on before a sub</span><span class="val" id="minShiftLabel">8'</span></div>
-            <input type="range" id="minShiftSlider" min="2" max="15" step="1" value="8">
-            <div class="config-ends"><span>2' (very frequent)</span><span id="minShiftEndLabel">15' (rare)</span></div>
-            <div class="config-note">No player is subbed off before this many minutes on the pitch, whatever the Sub timing setting above allows.</div>
-          </div>
-          <div class="config-row">
-            <div class="config-label"><span>Maximum time off as a sub</span><span class="val" id="maxBenchLabel">No limit</span></div>
-            <input type="range" id="maxBenchSlider" min="2" max="40" step="1" value="40">
-            <div class="config-ends"><span>2' (rarely sit out)</span><span id="maxBenchEndLabel">No limit</span></div>
-            <div class="config-note">A player is brought back on before they've sat out this long in one go. It's a target, not a guarantee - if the plan can't manage it (few players, strict Sub timing), Plan Health tells you where.</div>
-          </div>
-          <div class="config-row">
-            <div class="check-row" style="margin-bottom:4px;"><input type="checkbox" id="gkCountsCheckbox"><label for="gkCountsCheckbox">Count goalkeeper time toward fairness</label></div>
-            <div class="config-note">Off (default): only outfield minutes are balanced — time in goal doesn't count against a player's fair share, and doesn't let them "owe" less outfield time either. On: total pitch time (GK included) is balanced instead, the way earlier versions of this worked.</div>
-          </div>
-        </div>
-      </div>
-
       <div class="warn-box" id="setupError" style="display:none;"></div>
       <button class="btn btn-primary" id="generateBtn">Generate match plan</button>
     </div>
@@ -694,7 +629,6 @@
       <div class="next-sub" id="nextSub"></div>
       <div class="next-sub" id="subsPill" style="cursor:pointer; display:none;"></div>
       <!-- Position-vs-fairness trade-off notes - tap to review/override -->
-      <div class="next-sub" id="planHealthPill" style="cursor:pointer; display:none;"></div>
 
       <div class="pitch-wrap">
         <svg class="pitch-svg" viewBox="0 0 300 400" id="pitchSvg" preserveAspectRatio="xMidYMid meet">
@@ -792,7 +726,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.11';
+const APP_VERSION = 'beta 0.12';
 const PRIVACY_VERSION = '2026-10-12';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -1308,7 +1242,6 @@ document.getElementById('confirmFormatBtn').addEventListener('click', () => {
 
   confirmedShape = {...shape}; // remembered so a reload mid-match can rebuild the same formation
   applyMatchFormat(players, hasGk, duration, periods, shape);
-  syncMinShiftSliderMax();
   gkKeepers = new Array(PERIODS).fill(null);
   gkMode = PERIODS > 1 && matchDefaults.gkMode !== 'single' ? 'rotate' : 'single';
   gkAuto = false;
@@ -1461,167 +1394,39 @@ function validateSetup() {
   genBtn.disabled = !!error;
 }
 
-/* ================= ROTATION SETTINGS (shared with Plan screen) ================= */
-// gkCountsForFairness defaults to false: outfield time only is balanced, so a
-// player who does a stint in goal doesn't count that as part of their fair
-// share (and doesn't get less outfield time as a result). Coaches who want
-// total pitch time (GK included) balanced instead can flip this on.
-// subTimingMode: 'anytime' (no restriction beyond minShiftLength itself),
-// 'interval' (only consider subs every subIntervalMinutes, counted
-// continuously from kick-off regardless of period breaks), or 'checkpoints'
-// (only at period boundaries, optionally also halfway through each period).
-let cfg = {autoSubs: true, fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, maxBenchLength: 0, gkCountsForFairness: false,
+/* ================= MATCH SETTINGS ================= */
+// Every match is planned by the planner (engine 'window') from the team
+// approach. The other fields only matter when replaying a match saved before
+// the switch, which was planned by the earlier engine (see legacyMatch()).
+// autoSubs: false = "Pick it myself": the coach makes every change; the planner suggests nothing.
+let cfg = {autoSubs: true, engine: 'window', fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, maxBenchLength: 0, gkCountsForFairness: false,
   subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false};
-// autoSubs: false = coach plans/makes every change themselves; the planner suggests nothing.
-// maxBenchLength: the longest a player should sit off the pitch in one go
-// (0 = no limit). A soft target - the planner brings players back on in time
-// where it can, and Plan Health flags anywhere it couldn't.
-// cfgEras: mid-match setting changes. Each {from: minute, cfg: {...overrides}}
-// applies from that minute onward and never touches anything already played,
-// because simulate() switches to the era's settings only as the clock reaches it.
+// A match saved before the switch, still replayed by the earlier engine so
+// its record looks exactly as it was played.
+function legacyMatch() { return cfg.engine !== 'window'; }
+// cfgEras: mid-match setting changes in matches saved before the switch.
+// Each {from: minute, cfg: {...overrides}} applies from that minute onward.
 let cfgEras = [];
 function effectiveCfgAt(base, t) {
   let out = base;
   for (const era of cfgEras) if (era.from <= t) out = {...out, ...era.cfg};
   return out;
 }
-const fairnessSlider = document.getElementById('fairnessSlider');
-const strictnessSlider = document.getElementById('strictnessSlider');
-const minShiftSlider = document.getElementById('minShiftSlider');
-const maxBenchSlider = document.getElementById('maxBenchSlider');
 const planModeRow = document.getElementById('planModeRow');
 function updatePlanModeUI() {
   const auto = cfg.autoSubs !== false;
   planModeRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', (o.dataset.planmode === 'auto') === auto));
   document.getElementById('planModeNote').textContent = auto
-    ? 'The planner builds the best starting team and a substitution schedule, which you can still change.'
+    ? 'The planner builds the best starting team and a substitution schedule from your team approach, which you can still change.'
     : "You get a blank pitch: tap each position to choose who starts, then add every substitution yourself in the plan (or on the fly during the match). The planner suggests nothing and fills nothing in (you can switch it on later in Details > Settings).";
-  // With the new planner, the team approach replaces the rotation settings.
-  const classic = auto && !newPlannerOn();
-  document.getElementById('rotationCard').style.display = classic ? 'block' : 'none';
-  document.getElementById('rotPresetSection').style.display = classic ? 'block' : 'none';
-  if (typeof renderTodayAndExceptions === 'function' && document.getElementById('secToday')) { try { renderTodayAndExceptions(); } catch (e) { /* not ready yet */ } }
   document.getElementById('generateBtn').textContent = auto ? 'Generate match plan' : 'Open blank pitch';
-}
-const gkCountsCheckbox = document.getElementById('gkCountsCheckbox');
-const subTimingRow = document.getElementById('subTimingRow');
-const subIntervalSelect = document.getElementById('subIntervalSelect');
-const checkpointHalfwayCheckbox = document.getElementById('checkpointHalfwayCheckbox');
-populateSelectOptions('subIntervalSelect', [5, 10, 15, 20, 30], v => `${v} minutes`);
-subIntervalSelect.value = 15;
-function labelFor(val, lo, mid, hi) { return val <= 0.3 ? lo : (val >= 0.7 ? hi : mid); }
-function subTimingSummary(c) {
-  c = c || cfg;
-  if (c.subTimingMode === 'interval') return `every ${c.subIntervalMinutes}'`;
-  if (c.subTimingMode === 'checkpoints') return c.checkpointHalfway ? 'period checkpoints + halfway' : 'period checkpoints only';
-  return 'anytime';
-}
-function syncMinShiftSliderMax() {
-  // The "minimum time on before a sub" cap only makes sense relative to how
-  // long the match actually is - a fixed 15' ceiling was arbitrary, and on a
-  // short match it could even exceed the match length. Tying it to DURATION
-  // also gives coaches a clean way to disable fairness-driven subs entirely:
-  // set it to the full match length and nobody is ever subbed for fairness
-  // reasons (other events like manual subs or unavailability still apply).
-  const max = Math.max(2, DURATION);
-  minShiftSlider.max = max;
-  if (parseInt(minShiftSlider.value, 10) > max) minShiftSlider.value = max;
-  const endLabel = document.getElementById('minShiftEndLabel');
-  if (endLabel) endLabel.textContent = max === DURATION ? `${max}' (no fairness subs)` : `${max}' (rare)`;
-  // "Maximum time off" runs from 2' up to the full match, and the top of the
-  // slider means "no limit" (stored as 0).
-  maxBenchSlider.max = max;
-  if (!cfg.maxBenchLength || cfg.maxBenchLength >= max) maxBenchSlider.value = max;
-  else maxBenchSlider.value = cfg.maxBenchLength;
-}
-function updateConfigSummary() {
-  const fLabel = labelFor(cfg.fairnessPriority, 'Fewer subs', 'Balanced', 'Maximum fairness');
-  const sLabel = labelFor(cfg.positionStrictness, 'Fluid rotation', 'Balanced', 'Stick to position');
-  document.getElementById('fairnessLabel').textContent = fLabel;
-  document.getElementById('strictnessLabel').textContent = sLabel;
-  document.getElementById('minShiftLabel').textContent = cfg.minShiftLength + "'";
-  document.getElementById('maxBenchLabel').textContent = cfg.maxBenchLength ? cfg.maxBenchLength + "'" : 'No limit';
-  document.getElementById('subTimingNote').textContent = cfg.subTimingMode === 'anytime'
-    ? 'Subs can be suggested for any minute - true max fairness, no timing restriction.'
-    : cfg.subTimingMode === 'interval'
-    ? `Subs are only considered every ${cfg.subIntervalMinutes} minutes from kick-off, regardless of period breaks.`
-    : `Subs are only considered at the start of each period${cfg.checkpointHalfway ? ', and halfway through each period' : ''}.`;
-  document.getElementById('configSummary').textContent = `${fLabel} · ${sLabel} · ${subTimingSummary()} · min ${cfg.minShiftLength}' on pitch${cfg.maxBenchLength ? ` · max ${cfg.maxBenchLength}' off` : ''} · GK time ${cfg.gkCountsForFairness ? 'counts' : "doesn't count"}`;
-}
-// Pushes cfg back into the New Match sliders (used when a match is restored
-// or the Settings tab changes a pre-match plan).
-function syncConfigUIFromCfg() {
-  fairnessSlider.value = cfg.fairnessPriority;
-  strictnessSlider.value = 1 - cfg.positionStrictness;
-  minShiftSlider.value = Math.min(cfg.minShiftLength, parseInt(minShiftSlider.max, 10));
-  maxBenchSlider.value = cfg.maxBenchLength ? Math.min(cfg.maxBenchLength, parseInt(maxBenchSlider.max, 10)) : maxBenchSlider.max;
-  gkCountsCheckbox.checked = cfg.gkCountsForFairness;
-  subTimingRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', o.dataset.timing === cfg.subTimingMode));
-  subIntervalSelect.value = cfg.subIntervalMinutes;
-  checkpointHalfwayCheckbox.checked = cfg.checkpointHalfway;
-  document.getElementById('subIntervalField').style.display = cfg.subTimingMode === 'interval' ? 'block' : 'none';
-  document.getElementById('subCheckpointHalfwayRow').style.display = cfg.subTimingMode === 'checkpoints' ? 'flex' : 'none';
-  updateConfigSummary();
-  updatePlanModeUI();
+  if (typeof renderTodayAndExceptions === 'function' && document.getElementById('secToday')) { try { renderTodayAndExceptions(); } catch (e) { /* not ready yet */ } }
 }
 planModeRow.addEventListener('click', e => {
   const opt = e.target.closest('.radio-opt'); if (!opt || liveMode) return;
   cfg = {...cfg, autoSubs: opt.dataset.planmode === 'auto'};
   updatePlanModeUI();
 });
-function onConfigInput() {
-  // These sliders belong to the NEXT match. Once a match is running its
-  // settings are only changed from the Details > Settings tab, which applies
-  // from the current minute onward - so the sliders must never reach back and
-  // rewrite the live plan.
-  if (liveMode) { syncConfigUIFromCfg(); return; }
-  cfg = {
-    autoSubs: cfg.autoSubs !== false,
-    engine: cfg.engine,
-    fairnessPriority: parseFloat(fairnessSlider.value),
-    // The slider is drawn with "Fluid rotation" on the right so its direction
-    // matches the Substitution style slider (fairness on the right in both) -
-    // but positionStrictness itself still means "how strongly position is
-    // enforced", so the raw slider value (fluid-ness) is inverted here.
-    // Rounded to 1dp (the slider's own step) since e.g. 1 - 0.7 is
-    // 0.30000000000000004 in floating point, not exactly 0.3.
-    positionStrictness: Math.round((1 - parseFloat(strictnessSlider.value)) * 10) / 10,
-    minShiftLength: parseInt(minShiftSlider.value, 10),
-    maxBenchLength: parseInt(maxBenchSlider.value, 10) >= parseInt(maxBenchSlider.max, 10) ? 0 : parseInt(maxBenchSlider.value, 10),
-    gkCountsForFairness: gkCountsCheckbox.checked,
-    subTimingMode: subTimingRow.querySelector('.radio-opt.selected')?.dataset.timing || 'anytime',
-    subIntervalMinutes: parseInt(subIntervalSelect.value, 10) || 15,
-    checkpointHalfway: checkpointHalfwayCheckbox.checked,
-  };
-  updateConfigSummary();
-  // Locked events (substitution overrides + formation changes) now persist
-  // across settings changes - only the algorithm's own suggestions get
-  // recomputed with the new settings, same as before, but nothing the coach
-  // explicitly decided gets silently thrown away anymore.
-  if (PLAYERS.length) computeTargets(); // the fair target itself shifts if the GK toggle changed
-  if (PLAN) { regeneratePlan(); openPicker = null; render(currentT); }
-}
-fairnessSlider.addEventListener('input', onConfigInput);
-strictnessSlider.addEventListener('input', onConfigInput);
-minShiftSlider.addEventListener('input', onConfigInput);
-maxBenchSlider.addEventListener('input', onConfigInput);
-gkCountsCheckbox.addEventListener('change', onConfigInput);
-subTimingRow.addEventListener('click', e => {
-  const opt = e.target.closest('.radio-opt');
-  if (!opt) return;
-  subTimingRow.querySelectorAll('.radio-opt').forEach(o => o.classList.toggle('selected', o === opt));
-  const mode = opt.dataset.timing;
-  document.getElementById('subIntervalField').style.display = mode === 'interval' ? 'block' : 'none';
-  document.getElementById('subCheckpointHalfwayRow').style.display = mode === 'checkpoints' ? 'flex' : 'none';
-  onConfigInput();
-});
-subIntervalSelect.addEventListener('change', onConfigInput);
-checkpointHalfwayCheckbox.addEventListener('change', onConfigInput);
-document.getElementById('configHeader').addEventListener('click', () => {
-  const open = document.getElementById('configBody').classList.toggle('open');
-  document.getElementById('configCog').classList.toggle('open', open);
-});
-updateConfigSummary();
 updatePlanModeUI();
 
 /* ================= SIMULATION ENGINE ================= */
@@ -2354,7 +2159,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   // An in-progress (live) match is NOT thrown away by planning another one:
   // it stays in the Matches tab to resume. Unstarted drafts are replaced.
   currentMatchId = null;
-  cfg = {...cfg, engine: teamEthos.engine};
+  cfg = {...cfg, engine: 'window', gkCountsForFairness: !!teamEthos.keepers.timeCounts};
   const avail = squad.filter(p => availableIds.has(p.id));
   PLAYERS = avail;
   playersById = Object.fromEntries(PLAYERS.map(p => [p.id, p]));
@@ -2427,7 +2232,6 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   // Freshly generated - if the algorithm had to trade position fit off
   // against fairness anywhere, put that in front of the coach right away
   // rather than leaving it to be discovered mid-match.
-  if (hasPlanHealthNotes()) openPlanHealthSummary();
 });
 
 /* ================= DEFAULT MATCH TYPE ================= */
@@ -2479,7 +2283,7 @@ renderDefaultsUI();
 
 /* ================= NEW FIXTURE (lives under the Matches tab) ================= */
 function startNewFixture() {
-  applyDefaultRotation();
+  cfg = {...cfg, autoSubs: true, engine: 'window'}; updatePlanModeUI();
   loadFormatIntoSetup(matchDefaults);
   document.getElementById('setupStepPlan').style.display = 'none';
   document.getElementById('setupStepFormat').style.display = 'block';
@@ -3126,7 +2930,7 @@ function compareScorecards(a, b, spec) {
 }
 
 /* ================= TEAM ETHOS, PLAYER PROFILE & SEASON RECORD =================
- * Everything the new planner needs to know about a team, stored with the
+ * Everything the planner needs to know about a team, stored with the
  * team on this device:
  *   - each player's private level (0-10, with per-area overrides) and goal
  *     ability (Cannot / Emergency / Capable / Main keeper);
@@ -3163,8 +2967,7 @@ function defaultEthos() {
       shortage: 'keeperMore',      // too few keepers: 'keeperMore' | 'outfieldInGoal' | 'ask'
     },
     live: {replan: 'nextStable'},  // 'off' | 'major' | 'nextStable' (default) | 'full'
-    timing: {mode: 'anytime', interval: 15, halfway: false}, // when changes may happen (new planner)
-    engine: 'classic',             // which planner new matches use: 'classic' | 'window' (the new one, in beta)
+    timing: {mode: 'anytime', interval: 15, halfway: false}, // when changes may happen
     pairs: [],                     // [{a, b, kind: 'with' | 'apart'}]
     setFor: {},                    // phase 7: which settings the questionnaire set, and why
     answers: null,                 // phase 7: the questionnaire answers
@@ -3200,7 +3003,7 @@ function normaliseEthos(e) {
   out.live = {replan: pick(e.live && e.live.replan, ETHOS_ENUMS.replan, 'nextStable')};
   const tm = e.timing || {};
   out.timing = {mode: pick(tm.mode, ['anytime', 'interval', 'checkpoints'], 'anytime'), interval: [5, 10, 15, 20, 30].includes(tm.interval) ? tm.interval : 15, halfway: !!tm.halfway};
-  out.engine = pick(e.engine, ['classic', 'window'], 'classic');
+  delete out.engine; // from the beta, when the new planner was optional
   out.pairs = Array.isArray(e.pairs) ? e.pairs.filter(x => x && x.a && x.b && x.a !== x.b && (x.kind === 'with' || x.kind === 'apart')).map(x => ({a: x.a, b: x.b, kind: x.kind})) : [];
   out.setFor = e.setFor && typeof e.setFor === 'object' ? e.setFor : {};
   return out;
@@ -4158,6 +3961,7 @@ let openPicker = null;
 
 function render(t) {
   if (PLAN && PLAN.incomplete) t = 0;
+  try { syncPlanTargets(); } catch (e) { /* targets fall back to equal shares */ }
   currentT = t;
   document.getElementById('clockMin').textContent = t;
   document.getElementById('scrub').value = t;
@@ -4267,7 +4071,6 @@ function render(t) {
   }
   document.getElementById('fairnessTable').innerHTML =
     `<tr><th>Player</th><th>So far</th><th>Diff</th><th>Forecast total</th></tr>${tableRows.join('')}`;
-  renderPlanHealthPill();
 }
 
 // "Theo ATT → MID" style description of the position changes planned at a
@@ -4624,342 +4427,11 @@ let snoozes = {};
 function rotationKey(r) { return r.time + '|' + r.slot; }
 let currentPeriodIdx = 0;
 
-// ===== Plan-health: surfacing position-vs-fairness trade-offs =====
-// "startTime|slot|action" keys of decision groups the coach has reviewed and
-// chosen to leave as-is ("Got it"). Overriding a group resolves it a
-// different way - via a locked sub event, same as any other manual override -
-// so it naturally stops being logged as a trade-off on the next regenerate
-// and never needs a dismiss key at all.
+// Kept in saved matches for compatibility with earlier versions.
 let dismissedDecisionKeys = new Set();
 
-// Groups PLAN.decisions (logged per-minute by runFairnessPass) into
-// contiguous ranges for the same slot/outcome, so a trade-off that persists
-// for several minutes reads as one note instead of one per minute.
-function groupDecisions(decisions) {
-  const sorted = [...(decisions || [])].sort((a, b) => a.time - b.time || a.slot.localeCompare(b.slot));
-  const groups = [];
-  for (const d of sorted) {
-    const last = groups[groups.length - 1];
-    if (last && last.slot === d.slot && last.action === d.action && last.chosen === d.chosen
-        && last.curPid === d.curPid && d.time - last.endTime <= 1) {
-      last.endTime = d.time;
-      last.items.push(d);
-    } else {
-      groups.push({slot: d.slot, group: d.group, action: d.action, chosen: d.chosen, curPid: d.curPid,
-        startTime: d.time, endTime: d.time, items: [d]});
-    }
-  }
-  return groups;
-}
-function decisionGroupKey(g) { return `${g.startTime}|${g.slot}|${g.action}`; }
-function visiblePlanHealthGroups() {
-  return groupDecisions(PLAN ? PLAN.decisions : []).filter(g => !dismissedDecisionKeys.has(decisionGroupKey(g)));
-}
-function minuteSpan(g) { return g.endTime > g.startTime ? `Mins ${g.startTime}-${g.endTime}` : `Min ${g.startTime}`; }
-// One plain-language line per decision group, explaining the trade-off that
-// was hit and which way it was resolved.
-function describeDecisionGroup(g) {
-  const curTierName = TIER_NAMES[playersById[g.curPid]?.positions[g.group] ?? 0];
-  if (g.action === 'shortage') {
-    return `${minuteSpan(g)}: no eligible bench cover for ${g.group} - ${g.curPid} held on past their fair share (${Math.abs(Math.round(g.curDeficit))}' over target).`;
-  }
-  const fairest = [...g.items[0].candidates].sort((a, b) => b.fairnessGain - a.fairnessGain)[0];
-  const fairestTierName = TIER_NAMES[fairest.tier];
-  if (g.action === 'swap') {
-    const chosenInfo = g.items[0].candidates.find(c => c.id === g.chosen);
-    return `${minuteSpan(g)}: brought on ${g.chosen} (${TIER_NAMES[chosenInfo.tier]} ${g.group}) ahead of a better-positioned option, to protect fairness.`;
-  }
-  return `${minuteSpan(g)}: kept ${g.curPid} (${curTierName} ${g.group}) on rather than bring on ${fairest.id} (${fairestTierName}), who needs the minutes more.`;
-}
-// What the current occupant and a candidate would each actually forecast
-// to if the candidate came on for them at this slot/time - the same real
-// simulate()-backed numbers the fairness-spread fix picker uses, rather
-// than a qualitative label against the flat match-wide target. "Candidate X
-// is about on his fair share" doesn't tell a coach what either player would
-// actually end up with if they made the swap; this does.
-function decisionSwapForecast(g, candidateId) {
-  const beforeBasis = fairnessBasis(simulate(startingLineup, lockedEvents));
-  const hyp = simulate(startingLineup, [...lockedEvents, {time: g.startTime, type: 'sub', slot: g.slot, on: candidateId, reason: 'override', manual: true}]);
-  const afterBasis = fairnessBasis(hyp);
-  return {
-    curBefore: Math.round(beforeBasis[g.curPid]), curAfter: Math.round(afterBasis[g.curPid]),
-    candBefore: Math.round(beforeBasis[candidateId]), candAfter: Math.round(afterBasis[candidateId]),
-  };
-}
-// Short reasoning clause for one candidate, shown in the override picker -
-// the "underlying info" the coach needs to make the call themselves.
-function describeCandidateOption(c, group, g) {
-  const tierName = TIER_NAMES[c.tier];
-  const f = decisionSwapForecast(g, c.id);
-  return `${tierName} ${group} · if swapped: ${c.id} ${f.candBefore}'→${f.candAfter}' · ${g.curPid} ${f.curBefore}'→${f.curAfter}'`;
-}
-
-// A pure fairness shortfall: the final forecast can land meaningfully off
-// target for some players even with NO position trade-off anywhere to log -
-// most often because the coach's "Sub timing" setting (checkpoints/interval)
-// or a relatively long "Minimum time before a sub" only allows a handful of
-// rebalancing windows across the whole match, which the fairness pass can't
-// fully make up for in so few chances. That's invisible to the per-slot
-// trade-off log above (there's no position conflict to point at), so it's
-// checked separately here, directly against the final projected minutes.
-// Shared by fairnessSpreadNote() and the fix picker below: the fairness
-// basis (outfield-only or total minutes, per the coach's GK setting) and
-// the two peer groups players are judged against - GK-duty vs not, since
-// comparing across that line always shows a "gap" that's just the normal
-// cost of splitting keeper duty, never a fairness problem to flag or fix.
-function computeFairnessBasisGroups() {
-  const forecastGk = computeStateAt(DURATION).gkMinutes;
-  const basis = cfg.gkCountsForFairness ? PLAN.projectedMinutes
-    : Object.fromEntries(PLAYERS.map(p => [p.id, PLAN.projectedMinutes[p.id] - (forecastGk[p.id] || 0)]));
-  // A dedicated keeper (no outfield position above "Do not use" in any
-  // group) is never meant to earn outfield minutes at all, so reading 0
-  // against the outfield target isn't a fairness gap for them - exclude
-  // players who were never outfield-eligible in the first place.
-  const outfieldEligible = PLAYERS.filter(p => (p.positions.DEF ?? 0) > 0 || (p.positions.MID ?? 0) > 0 || (p.positions.ATT ?? 0) > 0);
-  const gkDutyIds = HAS_GK ? new Set(activeGkSegments().map(s => s.player)) : new Set();
-  const groups = [
-    outfieldEligible.filter(p => !gkDutyIds.has(p.id)).map(p => p.id),
-    outfieldEligible.filter(p => gkDutyIds.has(p.id)).map(p => p.id),
-  ];
-  return {basis, groups};
-}
-function plannerIsOff() { return effectiveCfgAt(cfg, liveMode ? liveElapsedMinute() : 0).autoSubs === false; }
-function fairnessSpreadNote() {
-  if (!PLAN || !PLAYERS.length || !TARGET || plannerIsOff()) return null;
-  const {basis, groups: peerGroups} = computeFairnessBasisGroups();
-  // Lowered from a flat 3' floor: in a small-sided, short match (low
-  // TARGET), even a couple of minutes is a meaningful share of a player's
-  // fair slice, so the floor shouldn't be stricter than the percentage term
-  // once TARGET is small enough for that to matter.
-  const threshold = Math.max(2, TARGET * 0.15);
-  // A peer group can have a real, visible gap between its most- and
-  // least-played member that no single player's deviation from the GROUP
-  // mean is large enough to cross on its own - especially in a small group
-  // (4-5 players), where a handful of players sitting a bit over and a
-  // handful sitting a bit under can each individually duck under the
-  // per-player bar while the group's actual spread (what a coach sees on
-  // the forecast table - a straight 15' vs 20') is still well worth
-  // flagging. Set below a full 2x the per-player threshold (which a
-  // 2-member group would need anyway, by definition, to have either member
-  // cross it) so a wider group's spread doesn't have to be quite that
-  // extreme before it's worth a look.
-  const rangeThreshold = threshold * 1.8;
-  const under = [], over = [];
-  const addedUnder = new Set(), addedOver = new Set();
-  peerGroups.forEach((groupIds, groupIdx) => {
-    if (groupIds.length < 2) return; // nobody to compare a lone player against
-    const group = groupIds.map(id => playersById[id]);
-    const mean = group.reduce((sum, p) => sum + basis[p.id], 0) / group.length;
-    for (const p of group) {
-      const dev = basis[p.id] - mean;
-      // groupIdx tags which peer group this reading came from, so a fix
-      // suggestion only ever pairs an under player with an over player who
-      // was actually judged against the same peers (GK-duty vs not) -
-      // comparing across groups would reintroduce the structural GK-duty
-      // skew this whole check exists to ignore.
-      if (dev < -threshold && !addedUnder.has(p.id)) { under.push({id: p.id, dev: -dev, group: groupIdx}); addedUnder.add(p.id); }
-      else if (dev > threshold && !addedOver.has(p.id)) { over.push({id: p.id, dev, group: groupIdx}); addedOver.add(p.id); }
-    }
-    const minVal = Math.min(...group.map(p => basis[p.id]));
-    const maxVal = Math.max(...group.map(p => basis[p.id]));
-    if (maxVal - minVal > rangeThreshold) {
-      for (const p of group) {
-        if (basis[p.id] === minVal && !addedUnder.has(p.id)) { under.push({id: p.id, dev: mean - basis[p.id], group: groupIdx}); addedUnder.add(p.id); }
-        if (basis[p.id] === maxVal && !addedOver.has(p.id)) { over.push({id: p.id, dev: basis[p.id] - mean, group: groupIdx}); addedOver.add(p.id); }
-      }
-    }
-  });
-  if (!under.length && !over.length) return null;
-  under.sort((a, b) => b.dev - a.dev);
-  over.sort((a, b) => b.dev - a.dev);
-  const parts = [];
-  if (under.length) parts.push(under.map(x => `${x.id} (${Math.round(x.dev)}' behind)`).join(', '));
-  if (over.length) parts.push(over.map(x => `${x.id} (+${Math.round(x.dev)}')`).join(', '));
-  let cause = 'The plan may simply need more rebalancing room than it has.';
-  const eff = effectiveCfgAt(cfg, liveMode ? liveElapsedMinute() : 0);
-  if (eff.subTimingMode !== 'anytime') {
-    cause = `"Sub timing" is set to ${subTimingSummary(eff)}, which limits how often the plan can rebalance - try loosening it, or adjust these players manually.`;
-  } else if (eff.minShiftLength > 0.15 * DURATION) {
-    cause = `"Minimum time before a sub" (${eff.minShiftLength}') may be limiting how often the plan can rebalance - try lowering it, or adjust these players manually.`;
-  }
-  return {text: `Playing time isn't evenly split among players in the same role: ${parts.join(' · ')}. ${cause}`, under, over};
-}
-
-// ===== Fairness-spread fix suggestions =====
-// Reconstructs contiguous per-slot occupancy windows straight from the
-// current plan's rotation history (automatic swaps and any manual
-// overrides alike), so a fix suggestion is always grounded in what the
-// plan is actually doing right now, not a fresh guess.
-function computeOccupancyWindows() {
-  let activeSlots = SLOTS;
-  let onPitch = {...startingLineup};
-  let starts = {};
-  for (const slotId in onPitch) starts[slotId] = {pid: onPitch[slotId], time: 0};
-  const windows = [];
-  const events = [...PLAN.rotations].sort((a, b) => a.time - b.time);
-  const groupOf = slotId => (activeSlots.find(s => s.id === slotId) || {}).group;
-  for (const ev of events) {
-    if (ev.type === 'formation') {
-      for (const slotId in starts) windows.push({slot: slotId, group: groupOf(slotId), pid: starts[slotId].pid, start: starts[slotId].time, end: ev.time});
-      activeSlots = ev.slots;
-      onPitch = {...ev.remap};
-      starts = {};
-      for (const slotId in onPitch) starts[slotId] = {pid: onPitch[slotId], time: ev.time};
-    } else if (ev.type === 'reshuffle') {
-      for (const slotId in ev.assign) {
-        if (starts[slotId] && starts[slotId].pid !== ev.assign[slotId]) {
-          windows.push({slot: slotId, group: groupOf(slotId), pid: starts[slotId].pid, start: starts[slotId].time, end: ev.time});
-          starts[slotId] = {pid: ev.assign[slotId], time: ev.time};
-        }
-        onPitch[slotId] = ev.assign[slotId];
-      }
-    } else if (!isInfoRotation(ev)) { // a sub, automatic or manual
-      const slotId = ev.slot;
-      if (starts[slotId] && starts[slotId].pid !== ev.on) {
-        windows.push({slot: slotId, group: groupOf(slotId), pid: starts[slotId].pid, start: starts[slotId].time, end: ev.time});
-        starts[slotId] = {pid: ev.on, time: ev.time};
-      }
-      onPitch[slotId] = ev.on;
-    }
-  }
-  for (const slotId in starts) windows.push({slot: slotId, group: groupOf(slotId), pid: starts[slotId].pid, start: starts[slotId].time, end: DURATION});
-  return windows.filter(w => w.end > w.start);
-}
-// Every concrete way to bring `underId` on for `overId`, found by scanning
-// `overId`'s actual stints in the current plan and, within each one,
-// trying different split points rather than just the earliest moment
-// underId is free - swapping from the very start of a long stint can hand
-// underId the whole thing and overshoot past fair just as badly the other
-// way, so the point that leaves the two players closest together is what
-// gets suggested. Long stints are sampled at a bounded number of points
-// rather than every minute, to keep this fast regardless of match length.
-// Each option carries the real final-forecast minutes both players would
-// end up with if that swap were made (via simulate(), the engine's own
-// math, not an estimate). Points the coach's Sub Timing setting wouldn't
-// normally allow are still considered - manual overrides are never gated
-// by that setting - but flagged `aligned: false` so the coach can see
-// they're stepping outside their own configured rhythm on purpose.
-function findFixOptions(underId, overId) {
-  const windows = computeOccupancyWindows().filter(w => w.pid === overId && w.group && w.group !== 'GK');
-  const out = [];
-  for (const win of windows) {
-    const tier = playersById[underId]?.positions[win.group] ?? 0;
-    if (tier === 0) continue; // coach said never play underId there
-    const step = Math.max(1, Math.ceil((win.end - win.start) / 40));
-    let bestAligned = null, bestAny = null;
-    for (let t = win.start; t < win.end; t += step) {
-      if (Object.values(computeStateAt(t).onPitch).includes(underId)) continue; // underId busy elsewhere at t
-      const hyp = simulate(startingLineup, [...lockedEvents, {time: t, type: 'sub', slot: win.slot, on: underId, reason: 'fairness fix', manual: true}]);
-      const basis = fairnessBasis(hyp);
-      const gap = Math.abs(basis[underId] - basis[overId]);
-      const cand = {
-        time: t, slot: win.slot, group: win.group, tier, gap,
-        aligned: t === 0 || isSubTimingAllowed(t),
-        newUnder: Math.round(basis[underId]), newOver: Math.round(basis[overId]),
-      };
-      if (cand.aligned && (!bestAligned || gap < bestAligned.gap)) bestAligned = cand;
-      if (!bestAny || gap < bestAny.gap) bestAny = cand;
-    }
-    if (bestAligned) out.push(bestAligned);
-    // Only also offer the unconstrained best when it's meaningfully better
-    // than the best aligned option (or there wasn't one) - otherwise it's
-    // just noise suggesting the coach break their own convention for no gain.
-    if (bestAny && (!bestAligned || bestAny.gap < bestAligned.gap - 1)) out.push(bestAny);
-  }
-  // Rank by how well each option actually balances the two players first -
-  // an in-timing option that doesn't meaningfully help isn't a better
-  // suggestion than an out-of-timing one that does. Alignment only breaks
-  // a near-tie, so the coach isn't shown a worse fix just to avoid the
-  // "outside Sub Timing" label.
-  out.sort((a, b) => (a.gap - b.gap) || (a.aligned === b.aligned ? 0 : (a.aligned ? -1 : 1)));
-  const seen = new Set();
-  return out.filter(o => {
-    const key = `${o.slot}|${o.newUnder}|${o.newOver}`;
-    if (seen.has(key)) return false;
-    seen.add(key); return true;
-  }).slice(0, 3).map(({gap, ...rest}) => rest);
-}
-// The fix-options popup for a flagged fairness spread: for each player
-// short on minutes, every real swap (against each over-target player in
-// their own peer group) that would bring minutes closer together, with the
-// resulting forecast for both players and their comfort level in the slot
-// involved - the same "underlying info to make an informed decision"
-// approach as the position-vs-fairness override picker, applied here to a
-// plain minutes rebalance.
-function openFairnessFixPicker() {
-  const spread = fairnessSpreadNote();
-  if (!spread) { openPlanHealthSummary(); return; }
-  const {basis, groups} = computeFairnessBasisGroups();
-  const overlay = openModal('', {wide: true});
-  const card = overlay.querySelector('.modal-card');
-  function refresh() {
-    // A flagged player's best partners are whoever else in their own peer
-    // group reads furthest the opposite way right now - not only players
-    // who individually crossed the flagging threshold too. A handful of
-    // players can each be a little over while only one reads meaningfully
-    // under (or vice versa), and that lone flagged player still deserves
-    // real options to pick from.
-    const flagged = [
-      ...spread.under.map(u => ({...u, dir: 'under'})),
-      ...spread.over.map(o => ({...o, dir: 'over'})),
-    ];
-    const seenPairs = new Set();
-    const blocks = flagged.map(f => {
-      const partners = groups[f.group].filter(id => id !== f.id)
-        .sort((a, b) => f.dir === 'under' ? basis[b] - basis[a] : basis[a] - basis[b])
-        .slice(0, 3);
-      const rows = partners.flatMap(partnerId => {
-        const underId = f.dir === 'under' ? f.id : partnerId;
-        const overId = f.dir === 'under' ? partnerId : f.id;
-        return findFixOptions(underId, overId).map(o => ({o, underId, overId}));
-      }).filter(({underId, overId}) => {
-        const key = `${underId}|${overId}`;
-        if (seenPairs.has(key)) return false;
-        seenPairs.add(key); return true;
-      // Different partners can each offer a window, but only the split
-      // point that leaves the two players closest together is worth
-      // leading with - sort across ALL of this player's partners together,
-      // not just within one partner's own options, so the best overall fix
-      // is always the first thing the coach sees.
-      }).sort((a, b) => {
-        const gapA = Math.abs(a.o.newUnder - a.o.newOver), gapB = Math.abs(b.o.newUnder - b.o.newOver);
-        return (gapA - gapB) || (a.o.aligned === b.o.aligned ? 0 : (a.o.aligned ? -1 : 1));
-      })
-      .slice(0, 3);
-      const rowsHtml = rows.map(({o, underId, overId}) => `
-        <div class="picker-opt" data-under="${underId}" data-over="${overId}" data-time="${o.time}" data-slot="${o.slot}">
-          <span>Sub ${overId} off, ${underId} on at ${o.time}' (${TIER_NAMES[o.tier]} ${o.group})</span>
-          <span class="tier ${o.aligned ? '' : 'warn'}">${underId} -> ${o.newUnder}' · ${overId} -> ${o.newOver}'${o.aligned ? '' : ' · outside Sub Timing'}</span>
-        </div>`).join('');
-      const label = f.dir === 'under' ? `${Math.round(f.dev)}' behind their peers` : `${Math.round(f.dev)}' ahead of their peers`;
-      return `<div class="decision-text">${f.id} is forecast ${label}:</div>
-        ${rowsHtml || '<div class="config-note">No window in the current plan frees up a swap for them - try the Substitutions screen directly.</div>'}`;
-    }).join('<div class="decision-row"></div>');
-    card.innerHTML = `
-      <div class="picker-title">Rebalance minutes</div>
-      ${blocks}
-      <div class="picker-cancel" id="fixPickerBack">Back to summary</div>
-    `;
-    card.querySelectorAll('.picker-opt[data-under]').forEach(el => {
-      el.addEventListener('click', () => {
-        const slot = el.dataset.slot, on = el.dataset.under, time = parseInt(el.dataset.time, 10);
-        lockedEvents.push({time, type: 'sub', slot, on, reason: 'fairness fix', manual: true});
-        resolvedKeys.add(rotationKey({time, slot}));
-        regeneratePlan();
-        render(currentT);
-        openPlanHealthSummary();
-      });
-    });
-    card.querySelector('#fixPickerBack').addEventListener('click', openPlanHealthSummary);
-  }
-  refresh();
-}
-// ===== Remove a planned substitution =====
-// Removing a sub is a "skip" that sticks: the player due to come off stays on,
-// the swap isn't re-proposed while they're still out there, and everything
-// after it is re-planned from the new situation (the algorithm adapts - the
-// rest of the plan is NOT left as it was). The coach is then shown exactly
-// what moved, and Plan Health is re-checked straight away.
+// Removing a planned sub: the planner works around it, and the coach sees
+// what changed (with an undo).
 function deletePlannedSub(time, slot) {
   const r = PLAN.rotations.find(x => !x.type && x.time === time && x.slot === slot);
   if (!r) return;
@@ -4971,7 +4443,6 @@ function deletePlannedSub(time, slot) {
   lockedEvents = lockedEvents.filter(e => !(e.type === 'sub' && e.time === time && e.slot === slot));
   lockedEvents.push({time, type: 'skip', slot, deleted: true, block: r.on, off: r.off, on: r.on});
   resolvedKeys.add(rotationKey({time, slot}));
-  dismissedDecisionKeys.delete('fairness-spread'); dismissedDecisionKeys.delete('bench-limit');
   regeneratePlan();
   openPicker = null;
   render(currentT);
@@ -4993,124 +4464,11 @@ function deletePlannedSub(time, slot) {
     lockedEvents = savedLocked; resolvedKeys = savedResolved;
     regeneratePlan(); render(currentT); saveLiveMatchState();
   };
-  openPlanHealthSummary({intro, undo, always: true});
+  const overlay = openModal(`${intro}<div class="picker-cancel" id="delSubClose">Close</div>`, {wide: true});
+  overlay.querySelector('#undoDeleteSub').addEventListener('click', () => { undo(); overlay.remove(); });
+  overlay.querySelector('#delSubClose').addEventListener('click', () => overlay.remove());
 }
 
-function hasPlanHealthNotes() {
-  return visiblePlanHealthGroups().length > 0 || (!dismissedDecisionKeys.has('fairness-spread') && !!fairnessSpreadNote())
-    || (!dismissedDecisionKeys.has('bench-limit') && !!benchLimitNote());
-}
-
-function renderPlanHealthPill() {
-  const pill = document.getElementById('planHealthPill');
-  if (!pill) return;
-  const groups = visiblePlanHealthGroups();
-  const spread = !dismissedDecisionKeys.has('fairness-spread') ? fairnessSpreadNote() : null;
-  const bench = !dismissedDecisionKeys.has('bench-limit') ? benchLimitNote() : null;
-  const count = groups.length + (spread ? 1 : 0) + (bench ? 1 : 0);
-  if (!count) { pill.style.display = 'none'; return; }
-  pill.style.display = 'flex';
-  pill.innerHTML = `<span class="tag">${count} NOTE${count > 1 ? 'S' : ''}</span> <span>Plan health note${count > 1 ? 's' : ''} - tap to review</span>`;
-}
-document.getElementById('planHealthPill').addEventListener('click', openPlanHealthSummary);
-
-// The main plan-health popup: a fairness-spread note (if the forecast isn't
-// balanced overall) plus every current, undismissed per-slot trade-off, each
-// with its own Override (pick someone else for that slot/time) and Got it
-// (acknowledge and leave the plan as-is) actions. Rebuilt in place so taking
-// an action immediately reflects in the list rather than requiring a reopen.
-function openPlanHealthSummary(opts) {
-  // opts.intro: html shown above the notes (e.g. what a removed sub changed);
-  // opts.undo: handler for its "Undo removal" link; always: show even if clean.
-  opts = opts && opts.intro !== undefined ? opts : null;
-  const overlay = openModal('', {wide: true});
-  const card = overlay.querySelector('.modal-card');
-  function refresh() {
-    const groups = visiblePlanHealthGroups();
-    const spread = !dismissedDecisionKeys.has('fairness-spread') ? fairnessSpreadNote() : null;
-    const bench = !dismissedDecisionKeys.has('bench-limit') ? benchLimitNote() : null;
-    const benchRow = bench ? `
-      <div class="decision-row" data-key="bench-limit">
-        <div class="decision-text">${bench.text}</div>
-        <div class="decision-actions">
-          <span class="decision-link" data-act="adjust">Adjust manually</span>
-          <span class="decision-link secondary" data-act="dismiss">Got it</span>
-        </div>
-      </div>` : '';
-    const spreadRow = spread ? `
-      <div class="decision-row" data-key="fairness-spread">
-        <div class="decision-text">${spread.text}</div>
-        <div class="decision-actions">
-          <span class="decision-link" data-act="suggest">See fix options</span>
-          <span class="decision-link secondary" data-act="adjust">Adjust manually</span>
-          <span class="decision-link secondary" data-act="dismiss">Got it</span>
-        </div>
-      </div>` : '';
-    card.innerHTML = `
-      <div class="picker-title">Plan health</div>
-      ${opts ? opts.intro : ''}
-      ${spreadRow}
-      ${benchRow}
-      ${groups.length ? groups.map(g => `
-        <div class="decision-row" data-key="${decisionGroupKey(g)}">
-          <div class="decision-text">${describeDecisionGroup(g)}</div>
-          <div class="decision-actions">
-            <span class="decision-link" data-act="override">Override</span>
-            <span class="decision-link secondary" data-act="dismiss">Got it</span>
-          </div>
-        </div>
-      `).join('') : ''}
-      ${!spreadRow && !benchRow && !groups.length ? `<div class="config-note">No trade-offs or fairness gaps flagged right now - the plan is hitting everything.</div>` : ''}
-      <div class="picker-cancel" id="planHealthClose">Close</div>
-    `;
-    card.querySelectorAll('.decision-row').forEach(row => {
-      const key = row.dataset.key;
-      const dismissLink = row.querySelector('[data-act="dismiss"]');
-      if (dismissLink) dismissLink.addEventListener('click', () => { dismissedDecisionKeys.add(key); renderPlanHealthPill(); refresh(); });
-      const overrideLink = row.querySelector('[data-act="override"]');
-      if (overrideLink) overrideLink.addEventListener('click', () => openDecisionOverridePicker(groups.find(x => decisionGroupKey(x) === key)));
-      const adjustLink = row.querySelector('[data-act="adjust"]');
-      if (adjustLink) adjustLink.addEventListener('click', () => {
-        overlay.remove();
-        setPlanSubTab('details');
-        setDetailsSubTab('subs');
-      });
-      const suggestLink = row.querySelector('[data-act="suggest"]');
-      if (suggestLink) suggestLink.addEventListener('click', openFairnessFixPicker);
-    });
-    card.querySelector('#planHealthClose').addEventListener('click', () => overlay.remove());
-    const undoLink = card.querySelector('#undoDeleteSub');
-    if (undoLink) undoLink.addEventListener('click', () => { overlay.remove(); opts.undo(); });
-  }
-  refresh();
-}
-
-// Lets the coach pick a different player for a flagged slot/time themselves,
-// armed with the same tier + fairness-deficit info the algorithm weighed.
-// This is exactly a manual substitution override (same lockedEvents/
-// resolvedKeys mechanism as tapping a player on the pitch) - it just starts
-// from the plan-health note instead of from the pitch.
-function openDecisionOverridePicker(g) {
-  const curTierName = TIER_NAMES[playersById[g.curPid]?.positions[g.group] ?? 0];
-  const curForecast = Math.round(fairnessBasis(simulate(startingLineup, lockedEvents))[g.curPid]);
-  const options = [...g.items[0].candidates].sort((a, b) => b.tier - a.tier || b.fairnessGain - a.fairnessGain);
-  const overlay = openModal(`
-    <div class="picker-title">${g.group} slot, ${minuteSpan(g)} - who should play?</div>
-    <div class="decision-current">Currently on: <strong>${g.curPid}</strong> (${curTierName}) - forecast ${curForecast}' if left as is</div>
-    ${options.map(c => `<div class="picker-opt" data-on="${c.id}"><span>${c.id}</span><span class="tier ${c.tier <= 1 ? 'warn' : ''}">${describeCandidateOption(c, g.group, g)}</span></div>`).join('')}
-    <div class="picker-cancel" id="planHealthBack">Keep as is - back to summary</div>
-  `, {wide: true});
-  overlay.querySelectorAll('.picker-opt[data-on]').forEach(el => {
-    el.addEventListener('click', () => {
-      lockedEvents.push({time: g.startTime, type: 'sub', slot: g.slot, on: el.dataset.on, manual: true});
-      resolvedKeys.add(rotationKey({time: g.startTime, slot: g.slot}));
-      regeneratePlan();
-      render(currentT);
-      openPlanHealthSummary();
-    });
-  });
-  overlay.querySelector('#planHealthBack').addEventListener('click', openPlanHealthSummary);
-}
 let halfTimeActive = false, matchFinished = false;
 let pendingHalfTimeBoundaryIdx = null; // which period boundary triggered the current half-time pause (disambiguates a mid-halftime reload)
 let score = {us: 0, them: 0};
@@ -5224,125 +4582,35 @@ function setDetailsSubTab(tab) {
   if (tab === 'settings') renderSettingsTab();
 }
 
-/* ---- DETAILS > SETTINGS: change rotation settings mid-match ----------
-   Same controls as New Match, but applied from the current minute onward as
-   a "settings era" - nothing already played is ever re-planned. Before
-   kick-off it simply edits the plan's settings. */
+/* ---- DETAILS > SETTINGS: this match's settings ----------
+   Today, help during the match and auto/manual. During a match a change
+   applies from the next minute; nothing already played is re-planned. */
 function settingsFromMinute() {
   if (!liveMode || matchFinished) return 0;
   if (halfTimeActive && pendingHalfTimeBoundaryIdx !== null) return PERIOD_BOUNDS[pendingHalfTimeBoundaryIdx];
   return Math.min(DURATION - 1, liveElapsedMinute() + 1);
 }
+// Turning the planner's suggestions on or off ("Pick it myself").
 function applyCfgChange(partial) {
   if (liveMode && !matchFinished) {
     const from = settingsFromMinute();
     const era = cfgEras.find(e => e.from === from);
     if (era) Object.assign(era.cfg, partial); else cfgEras.push({from, cfg: {...partial}});
     cfgEras.sort((a, b) => a.from - b.from);
+    cfg = {...cfg, ...partial};
   } else {
     cfg = {...cfg, ...partial};
-    syncConfigUIFromCfg();
+    updatePlanModeUI();
   }
   regeneratePlan();
   openPicker = null;
   render(currentT);
   saveLiveMatchState();
 }
-const CFG_LABELS = {fairnessPriority: 'Fairness', positionStrictness: 'Position', minShiftLength: 'Min time on', maxBenchLength: 'Max time off', subTimingMode: 'Sub timing', subIntervalMinutes: 'Sub interval', checkpointHalfway: 'Halfway checkpoints'};
-function describeCfgChange(c) {
-  return Object.entries(c).map(([k, v]) => {
-    if (k === 'autoSubs') return v ? 'planner suggestions on' : 'planner suggestions off (manual)';
-    if (k === 'fairnessPriority') return `fairness ${labelFor(v, 'fewer subs', 'balanced', 'maximum').toLowerCase()}`;
-    if (k === 'positionStrictness') return `position ${labelFor(v, 'fluid', 'balanced', 'stick to position')}`;
-    if (k === 'minShiftLength') return `min ${v}' on`;
-    if (k === 'maxBenchLength') return v ? `max ${v}' off` : 'no max time off';
-    if (k === 'subTimingMode') return `sub timing ${subTimingSummary({...cfg, subTimingMode: v})}`;
-    if (k === 'subIntervalMinutes') return `every ${v}'`;
-    if (k === 'checkpointHalfway') return v ? 'halfway checkpoints on' : 'halfway checkpoints off';
-    return `${k}: ${v}`;
-  }).join(', ');
-}
 function renderSettingsTab() {
   const host = document.getElementById('detailsViewSettings');
   if (!host || !PLAN) return;
-  if (cfg.engine === 'window') return renderSettingsTabWindow(host);
-  const from = settingsFromMinute();
-  const c = effectiveCfgAt(cfg, from);
-  const live = liveMode && !matchFinished;
-  const maxLen = Math.max(2, DURATION);
-  const history = cfgEras.map(e => `<div>From ${e.from}': ${describeCfgChange(e.cfg)}</div>`).join('');
-  host.innerHTML = `
-    <div class="config-note" style="margin:0 0 10px;">${matchFinished ? 'This match has finished - settings are read-only.' : live
-      ? `Changes apply from <strong>${from}'</strong> onward. Everything already played stays exactly as it was.`
-      : 'Match not started yet - changes re-plan the whole match.'}</div>
-    ${matchFinished ? '' : `<div class="check-row" style="margin-bottom:10px;"><input type="checkbox" id="stAuto" ${c.autoSubs !== false ? 'checked' : ''}><label for="stAuto">Planner suggests substitutions (untick to make every change yourself)</label></div>`}
-    ${matchFinished ? '' : `<div class="radio-row" id="stPresets">
-      <div class="radio-opt" data-preset="chase">Chasing the game</div>
-      <div class="radio-opt" data-preset="protect">Comfortable lead</div>
-    </div>
-    <div class="config-note" style="margin:-4px 0 12px;">Chasing: less fair, stick to best positions. Comfortable: share minutes out, try players in new positions.</div>`}
-    <div class="form-card" ${matchFinished ? 'style="opacity:0.6; pointer-events:none;"' : ''}>
-      <div class="config-row">
-        <div class="config-label"><span>Substitution style</span><span class="val" id="stFairLabel"></span></div>
-        <input type="range" id="stFair" min="0" max="1" step="0.1" value="${c.fairnessPriority}">
-        <div class="config-ends"><span>Fewer subs</span><span>Maximum fairness</span></div>
-      </div>
-      <div class="config-row">
-        <div class="config-label"><span>Position vs. fluid</span><span class="val" id="stStrictLabel"></span></div>
-        <input type="range" id="stStrict" min="0" max="1" step="0.1" value="${Math.round((1 - c.positionStrictness) * 10) / 10}">
-        <div class="config-ends"><span>Stick to best position</span><span>Fluid rotation</span></div>
-      </div>
-      <div class="config-row">
-        <div class="config-label"><span>Sub timing</span></div>
-        <div class="radio-row" id="stTiming">
-          <div class="radio-opt ${c.subTimingMode === 'anytime' ? 'selected' : ''}" data-timing="anytime">Anytime</div>
-          <div class="radio-opt ${c.subTimingMode === 'interval' ? 'selected' : ''}" data-timing="interval">Fixed interval</div>
-          <div class="radio-opt ${c.subTimingMode === 'checkpoints' ? 'selected' : ''}" data-timing="checkpoints">Period checkpoints</div>
-        </div>
-        <div class="field" style="display:${c.subTimingMode === 'interval' ? 'block' : 'none'};"><label>Only consider subs every</label>
-          <select id="stInterval">${[5, 10, 15, 20, 30].map(v => `<option value="${v}" ${v === c.subIntervalMinutes ? 'selected' : ''}>${v} minutes</option>`).join('')}</select></div>
-        <div class="check-row" style="display:${c.subTimingMode === 'checkpoints' ? 'flex' : 'none'};"><input type="checkbox" id="stHalfway" ${c.checkpointHalfway ? 'checked' : ''}><label for="stHalfway">Also halfway through each period</label></div>
-      </div>
-      <div class="config-row">
-        <div class="config-label"><span>Minimum time on before a sub</span><span class="val" id="stMinLabel"></span></div>
-        <input type="range" id="stMin" min="2" max="${maxLen}" step="1" value="${Math.min(c.minShiftLength, maxLen)}">
-        <div class="config-ends"><span>2' (very frequent)</span><span>${maxLen}' (no fairness subs)</span></div>
-      </div>
-      <div class="config-row">
-        <div class="config-label"><span>Maximum time off as a sub</span><span class="val" id="stMaxLabel"></span></div>
-        <input type="range" id="stMax" min="2" max="${maxLen}" step="1" value="${c.maxBenchLength ? Math.min(c.maxBenchLength, maxLen) : maxLen}">
-        <div class="config-ends"><span>2' (rarely sit out)</span><span>No limit</span></div>
-      </div>
-      <div class="config-note">Whether keeper time counts toward fairness is fixed for the match when it's created.</div>
-    </div>
-    ${history ? `<div class="config-note" style="margin-top:10px;"><strong>Changes this match</strong>${history}</div>` : ''}`;
-  const q = id => host.querySelector('#' + id);
-  const fairLbl = () => { q('stFairLabel').textContent = labelFor(parseFloat(q('stFair').value), 'Fewer subs', 'Balanced', 'Maximum fairness'); };
-  const strictLbl = () => { q('stStrictLabel').textContent = labelFor(parseFloat(q('stStrict').value), 'Stick to best position', 'Balanced', 'Fluid rotation'); };
-  const minLbl = () => { q('stMinLabel').textContent = q('stMin').value + "'"; };
-  const maxLbl = () => { q('stMaxLabel').textContent = parseInt(q('stMax').value, 10) >= maxLen ? 'No limit' : q('stMax').value + "'"; };
-  fairLbl(); strictLbl(); minLbl(); maxLbl();
-  const done = () => renderSettingsTab();
-  q('stFair').addEventListener('input', () => { fairLbl(); applyCfgChange({fairnessPriority: parseFloat(q('stFair').value)}); });
-  q('stStrict').addEventListener('input', () => { strictLbl(); applyCfgChange({positionStrictness: Math.round((1 - parseFloat(q('stStrict').value)) * 10) / 10}); });
-  q('stMin').addEventListener('input', () => { minLbl(); applyCfgChange({minShiftLength: parseInt(q('stMin').value, 10)}); });
-  q('stMax').addEventListener('input', () => { maxLbl(); const v = parseInt(q('stMax').value, 10); applyCfgChange({maxBenchLength: v >= maxLen ? 0 : v}); });
-  q('stTiming').addEventListener('click', e => {
-    const opt = e.target.closest('.radio-opt'); if (!opt) return;
-    applyCfgChange({subTimingMode: opt.dataset.timing}); done();
-  });
-  q('stInterval').addEventListener('change', () => { applyCfgChange({subIntervalMinutes: parseInt(q('stInterval').value, 10)}); });
-  q('stHalfway').addEventListener('change', () => { applyCfgChange({checkpointHalfway: q('stHalfway').checked}); });
-  // Slider drags re-plan on every step; refresh the history list once released.
-  ['stFair', 'stStrict', 'stMin', 'stMax'].forEach(id => q(id).addEventListener('change', done));
-  const autoBox = q('stAuto');
-  if (autoBox) autoBox.addEventListener('change', () => { applyCfgChange({autoSubs: autoBox.checked}); done(); });
-  const presets = q('stPresets');
-  if (presets) presets.addEventListener('click', e => {
-    const opt = e.target.closest('.radio-opt'); if (!opt) return;
-    applyCfgChange(opt.dataset.preset === 'chase' ? {fairnessPriority: 0.2, positionStrictness: 0.9} : {fairnessPriority: 1, positionStrictness: 0.2});
-    done();
-  });
+  renderSettingsTabWindow(host);
 }
 document.getElementById('detailsSubtabs').addEventListener('click', e => {
   const el = e.target.closest('.plan-subtab');
@@ -5583,9 +4851,7 @@ function restoreLiveMatch(saved, recordId) {
   // Defaults cover snapshots saved before a given setting existed.
   cfg = {autoSubs: true, maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false, ...saved.cfg};
   cfgEras = JSON.parse(JSON.stringify(saved.cfgEras || []));
-  syncMinShiftSliderMax();
-  if (cfg.minShiftLength > parseInt(minShiftSlider.max, 10)) cfg.minShiftLength = parseInt(minShiftSlider.max, 10);
-  syncConfigUIFromCfg();
+  updatePlanModeUI();
 
   PLAYERS = saved.players.map(p => ({...p}));
   availableIds = new Set(PLAYERS.map(p => p.id));
@@ -5612,6 +4878,15 @@ function restoreLiveMatch(saved, recordId) {
   liveMode = status !== 'planned';
   halfTimeActive = false;
   clearInterval(liveTicker);
+  // A match saved before the switch to the new planner, with play still to
+  // come, moves to it now: what has already happened is kept exactly, and
+  // only the rest is planned. Finished matches keep the record they were
+  // played with, replayed by the engine that planned them.
+  if (legacyMatch() && status !== 'finished') {
+    cfg = {...cfg, engine: 'window'};
+    try { regeneratePlan(); diag.add('act', `saved ${status} match moved to the new planner`); }
+    catch (e) { diag.add('error', 'moving a saved match to the new planner: ' + (e && e.message)); }
+  }
 
   initPlanScreenForFormat();
   const preview = status === 'planned';
@@ -6378,33 +5653,6 @@ function computeBenchSpells(atMinute) {
     out[p.id] = spells;
   });
   return out;
-}
-// "Maximum time off" flag: players whose forecast spell off the pitch is
-// longer than the limit in force when that spell began. Spells already
-// completed in a live match are history, not something the coach can fix.
-function benchLimitNote() {
-  if (!PLAN || !PLAYERS.length || plannerIsOff()) return null;
-  const anyLimit = cfg.maxBenchLength || cfgEras.some(e => e.cfg.maxBenchLength);
-  if (!anyLimit) return null;
-  const spells = computeBenchSpells(DURATION);
-  const nowMin = liveMode ? liveElapsedMinute() : 0;
-  const over = [];
-  for (const p of PLAYERS) {
-    for (const sp of spells[p.id]) {
-      const limit = effectiveCfgAt(cfg, sp.start).maxBenchLength;
-      if (!limit || sp.end <= nowMin) continue;
-      const len = sp.end - sp.start;
-      if (len > limit) over.push({id: p.id, len, start: sp.start, end: sp.end, limit});
-    }
-  }
-  if (!over.length) return null;
-  over.sort((a, b) => (b.len - b.limit) - (a.len - a.limit));
-  const parts = over.slice(0, 5).map(o => `${o.id} ${o.len}' off (mins ${o.start}-${o.end})`);
-  const eff = effectiveCfgAt(cfg, liveMode ? liveElapsedMinute() : 0);
-  let cause = 'There may not be enough cover to bring them back sooner.';
-  if (eff.subTimingMode !== 'anytime') cause = `"Sub timing" (${subTimingSummary(eff)}) only allows changes at set moments, which can stop them coming back in time.`;
-  else if (eff.minShiftLength > 0.15 * DURATION) cause = `"Minimum time on before a sub" (${eff.minShiftLength}') is holding others on the pitch long enough that it can't free a place sooner.`;
-  return {text: `Some players sit out longer than your maximum time off the pitch: ${parts.join(' · ')}. ${cause}`, over};
 }
 
 function computeOnPitchIntervals(atMinute) {
@@ -7235,8 +6483,6 @@ function renderHome() {
   el.querySelectorAll('.home-row').forEach(r => r.addEventListener('click', () => { if (squad.some(p => p.id === r.dataset.pid)) openPlayerProfile(r.dataset.pid); }));
 }
 
-/* ================= ROTATION PRESETS (per team) ================= */
-const ROT_KEY = K('rf_rotation_v1');
 /* ================= MATCH AWARDS (per team) ================= */
 const AWARDS_KEY = K('rf_awards_v1');
 const AWARD_SUGGESTIONS = ["Coach's Player of the Match", "Opposition Manager's MoTM", "Parents' Player of the Match", "Players' Player of the Match", "Most Improved", "Effort Award"];
@@ -7268,82 +6514,6 @@ function renderAwardsEditor(el, after) {
   }));
 }
 renderAwardsEditor(document.getElementById('awardsEditor'));
-
-const ROT_FIELDS = ['fairnessPriority', 'positionStrictness', 'minShiftLength', 'maxBenchLength', 'gkCountsForFairness', 'subTimingMode', 'subIntervalMinutes', 'checkpointHalfway'];
-const STARTER_ROTATIONS = [
-  {id: 'bal', name: 'Balanced', blurb: 'Fair playing time with sensible gaps between changes.',
-    cfg: {fairnessPriority: 0.5, positionStrictness: 0.3, minShiftLength: 8, maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false}},
-  {id: 'few', name: 'Fewer subs', blurb: 'Less chopping and changing - players get longer spells on the pitch.',
-    cfg: {fairnessPriority: 0.2, positionStrictness: 0.5, minShiftLength: 12, maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false}},
-  {id: 'max', name: 'Maximum fairness', blurb: 'The tightest split of minutes, with more frequent changes.',
-    cfg: {fairnessPriority: 0.9, positionStrictness: 0.2, minShiftLength: 5, maxBenchLength: 0, gkCountsForFairness: false, subTimingMode: 'anytime', subIntervalMinutes: 15, checkpointHalfway: false}},
-];
-function loadRotations() {
-  try { const r = lsGet(ROT_KEY); if (r) { const o = JSON.parse(r); if (o && Array.isArray(o.presets) && o.presets.length) return o; } } catch (e) { /* defaults */ }
-  return {defaultId: 'bal', presets: STARTER_ROTATIONS.map(x => ({id: x.id, name: x.name, blurb: x.blurb, cfg: {...x.cfg}}))};
-}
-let rotations = loadRotations();
-function saveRotations() { lsSet(ROT_KEY, JSON.stringify(rotations)); }
-function rotById(id) { return rotations.presets.find(x => x.id === id); }
-function defaultRotation() { return rotById(rotations.defaultId) || rotations.presets[0]; }
-function rotMatches(pr) { return ROT_FIELDS.every(f => cfg[f] === pr.cfg[f]); }
-function applyRotation(pr) {
-  if (!pr || liveMode) return;
-  cfg = {...cfg, ...pr.cfg, autoSubs: cfg.autoSubs !== false};
-  syncMinShiftSliderMax();
-  syncConfigUIFromCfg();
-  renderRotChips();
-}
-function applyDefaultRotation() { cfg = {...cfg, autoSubs: true}; applyRotation(defaultRotation()); }
-function renderRotChips() {
-  const wrap = document.getElementById('rotChips'); if (!wrap) return;
-  const sel = rotations.presets.find(rotMatches);
-  wrap.innerHTML = rotations.presets.map(pr => `<div class="radio-opt ${sel && sel.id === pr.id ? 'selected' : ''}" data-rot="${pr.id}">${esc(pr.name)}${pr.id === rotations.defaultId ? '<br><small>default</small>' : ''}</div>`).join('');
-  const dl = document.getElementById('rotDefaultLink');
-  if (dl) dl.style.display = sel && sel.id !== rotations.defaultId ? 'inline' : 'none';
-}
-document.getElementById('rotChips').addEventListener('click', e => {
-  const o = e.target.closest('[data-rot]'); if (!o) return;
-  applyRotation(rotById(o.dataset.rot));
-});
-document.getElementById('rotDefaultLink').addEventListener('click', () => {
-  const sel = rotations.presets.find(rotMatches); if (!sel) return;
-  rotations.defaultId = sel.id; saveRotations(); renderRotChips(); renderRotList();
-});
-document.getElementById('rotSaveLink').addEventListener('click', () => {
-  const overlay = openModal(`<div class="picker-title">Save rotation preset</div>
-    <div class="field"><label>Name</label><input type="text" id="rpName" placeholder="e.g. Cup games"></div>
-    <div class="modal-btn-row"><button class="btn btn-ghost" id="rpCancel">Cancel</button><button class="btn btn-primary" id="rpSave">Save</button></div>`);
-  overlay.querySelector('#rpCancel').addEventListener('click', () => overlay.remove());
-  overlay.querySelector('#rpSave').addEventListener('click', () => {
-    const name = overlay.querySelector('#rpName').value.trim();
-    if (!name) return;
-    const c = {}; ROT_FIELDS.forEach(f => { c[f] = cfg[f]; });
-    const ex = rotations.presets.find(x => x.name.toLowerCase() === name.toLowerCase());
-    if (ex) ex.cfg = c; else rotations.presets.push({id: 'r' + Date.now().toString(36), name, cfg: c});
-    saveRotations(); overlay.remove(); renderRotChips(); renderRotList();
-  });
-});
-function renderRotList() {
-  const el = document.getElementById('rotList'); if (!el) return;
-  el.innerHTML = rotations.presets.map(pr => `<div class="match-card"><div class="mc-title">${esc(pr.name)}${pr.id === rotations.defaultId ? ' <span class="badge planned">DEFAULT</span>' : ''}</div>
-    ${pr.blurb ? `<div class="mc-sub">${esc(pr.blurb)}</div>` : ''}
-    <div class="mc-row">${pr.id !== rotations.defaultId ? `<button class="btn btn-ghost mc-small" data-rdef="${pr.id}">Make default</button>` : ''}
-    ${rotations.presets.length > 1 ? `<button class="btn btn-ghost mc-small mc-del" data-rdel="${pr.id}">Delete</button>` : ''}</div></div>`).join('');
-  el.querySelectorAll('[data-rdef]').forEach(b => b.addEventListener('click', () => { rotations.defaultId = b.dataset.rdef; saveRotations(); renderRotList(); renderRotChips(); }));
-  el.querySelectorAll('[data-rdel]').forEach(b => b.addEventListener('click', () => {
-    const pr = rotById(b.dataset.rdel);
-    showConfirm(`Delete the "${pr.name}" rotation preset?`, () => {
-      rotations.presets = rotations.presets.filter(x => x.id !== pr.id);
-      if (rotations.defaultId === pr.id) rotations.defaultId = rotations.presets[0].id;
-      saveRotations(); renderRotList(); renderRotChips();
-    }, 'Delete');
-  }));
-}
-renderRotList();
-// settings changes on the sliders update which chip is highlighted
-const _origUpdateConfigSummary = updateConfigSummary;
-updateConfigSummary = function () { _origUpdateConfigSummary(); renderRotChips(); };
 
 /* ================= FEEDBACK, PROBLEM REPORTS & AUTOMATIC ERROR REPORTS =================
    Sent with Web3Forms (each submission is emailed to the account owner).
@@ -7811,8 +6981,6 @@ function renderWizard() {
   } else if (step === 'questions') {
     renderQuestionsStep(body, dots, nav, err);
   } else if (step === 'review') {
-    // Onboarding plans with the new planner unless the coach turns it off here.
-    if (!t.reviewSeen) { t.reviewSeen = true; saveProfile(); teamEthos.engine = 'window'; saveEthos(); }
     renderReviewStep(body, dots, nav);
   } else if (step === 'awards') {
     body.innerHTML = `${dots}<div class="form-card">
@@ -7848,7 +7016,7 @@ function renderWizard() {
       <button class="btn btn-ghost" id="wizSkip">Skip the tour</button></div>`;
     const done = tour => {
       t.setupDone = true; saveProfile();
-      refreshTeamHeader(); renderSquadList(); renderPresetList(); renderRotList(); renderDefaultsUI(); renderApproachSection(); refreshPlannerVisibility();
+      refreshTeamHeader(); renderSquadList(); renderPresetList(); renderDefaultsUI(); renderApproachSection(); refreshPlannerVisibility();
       showScreen('squad');
       if (tour) startTour('squad'); else { profile.tourDone = true; saveProfile(); showTourBanner(); }
     };
@@ -7871,7 +7039,7 @@ function tmPitch(tokens, opts) {
 const TM_SHAPE = [{x: 28, y: 75, pos: 'GK', n: 'SA'}, {x: 85, y: 35, pos: 'DEF', n: 'JO'}, {x: 85, y: 115, pos: 'DEF', n: 'TO'}, {x: 150, y: 75, pos: 'MID', n: 'LE'}, {x: 205, y: 35, pos: 'MID', n: 'NO'}, {x: 205, y: 115, pos: 'MID', n: 'BE'}, {x: 262, y: 75, pos: 'ATT', n: 'MA'}];
 const TOUR_MOCKS = {
   setup: n => {
-    const rows = ['Fixture details', 'Starting line-up', 'Auto-generate / Pick it myself', "Who's available + goalkeeper", 'Rotation style', 'Generate match plan'];
+    const rows = ['Fixture details', 'Today', 'Starting line-up', 'Auto-generate / Pick it myself', "Who's available + goalkeeper", 'Generate match plan'];
     return `<div class="tm-cap">New fixture screen</div>${rows.map((r, i) => `<div class="tm-row ${i === n ? 'tm-hl' : 'tm-dim'}" style="padding:6px 8px; ${i === 5 ? '' : ''}"><b style="flex:1;">${i + 1}. ${r}</b>${i === n ? '◀' : ''}</div>`).join('')}`;
   },
   plan: () => `<div class="tm-cap">Match Plan · Live tab</div>${tmPitch(TM_SHAPE)}
@@ -7886,14 +7054,10 @@ const TOUR_MOCKS = {
     <div class="tm-row"><b style="width:26px;">25'</b><span style="flex:1;">↑ <b>Max</b> · ↓ Tom (ATT)</span><span style="color:var(--coral);">✕ Remove</span></div>
     <div class="tm-cap" style="margin-top:6px;">Forecast minutes</div>
     ${[['Leo', 88], ['Sam', 80], ['Ben', 84], ['Max', 76]].map(r => `<div class="tm-row"><span style="width:30px;">${r[0]}</span><div class="tm-bar"><i style="width:${r[1]}%;"></i></div><b style="width:28px; text-align:right;">${Math.round(r[1] * .5)}'</b></div>`).join('')}`,
-  config: () => `<div class="tm-cap">Team and rotation settings</div>
-    <div style="margin-bottom:5px;"><b>Rotation style</b></div>
-    <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:7px;"><span class="tm-chip on">Balanced</span><span class="tm-chip">Fewer subs</span><span class="tm-chip">Maximum fairness</span></div>
-    <div class="tm-row"><span style="width:96px;">Position fit ↔ fair time</span><div class="tm-bar"><i style="width:55%;"></i></div></div>
-    <div class="tm-row"><span style="width:96px;">Min time on pitch</span><div class="tm-bar"><i style="width:40%;"></i></div><b>8'</b></div>
-    <div class="tm-row"><span style="width:96px;">Max time off</span><div class="tm-bar"><i style="width:25%;"></i></div><b>15'</b></div>
-    <div class="tm-row"><span style="width:96px;">Formation</span><span class="tm-chip on">2-3-1</span><span class="tm-chip">3-2-1</span><span class="tm-chip">Custom</span></div>
-    <div class="tm-row"><span style="width:96px;">Goalkeeper</span><span class="tm-chip on">Rotate each half</span></div>`,
+  score: () => `<div class="tm-cap">Above the pitch</div>
+    <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;"><span class="tm-chip on">Minutes 28'–33'</span><span class="tm-chip">9 subs</span><span class="tm-chip">Units ✓</span><span class="tm-chip"><u>Why? ›</u></span></div>
+    <div class="tm-cap">Why? on a change</div>
+    <div class="tm-row" style="display:block; line-height:1.45;"><b>Why Sam comes off</b><br>If Joe came off instead: Sam sits out 22' (8'–30'), over the 19' maximum.</div>`,
   manual: () => `<div class="tm-cap">Pick it myself · blank pitch</div>${tmPitch(TM_SHAPE.map((k, i) => i < 2 ? k : {...k, empty: true}))}
     <div class="tm-pill"><span class="tg">2/7</span><span>Tap a position to choose who starts. Add every sub yourself with <b>+ Add substitution</b>.</span></div>`,
   live: () => `<div class="tm-cap">Match mode</div>
@@ -7914,27 +7078,29 @@ const TOUR_STEPS = [
     bullets: ['Squad - your players, line-up presets and defaults', 'Matches - every fixture, planned, live and finished', 'Match Plan - the plan and live match mode for the fixture you open']},
   {screen: 'home', sel: '#homeNext', title: 'Your dashboard', text: 'Home shows your next fixture and last result. As you finish matches it builds your season: form, top scorers, assists, awards, minutes for every player and a fair-minutes check that flags anyone who is falling behind.'},
   {screen: 'squad', sel: '#teamTitle', title: 'Your teams', text: 'Tap your team name to switch teams, add another side, rename a team, or back up your data. Each team has its own squad, fixtures and presets.'},
-  {screen: 'squad', sel: '#squadList', title: 'Your squad', text: "Everyone in the team. Each player has where they play best (Defence, Midfield, Attack) and whether they can go in goal. The planner uses this to choose the team and fair rotations. Tap a player to see their stats - matches, minutes, goals and a chart of where they have played - or to edit them."},
+  {screen: 'squad', sel: '#squadList', title: 'Your squad', text: "Everyone in the team. Each player has where they play best (Defence, Midfield, Attack), whether they can go in goal, and a private level that only you see. The planner uses this to choose the team and the rotations. Tap a player to see their stats - matches, minutes, goals and a chart of where they have played - or to edit them."},
   {screen: 'squad', sel: '#addPlayerBtn', title: 'Add players', text: 'Add new players any time, or tweak how comfortable each is in each position.'},
   {screen: 'squad', sel: '#secPresets', title: 'Line-up presets', text: 'Save your go-to line-ups - strongest, defensive, attacking - and drop one into a fixture in a single tap.'},
-  {screen: 'squad', sel: '#secRotations', title: 'Rotation presets', text: 'Your regular rotation styles, like "Fewer subs" or "Maximum fairness". The default one is used for every new fixture.'},
-  {screen: 'squad', sel: '#secDefaults', title: 'Default match type', text: 'Players per side, length, periods and formation. New fixtures start from this so you rarely need to change it.'},
+  {screen: 'squad', sel: '#secApproach', title: 'Team approach', text: 'How the planner runs your team: your approach, fine-tuning, and Advanced settings. Every setting says where it came from, and anything set from your answers is marked "Set for you" with the reason.',
+    setFor: () => setForTourLines(ETHOS_TOUR_KEYS)},
+  {screen: 'squad', sel: '#secDefaults', title: 'Your formats', text: 'The formats you play: players per side, length, periods and formation. New fixtures start from your main one, and you can switch to another format in one tap.'},
   {screen: 'matches', sel: '.tab[data-tab="matches"]', title: 'Matches', text: 'Everything you plan and play lives here: upcoming fixtures, matches in progress and finished results. Line-ups can be planned well before the day.'},
   {screen: 'matches', sel: '#newFixtureBtn', title: 'Plan a fixture', text: 'Tap here to plan a new fixture. These are the steps on the screen that opens:', needsClosedMatch: true, mock: 'setup:0'},
   {screen: 'setup', sel: '#secFixture', title: '1. Fixture details', text: 'Who you are playing, when, where, and which competition. These show on your fixtures list and on the exported line-up image.', needsClosedMatch: true, mock: 'setup:0'},
-  {screen: 'setup', sel: '#presetSection', title: '2. Starting line-up', text: 'Pick one of your saved line-ups, or let the planner choose the best team. You can change anyone afterwards.', needsClosedMatch: true, mock: 'setup:1'},
-  {screen: 'setup', sel: '#secPlanMode', title: '3. Auto or manual', text: 'Auto-generate lets the planner suggest the team and every substitution. Pick it myself gives you a blank pitch: you choose who starts and add every substitution yourself.', needsClosedMatch: true, mock: 'setup:2'},
-  {screen: 'setup', sel: '#secAvail', title: "4. Who's available", text: 'Untick anyone who cannot play this match. Choose your goalkeeper plan below it.', needsClosedMatch: true, mock: 'setup:3'},
-  {screen: 'setup', sel: '#rotPresetSection', title: '5. Rotation style', text: 'Choose how players rotate for this match. The cog below it has the fine-tuning: timing, minimum time on the pitch, maximum time off and more.', needsClosedMatch: true, mock: 'setup:4'},
-  {screen: 'setup', sel: '#generateBtn', title: '6. Build the plan', text: 'This creates the match plan with the pitch view, every planned change and each player\'s forecast minutes.', needsClosedMatch: true, mock: 'setup:5'},
+  {screen: 'setup', sel: '#secToday', title: '2. Today', text: 'One tap to lean this match: Development, Normal, Strong or Must-win. A cup pre-selects Strong and a friendly Development. Your team rules still apply.', needsClosedMatch: true, mock: 'setup:1'},
+  {screen: 'setup', sel: '#presetSection', title: '3. Starting line-up', text: 'Pick one of your saved line-ups, or let the planner choose the best team. You can change anyone afterwards.', needsClosedMatch: true, mock: 'setup:2'},
+  {screen: 'setup', sel: '#secPlanMode', title: '4. Auto or manual', text: 'Auto-generate lets the planner suggest the team and every substitution. Pick it myself gives you a blank pitch: you choose who starts and add every substitution yourself.', needsClosedMatch: true, mock: 'setup:3'},
+  {screen: 'setup', sel: '#secAvail', title: "5. Who's available", text: "Untick anyone who can't play. Tap a name for anything different today: arriving late, leaving early, a minutes limit, must start, or keeper today. Your goalkeeper plan is below it.", needsClosedMatch: true, mock: 'setup:4',
+    setFor: () => setForTourLines(['gkPlan'])},
+  {screen: 'setup', sel: '#generateBtn', title: '6. Build the plan', text: 'This creates the match plan from your team approach, with the pitch view, every planned change and each player\'s forecast minutes.', needsClosedMatch: true, mock: 'setup:5'},
   {title: 'Your match plan', text: 'After you build a plan you land on the pitch. Drag the slider to any minute to see who is on, and tap Start match at kick-off.', mock: 'plan',
-    bullets: ['The pill shows the next planned change', 'Tap a player at kick-off to change who starts', 'Plan Health tells you where fairness or positions had to be traded off']},
+    bullets: ['The pill shows the next planned change', 'Tap a player at kick-off to change who starts', 'The scorecard strip above the pitch shows how the plan scores']},
   {title: 'Change anything', text: 'Tap any player on the pitch to make a change from that minute on. The rest of the plan re-balances around it.', mock: 'tap'},
   {title: 'Subs and fair minutes', text: 'The Details tab lists every planned substitution and each player\'s forecast minutes. Any planned substitution can be removed, and you can add your own.', mock: 'subs'},
-  {title: 'Team and rotation settings', text: 'Fine-tune how the plan is built from Details > Settings, or save your favourites as presets on the Squad tab.', mock: 'config',
-    bullets: ['Rotation style: balanced, fewer subs or maximum fairness', 'Minimum time on the pitch and maximum time off', 'Formation and goalkeeper plan, changeable mid-match']},
+  {title: 'The scorecard and "Why?"', text: 'Above the pitch, the scorecard strip shows the minutes range, the number of subs and anything to check. Tap it for the full breakdown, and tap "Why?" on any change or player to see the reason in your own terms.', mock: 'score',
+    bullets: ['Details › Settings: Today and help during the match', '"Show me another" for a different plan before kick-off', 'Formation and goalkeeper plan, changeable mid-match']},
   {title: 'Pick it myself', text: 'Choose "Pick it myself" for a completely blank canvas. Nothing is filled in for you: tap each position to add a player, then add every substitution yourself.', mock: 'manual'},
-  {title: 'Match day', text: 'Tap Start match when the whistle goes. A prompt appears when a change is due, and you can log goals, assists and notes as you go.', mock: 'live',
+  {title: 'Match day', text: 'Tap Start match when the whistle goes. A prompt appears when a change is due, and you can log goals, assists and notes as you go. If something changes, the planner re-plans the rest of the match for you.', mock: 'live', setFor: () => setForTourLines(['live.replan']),
     bullets: ['Done, Delay or Skip each planned change', 'Tap a player for an unplanned sub, swap or unavailability', 'Half-time and full time are handled for you']},
   {title: 'Full time', text: 'At the end, record the result, goals and assists, your awards, and match notes. Then share a summary image with the group. Finished matches feed your season stats.', mock: 'fulltime'},
   {title: "You're all set", text: 'That is the tour. Good luck with the next fixture!'},
@@ -7944,7 +7110,7 @@ let tourIdx = 0, tourSteps = [], tourReturn = 'squad';
 // progress (it would detach that match), so they show their illustration instead.
 function tourUsesMock(st) { return !!(st.needsClosedMatch && currentMatchId); }
 function tourSelFor(st) { return st.sel && !tourUsesMock(st) ? st.sel : null; }
-function tourAvailableSteps() { return newPlannerOn() ? newPlannerTourSteps(TOUR_STEPS) : TOUR_STEPS.slice(); }
+function tourAvailableSteps() { return TOUR_STEPS.slice(); }
 function startTour(returnTo) {
   document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
   tourSteps = tourAvailableSteps(); tourIdx = 0;
@@ -8025,8 +7191,8 @@ showScreen = function (name) { diag.add('nav', name); _origShowScreen(name); if 
 /* ---- boot: header, and the wizard for a team that hasn't been set up ---- */
 refreshTeamHeader(); showTourBanner();
 
-/* ================= THE NEW PLANNER: TEAM APPROACH, TODAY, SCORECARD & WHY? =================
- * What the coach sees of the new planner:
+/* ================= THE PLANNER ON SCREEN: TEAM APPROACH, TODAY, SCORECARD & WHY? =================
+ * What the coach sees of the planner:
  *  - Team approach (Squad tab): four cards, five fine-tune sliders with a live
  *    preview from their own squad, and Advanced: the same Planning Spec the
  *    engine uses, in plain words. Every value says where it came from.
@@ -8036,7 +7202,6 @@ refreshTeamHeader(); showTourBanner();
  *    alternative (someone else comes off, someone else comes on) is scored
  *    the same way, and the first thing it would make worse is the reason.
  */
-function newPlannerOn() { try { return teamEthos.engine === 'window'; } catch (e) { return false; } }
 const ETHOS_BLURBS = {
   development: 'Equal minutes for everyone, plenty of rotation and new positions.',
   balanced: 'Fair minutes, with a sensible team on the pitch all match.',
@@ -8088,10 +7253,6 @@ function renderApproachSection() {
   const spellNow = e.rules.minSpell || pre.minSpellMode || 'strict';
   const players = squad.map(normalisePlayer), names = players.map(p => p.id);
   host.innerHTML = `
-    <div class="check-row" style="margin-bottom:4px;"><input type="checkbox" id="apEngine" ${e.engine === 'window' ? 'checked' : ''}><label for="apEngine">Use the new planner <span class="private-tag">beta</span></label></div>
-    <div class="config-note" style="margin:0 0 12px;">${e.engine === 'window'
-      ? 'New fixtures are planned with the approach below, with a scorecard and a "Why?" on every change. Matches already planned keep the planner they were made with.'
-      : 'Off: new fixtures use the current planner and its rotation settings. The approach below is used once you switch the new planner on.'}</div>
     <div style="font-size:13px; font-weight:600; margin-bottom:6px;">How do you run your team?</div>
     ${setForHtml('preset')}
     <div class="ethos-cards" id="apCards">${Object.keys(ETHOS_PRESETS).map(k => `<div class="ethos-card ${k === e.preset ? 'selected' : ''}" data-preset="${k}"><b>${ETHOS_PRESETS[k].label}</b><span>${ETHOS_BLURBS[k]}</span></div>`).join('')}</div>
@@ -8188,7 +7349,6 @@ function renderApproachSection() {
 }
 function wireApproachSection(host) {
   const q = s => host.querySelector(s);
-  q('#apEngine').addEventListener('change', ev => changeEthos(e => { e.engine = ev.target.checked ? 'window' : 'classic'; }, ['engine']));
   q('#apCards').addEventListener('click', ev => {
     const c = ev.target.closest('.ethos-card'); if (!c || c.dataset.preset === teamEthos.preset) return;
     const go = () => changeEthos(e => { e.preset = c.dataset.preset; e.sliders = {}; e.priority = null; e.rules.unitFloor = null; e.rules.minSpell = null; },
@@ -8276,9 +7436,6 @@ function renderApproachPreview() {
 }
 // Which planner-specific parts of the app show (classic rotation settings or the team approach).
 function refreshPlannerVisibility() {
-  const on = newPlannerOn();
-  const show = (id, v) => { const el = document.getElementById(id); if (el) el.style.display = v ? '' : 'none'; };
-  show('secRotations', !on);
   if (typeof updatePlanModeUI === 'function') updatePlanModeUI();
   if (document.getElementById('screen-setup').classList.contains('active')) renderTodayAndExceptions();
 }
@@ -8311,11 +7468,10 @@ function exceptionBadges(x) {
   return b;
 }
 function renderTodayAndExceptions() {
-  const on = newPlannerOn(), auto = cfg.autoSubs !== false;
-  document.getElementById('secToday').style.display = on && auto ? 'block' : 'none';
-  document.getElementById('secApproachLine').style.display = on && auto ? 'block' : 'none';
-  document.getElementById('availExNote').style.display = on ? 'block' : 'none';
-  if (!on) return;
+  const auto = cfg.autoSubs !== false;
+  document.getElementById('secToday').style.display = auto ? 'block' : 'none';
+  document.getElementById('secApproachLine').style.display = auto ? 'block' : 'none';
+  document.getElementById('availExNote').style.display = 'block';
   const today = draftFixture.today || 'normal';
   document.querySelectorAll('#todayChips .radio-opt').forEach(o => o.classList.toggle('selected', o.dataset.today === today));
   const suggested = !draftFixture.todayTouched && today !== 'normal' && draftFixture.competition;
@@ -8331,7 +7487,7 @@ function renderTodayAndExceptions() {
     const name = row.querySelector('.name');
     name.querySelectorAll('.ex-badge').forEach(b => b.remove());
     exceptionBadges(ex[p.id]).forEach(t => { const s = document.createElement('span'); s.className = 'ex-badge'; s.textContent = t; name.appendChild(s); });
-    if (!name.dataset.exWired) { name.dataset.exWired = '1'; name.style.cursor = 'pointer'; name.addEventListener('click', () => { if (newPlannerOn() && availableIds.has(p.id)) openExceptionSheet(p.id); }); }
+    if (!name.dataset.exWired) { name.dataset.exWired = '1'; name.style.cursor = 'pointer'; name.addEventListener('click', () => { if (availableIds.has(p.id)) openExceptionSheet(p.id); }); }
   });
 }
 function openExceptionSheet(pid) {
@@ -8383,6 +7539,14 @@ function openApproachScreen() {
 
 /* ---------- Scorecard strip and breakdown ---------- */
 const planCardCache = new WeakMap();
+// Each player's target for this match, as the planner sees it (from the team
+// approach, levels, exceptions and the season), so the Forecast and the
+// full-time summary measure against the same numbers as the scorecard.
+function syncPlanTargets() {
+  if (legacyMatch() || !PLAN || PLAN.incomplete) return;
+  const sc = planScorecard(); if (!sc) return;
+  for (const [id, v] of Object.entries(sc.card.tiers.t2.perPlayer)) if (typeof v.target === 'number') TARGETS[id] = Math.round(v.target);
+}
 function planScorecard() {
   if (!PLAN || PLAN.incomplete) return null;
   let c = planCardCache.get(PLAN);
@@ -8653,7 +7817,7 @@ document.addEventListener('click', e => {
 });
 const whyLinkHtml = r => (cfg.engine === 'window' && !r.type) ? `<span class="why-link" data-why-time="${r.time}" data-why-slot="${esc(r.slot)}">Why?</span>` : '';
 
-/* ---------- Details › Settings with the new planner ---------- */
+/* ---------- Details › Settings ---------- */
 function renderSettingsTabWindow(host) {
   const from = settingsFromMinute();
   const live = liveMode && !matchFinished;
@@ -8766,7 +7930,7 @@ function applyAnswers(answers) {
   const said = id => `because you said "${qAnswerLabel(id, a[id])}"`;
   const preset = PRESET_FOR_MINUTES[a.minutes] || 'balanced';
   const pre = ETHOS_PRESETS[preset];
-  const e = normaliseEthos({engine: teamEthos.engine, pairs: teamEthos.pairs});
+  const e = normaliseEthos({pairs: teamEthos.pairs});
   const setFor = {};
   e.preset = preset; setFor.preset = `${pre.label}, ${said('minutes')}`;
   const sliders = {
@@ -8803,17 +7967,12 @@ function applyAnswers(answers) {
   setFor.priority = said('first');
   e.setFor = setFor; e.answers = answers;
   teamEthos = normaliseEthos(e); teamEthos.answers = answers; saveEthos();
-  // Settings outside the approach: the keeper plan, and the current planner's
-  // default rotation style (so either planner reflects the answers).
+  // The keeper plan lives with the match defaults.
   if (a.gkPlan) { matchDefaults = {...matchDefaults, gkMode: a.gkPlan === 'one' ? 'single' : 'rotate'}; saveDefaults(); teamEthos.setFor.gkPlan = said('gkPlan'); saveEthos(); }
-  try {
-    rotations.defaultId = a.changes === 'rare' ? 'few' : (a.minutes === 'equal' && a.changes === 'often') ? 'max' : 'bal';
-    if (rotations.presets.some(p => p.id === rotations.defaultId)) saveRotations();
-  } catch (e2) { /* the classic presets are optional here */ }
 }
 // Skipping the questions: the Balanced preset, nothing labelled as set for you.
 function applySkippedQuestionnaire() {
-  teamEthos = normaliseEthos({engine: teamEthos.engine, pairs: teamEthos.pairs}); teamEthos.answers = null; teamEthos.setFor = {}; saveEthos();
+  teamEthos = normaliseEthos({pairs: teamEthos.pairs}); teamEthos.answers = null; teamEthos.setFor = {}; saveEthos();
 }
 // Another team's answers, to offer "same as your other team?".
 function otherTeamAnswers() {
@@ -8911,7 +8070,6 @@ function renderReviewStep(body, dots, nav) {
       <div class="config-note" style="margin:2px 0 6px;">One tap each. Only you see these; change them any time from the player.</div>
       ${squad.map((p, i) => `<div class="wiz-row"><span class="nm">${esc(p.id)}</span><span class="lvl-chips" data-lvl-i="${i}">${Object.entries(LEVEL_TAPS).map(([b, v]) => `<span class="preset-chip ${typeof p.level === 'number' && levelBand(p.level) === b ? 'active' : ''}" data-v="${v}">${b}</span>`).join('')}</span></div>`).join('')}</div>` : ''}
     ${a && a.pairs === 'yes' ? `<div class="config-note" style="margin-top:8px;">You can set up players to keep together or apart in Squad › Team approach › Advanced once you finish.</div>` : ''}
-    <div class="check-row" style="margin-top:12px;"><input type="checkbox" id="rvEngine" ${e.engine === 'window' ? 'checked' : ''}><label for="rvEngine">Plan with the new planner <span class="private-tag">beta</span> (it uses everything above, and explains every change)</label></div>
     ${a ? '' : `<button class="btn btn-ghost" id="rvQuestions" style="margin-top:4px;">Answer the questions instead</button>`}
     ${nav(true, 'Looks good')}</div>`;
   body.querySelectorAll('[data-qpage]').forEach(l => l.addEventListener('click', () => { activeTeam().wizQPage = +l.dataset.qpage; saveProfile(); wizGo(WIZ_STEPS.indexOf('questions')); }));
@@ -8922,7 +8080,6 @@ function renderReviewStep(body, dots, nav) {
     squad[+row.dataset.lvlI] = normalisePlayer({...p, level: typeof p.level === 'number' && p.level === v ? undefined : v});
     saveSquad(); renderSquadList(); renderWizard();
   }));
-  body.querySelector('#rvEngine').addEventListener('change', ev => { teamEthos.engine = ev.target.checked ? 'window' : 'classic'; saveEthos(); });
   const rq = body.querySelector('#rvQuestions'); if (rq) rq.addEventListener('click', () => { teamEthos.answers = {}; saveEthos(); activeTeam().wizQPage = 0; wizGo(WIZ_STEPS.indexOf('questions')); });
   body.querySelector('#wizBack').addEventListener('click', () => wizGo(WIZ_STEPS.indexOf('questions')));
   body.querySelector('#wizNext').addEventListener('click', () => { renderApproachSection(); refreshPlannerVisibility(); wizGo(WIZ_STEPS.indexOf('review') + 1); });
@@ -8982,38 +8139,13 @@ function openFormatModal(onSave, init) {
   });
 }
 
-/* ---------- The tour: the new planner's screens, and what was set for you ---------- */
+/* ---------- The tour: what was set for you ---------- */
 function setForTourLines(keys) {
   const sf = teamEthos.setFor || {};
   const lines = setupLines().filter(l => keys.includes(l.key) && sf[l.key]).map(l => `${l.label}: ${l.value} (${l.why})`);
   return lines;
 }
 const ETHOS_TOUR_KEYS = ['preset', 'sliders.season', 'rules.leagueMinPct', 'rules.strengthMode', 'rules.unitFloor', 'sliders.positions', 'sliders.changes', 'timing', 'rules.oneChangePerUnit', 'keepers', 'live.replan', 'priority'];
-function newPlannerTourSteps(base) {
-  const out = [];
-  for (const st of base) {
-    if (st.sel === '#secRotations') {
-      out.push({screen: 'squad', sel: '#secApproach', title: 'Team approach', text: 'How the planner runs your team: your approach, fine-tuning, and Advanced settings. Every setting says where it came from, and anything set from your answers is marked "Set for you" with the reason.',
-        setFor: () => setForTourLines(ETHOS_TOUR_KEYS)});
-      continue;
-    }
-    if (st.sel === '#secDefaults') { out.push({...st, text: 'The formats you play: players per side, length, periods and formation. New fixtures start from your main one, and you can switch to another format in one tap.', setFor: () => (teamEthos.setFor && teamEthos.setFor.formats ? [teamEthos.setFor.formats] : [])}); continue; }
-    if (st.sel === '#squadList') { out.push({...st, text: st.text + ' Each player can also have a private level that only you see.'}); continue; }
-    if (st.sel === '#secAvail') { out.push({...st, text: "Untick anyone who can't play. Tap a name for anything different today: arriving late, leaving early, a minutes limit, must start, or keeper today.", setFor: () => setForTourLines(['gkPlan'])}); continue; }
-    if (st.sel === '#rotPresetSection') {
-      out.push({screen: 'setup', sel: '#secToday', title: '5. Today', text: 'One tap to lean this match: Development, Normal, Strong or Must-win. A cup pre-selects Strong and a friendly Development. Your team rules still apply.', needsClosedMatch: true});
-      continue;
-    }
-    if (st.mock === 'config') {
-      out.push({title: 'The scorecard and "Why?"', text: 'Above the pitch, a scorecard strip shows the minutes range, the number of subs and any problems. Tap it for the full breakdown, and tap "Why?" on any change to see the reason in your own terms.',
-        bullets: ['"If Noah came off instead: Leo sits out 22\', over the 19\' maximum"', 'Details › Settings: Today and help during the match', '"Show me another" for a different plan before kick-off']});
-      continue;
-    }
-    if (st.mock === 'live') { out.push({...st, setFor: () => setForTourLines(['live.replan'])}); continue; }
-    out.push(st);
-  }
-  return out;
-}
 
 /* ================= INIT ================= */
 renderSquadList();

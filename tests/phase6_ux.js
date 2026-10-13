@@ -11,10 +11,10 @@ const { launch, openPage, newMatch, ok, summary } = require('./_harness');
 
   console.log('Team approach');
   await page.click('[data-tab="squad"]');
-  ok(await page.isVisible('#secApproach') && await page.isVisible('#secRotations'), 'the Squad tab has a Team approach section; rotation presets show while the current planner is used');
-  await page.click('#apEngine'); await page.waitForTimeout(300);
-  let s = await page.evaluate(() => ({engine: JSON.parse(localStorage.getItem(ETHOS_KEY)).engine, rot: getComputedStyle(document.getElementById('secRotations')).display, preview: document.getElementById('apPreview').textContent}));
-  ok(s.engine === 'window' && s.rot === 'none', 'switching the new planner on is saved for the team, and the old rotation presets are hidden', s);
+  let s = await page.evaluate(() => ({approach: !!document.getElementById('apCards'), rot: !!document.getElementById('secRotations'), toggle: !!document.getElementById('apEngine'), preview: document.getElementById('apPreview').textContent}));
+  await page.waitForTimeout(300);
+  s.preview = await page.evaluate(() => document.getElementById('apPreview').textContent);
+  ok(s.approach && !s.rot && !s.toggle, 'the Squad tab has the Team approach, with no planner switch and no old rotation presets', s);
   ok(/Minutes \d+'–\d+'/.test(s.preview) && /subs/.test(s.preview), `a live preview from the squad: "${s.preview}"`);
   await page.click('.ethos-card[data-preset="competitive"]'); await page.waitForTimeout(300);
   s = await page.evaluate(() => ({preset: teamEthos.preset, prio: compileSpec({ethos: teamEthos, duration: 50, periodBounds: [0, 25, 50], players: PLAYERS}).priority, sel: document.querySelector('.ethos-card.selected').dataset.preset}));
@@ -39,7 +39,7 @@ const { launch, openPage, newMatch, ok, summary } = require('./_harness');
   await page.click('#apPairAdd'); await page.waitForTimeout(100);
   ok(await page.evaluate(() => teamEthos.pairs.some(p => p.a === 'Jack' && p.b === 'Leo' && p.kind === 'apart')), 'a keep-apart pair can be added');
   // Back to a clean Balanced approach for the rest.
-  await page.evaluate(() => { teamEthos = normaliseEthos({engine: 'window'}); saveEthos(); renderApproachSection(); });
+  await page.evaluate(() => { teamEthos = normaliseEthos({}); saveEthos(); renderApproachSection(); });
 
   console.log('Player form: level and goal ability');
   await page.click('#squadList .player-card >> nth=2'); await page.waitForTimeout(150);
@@ -63,8 +63,8 @@ const { launch, openPage, newMatch, ok, summary } = require('./_harness');
   await page.click('[data-tab="matches"]'); await page.click('#newFixtureBtn');
   if (await page.locator('#modalConfirm').count()) await page.click('#modalConfirm');
   await page.waitForTimeout(150);
-  s = await page.evaluate(() => ({today: getComputedStyle(document.getElementById('secToday')).display, rot: getComputedStyle(document.getElementById('rotationCard')).display, line: getComputedStyle(document.getElementById('secApproachLine')).display}));
-  ok(s.today !== 'none' && s.rot === 'none' && s.line !== 'none', 'the new-fixture screen shows Today and the team approach instead of rotation settings', s);
+  s = await page.evaluate(() => ({today: getComputedStyle(document.getElementById('secToday')).display, rot: !!document.getElementById('rotationCard'), line: getComputedStyle(document.getElementById('secApproachLine')).display}));
+  ok(s.today !== 'none' && !s.rot && s.line !== 'none', 'the new-fixture screen shows Today and the team approach (no rotation settings)', s);
   await page.fill('#fx-comp', 'County Cup');
   ok(await page.evaluate(() => draftFixture.today === 'strong' && document.querySelector('#todayChips .selected').dataset.today === 'strong'), 'a cup competition pre-selects Today: Strong');
   await page.click('#todayChips [data-today="normal"]');
@@ -139,12 +139,12 @@ const { launch, openPage, newMatch, ok, summary } = require('./_harness');
   s = await page.evaluate(() => matchFixture.todayEras);
   ok(s && s.some(e => e.today === 'development' && e.from === from), `changing Today mid-match applies from ${from}' on`, s);
 
-  console.log('With the new planner off, nothing changes');
+  console.log('Every team plans with the planner');
   const p2 = await openPage(browser, errors);
   page = p2;
   await newMatch(page);
-  s = await page.evaluate(() => ({engine: PLAN.engine || 'classic', strip: getComputedStyle(document.getElementById('scoreStrip')).display, why: document.querySelectorAll('#timeline .why-link').length}));
-  ok(s.engine === 'classic' && s.strip === 'none' && s.why === 0, 'a team that hasn\'t switched keeps the current planner and screens', s);
+  s = await page.evaluate(() => ({engine: PLAN.engine, strip: getComputedStyle(document.getElementById('scoreStrip')).display, why: document.querySelectorAll('#timeline .why-link').length}));
+  ok(s.engine === 'window' && s.strip !== 'none' && s.why > 0, 'a team that has never touched the Team approach still gets the planner, the scorecard and Why?', s);
 
   summary('phase6_ux', errors);
   await browser.close();

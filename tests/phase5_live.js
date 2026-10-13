@@ -192,7 +192,7 @@ const scorecardNow = () => page.evaluate(() => { const c = evaluatePlan(planFrom
 
   // ---------- Not assumed made until confirmed ----------
   console.log('A due sub is not shown as made until confirmed');
-  for (const engine of ['window', 'classic']) {
+  for (const engine of ['window']) {
     if (page) await page.context().close();
     page = await openPage(browser, errors);
     await newMatch(page);
@@ -238,6 +238,37 @@ const scorecardNow = () => page.evaluate(() => { const c = evaluatePlan(planFrom
   await at(50);
   r = await page.evaluate(() => { dueRotations(50).forEach(x => confirmDueSub(x, 49)); finishMatch(50); const rec = loadMatchLibrary().find(x => x.status === 'finished'); return {stats: !!rec.stats, sum: Object.values(rec.stats.players).reduce((a, p) => a + p.mins, 0), saved: !!rec.snapshot.savedPlan}; });
   ok(r.stats && r.sum === 350 && r.saved, 'the finished match has full stats (350 player-minutes) and keeps its plan', r);
+
+  // ---------- Matches saved before the switch to the new planner ----------
+  console.log('Matches saved before the switch');
+  const oldMatch = async status => {
+    if (page) await page.context().close();
+    page = await openPage(browser, errors);
+    await newMatch(page);
+    // Planned by the earlier engine, as every match was before the switch.
+    await page.evaluate(() => { cfg = {...cfg, engine: undefined}; computeTargets(); regeneratePlan(); render(0); saveLiveMatchState(); });
+    await page.click('#startMatchBtn'); await page.waitForTimeout(150);
+    await page.evaluate(() => { clearInterval(liveTicker); document.querySelectorAll('.modal-overlay').forEach(e => e.remove()); });
+    await at(14);
+    await page.evaluate(() => { dueRotations(14).forEach(x => confirmDueSub(x, 14)); saveLiveMatchState(); });
+    if (status === 'finished') {
+      await at(50);
+      await page.evaluate(() => { dueRotations(50).forEach(x => confirmDueSub(x, 49)); finishMatch(50); });
+    }
+    return page.evaluate(() => ({id: currentMatchId, engine: PLAN.engine || 'earlier', plan: (() => { const out = []; for (let t = 0; t < DURATION; t++) { const o = computeStateAt(t).onPitch; out.push(JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]))); } return out; })()}));
+  };
+  let om = await oldMatch('finished');
+  ok(om.engine === 'earlier', 'setup: a finished match planned by the earlier engine');
+  await page.reload(); await page.waitForTimeout(400);
+  s = await page.evaluate(id => { openMatchFromLibrary(id); document.querySelectorAll('.modal-overlay').forEach(e => e.remove()); const out = []; for (let t = 0; t < DURATION; t++) { const o = computeStateAt(t).onPitch; out.push(JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]))); } return {plan: out, finished: matchFinished, engine: PLAN.engine || 'earlier'}; }, om.id);
+  ok(s.finished && JSON.stringify(s.plan) === JSON.stringify(om.plan), 'it reopens exactly as it was played, minute by minute', firstDiff(om.plan, s.plan));
+  om = await oldMatch('live');
+  await page.reload(); await page.waitForTimeout(500);
+  await page.evaluate(() => { clearInterval(liveTicker); document.querySelectorAll('.modal-overlay').forEach(e => e.remove()); });
+  s = await page.evaluate(() => ({live: liveMode, engine: PLAN.engine, plan: (() => { const out = []; for (let t = 0; t < DURATION; t++) { const o = computeStateAt(t).onPitch; out.push(JSON.stringify(Object.keys(o).sort().map(k => [k, o[k]]))); } return out; })(), t0: evaluatePlan(planFromEngine(), PLAYERS, currentMatchSpec(undefined, 14)).tiers.t0.count}));
+  ok(s.live && s.engine === 'window', 'a match in progress moves to the new planner when it is reopened', s.engine);
+  ok(JSON.stringify(s.plan.slice(0, 14)) === JSON.stringify(om.plan.slice(0, 14)), 'everything already played is kept exactly', firstDiff(om.plan.slice(0, 14), s.plan.slice(0, 14)));
+  ok(s.t0 === 0, 'and the rest of the match breaks no rules');
 
   summary('phase5_live', errors);
   await browser.close();

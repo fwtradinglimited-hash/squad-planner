@@ -1,4 +1,5 @@
-// Phase 1: the three live-match bugs from the design review (V9, V10, V11).
+// Phase 1: the three live-match bugs from the design review (V9, V10, V11),
+// on the planner (the only planner since the switch-over).
 //
 // Rules being tested (agreed in the design review):
 //  - A sub only counts once the coach confirms it.
@@ -25,7 +26,7 @@ async function freshLiveMatch(_, tweak) {
   await page.evaluate(() => { clearInterval(liveTicker); document.querySelectorAll('.modal-overlay').forEach(e => e.remove()); });
 }
 const firstSub = () => page.evaluate(() => {
-  const r = PLAN.rotations.find(r => !r.type && r.reason === 'playing-time fairness');
+  const r = PLAN.rotations.filter(r => !r.type && r.reason === 'planned rotation').sort((a, b) => a.time - b.time)[0];
   return r && {...r};
 });
 
@@ -36,7 +37,7 @@ const firstSub = () => page.evaluate(() => {
   console.log('V9 delayed sub is recorded at the minute it is confirmed');
   await freshLiveMatch(page);
   let r = await firstSub(page);
-  ok(!!r, 'plan has a fairness sub to work with', r);
+  ok(!!r, 'plan has a planned sub to work with', r);
   const T = r.time;
   await atMinute(page, T);
   await page.evaluate(([r, T]) => delayDueSub(PLAN.rotations.find(x => x.time === r.time && x.slot === r.slot), T, 2), [r, T]);
@@ -102,13 +103,24 @@ const firstSub = () => page.evaluate(() => {
 
   // ---------- Keeper rotation delayed at half-time still happens ----------
   console.log('Delaying the half-time keeper change, then confirming it');
-  await freshLiveMatch(page);
-  r = await page.evaluate(() => { const x = PLAN.rotations.find(x => x.reason === 'scheduled GK rotation'); return x && {...x}; });
-  ok(!!r, 'plan has a keeper rotation', r);
-  await page.evaluate(([r]) => { const x = PLAN.rotations.find(y => y.time === r.time && y.slot === r.slot); delayDueSub(x, r.time, 1); }, [r]);
-  await page.evaluate(([r]) => { const x = PLAN.rotations.find(y => y.time === r.time && y.slot === r.slot); confirmDueSub(x, r.time + 2); }, [r]);
-  s = await page.evaluate(([r]) => ({gk: computeStateAt(r.time + 2).onPitch.GK, n: new Set(Object.values(computeStateAt(r.time + 2).onPitch)).size}), [r]);
-  ok(s.gk === r.on && s.n === 7, `${r.on} is in goal after the confirmed keeper change`, s);
+  // The second keeper starts on the bench, so the half-time keeper change is a sub to confirm.
+  await freshLiveMatch(page, () => {
+    const benchPid = PLAYERS.find(p => !Object.values(startingLineup).includes(p.id)).id;
+    const slot = Object.keys(startingLineup).find(sl => startingLineup[sl] === 'Archie');
+    startingLineup[slot] = benchPid; lineupByCoach = true; regeneratePlan();
+  });
+  // The planner either brings the second keeper on as a sub in goal (a change
+  // to confirm) or, with both keepers already on, swaps them at the break.
+  r = await page.evaluate(() => { const x = PLAN.rotations.find(x => !x.type && x.slot === 'GK'); return x && {...x}; });
+  if (r) {
+    await page.evaluate(([r]) => { const x = PLAN.rotations.find(y => y.time === r.time && y.slot === r.slot); delayDueSub(x, r.time, 1); }, [r]);
+    await page.evaluate(([r]) => { const x = PLAN.rotations.find(y => y.time === r.time && y.slot === r.slot); confirmDueSub(x, r.time + 2); }, [r]);
+    s = await page.evaluate(([r]) => ({gk: computeStateAt(r.time + 2).onPitch.GK, n: new Set(Object.values(computeStateAt(r.time + 2).onPitch)).size}), [r]);
+    ok(s.gk === r.on && s.n === 7, `${r.on} is in goal after the confirmed keeper change`, s);
+  } else {
+    s = await page.evaluate(() => { const b = PERIOD_BOUNDS[1]; const swap = PLAN.rotations.find(x => x.type === 'reshuffle' && x.time === b && x.assign.GK); const st = computeStateAt(b); return {swap: !!swap, gk: st.GK || st.onPitch.GK, n: new Set(Object.values(st.onPitch)).size, before: computeStateAt(b - 1).onPitch.GK, after: st.onPitch.GK}; });
+    ok(s.swap && s.after !== s.before && s.n === 7, `the keepers swap at the break (${s.before} → ${s.after}), team stays at 7`, s);
+  }
 
   // ---------- V11: keeper unavailable, keeper-capable outfielder on the pitch ----------
   console.log('V11 unavailable keeper, no keeper on the bench');
@@ -135,7 +147,7 @@ const firstSub = () => page.evaluate(() => {
     // Start the second keeper on the bench.
     const benchPid = PLAYERS.find(p => !Object.values(startingLineup).includes(p.id)).id;
     const slot = Object.keys(startingLineup).find(sl => startingLineup[sl] === 'Archie');
-    startingLineup[slot] = benchPid; regeneratePlan();
+    startingLineup[slot] = benchPid; lineupByCoach = true; regeneratePlan();
   });
   k = await page.evaluate(() => ({gk: computeStateAt(3).onPitch.GK, benchKeepers: PLAYERS.filter(p => p.gk && !Object.values(computeStateAt(3).onPitch).includes(p.id)).map(p => p.id), outfield: {...computeStateAt(3).onPitch}}));
   ok(k.benchKeepers.length === 1, 'setup: a keeper starts on the bench', k);
