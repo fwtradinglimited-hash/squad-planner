@@ -152,6 +152,11 @@
   .set-from { font-size: 10.5px; color: var(--ink-soft); font-weight: 400; }
   .set-for { font-size: 10.5px; color: var(--turf-1); font-weight: 600; }
   .ex-badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 5px; margin-left: 4px; background: var(--bench-card); border: 1px solid var(--card-line); color: var(--ink-soft); }
+  .pc-entry { font-size: 13px; padding: 6px 0; border-top: 1px solid var(--card-line); }
+  .pc-entry.undone { opacity: .6; }
+  .pc-entry .pc-head { font-weight: 600; }
+  .pc-entry ul { margin: 4px 0 6px; padding-left: 18px; }
+  .edited-badge.planner { background: var(--bench-card); color: var(--ink); border: 1px solid var(--card-line); }
   .q-block { margin-bottom: 14px; }
   .q-text { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
   .q-opts { display: flex; flex-direction: column; gap: 6px; }
@@ -628,6 +633,7 @@
       <!-- Compact "upcoming rotation" pill - tap to open the Substitutions popup -->
       <div class="next-sub" id="nextSub"></div>
       <div class="next-sub" id="subsPill" style="cursor:pointer; display:none;"></div>
+      <div class="next-sub" id="planChangePill" style="cursor:pointer; display:none;"></div>
       <!-- Position-vs-fairness trade-off notes - tap to review/override -->
 
       <div class="pitch-wrap">
@@ -671,6 +677,7 @@
 
       <div id="detailsViewSubs" style="margin-top:14px;">
         <section><h2>Rotation timeline — tap a name to override</h2>
+          <div class="form-card" id="planChangesBox" style="display:none;"></div>
           <button class="btn btn-ghost" id="addSubBtn" style="margin-bottom:10px;">+ Add a substitution</button>
           <div class="timeline" id="timeline"></div></section>
       </div>
@@ -683,8 +690,8 @@
             <div class="plan-subtab" data-fview="graph">Graph</div>
           </div>
           <div id="fairnessTableWrap">
-            <table class="summary-table" id="fairnessTable"></table>
-            <p class="config-note">So far = minutes actually played up to now (GK time shown in brackets where it doesn't count toward fairness). Diff = how that compares to their fair share AT THIS POINT in the match - positive means ahead, negative means behind. Forecast total = projected minutes by full time if the rest of the plan plays out as scheduled.</p>
+            <div style="overflow-x:auto;"><table class="summary-table" id="fairnessTable"></table></div>
+            <p class="config-note">So far = minutes played up to now (time in goal in brackets). Forecast total = minutes by full time if the rest of the plan plays out. Periods started and finished, and times subbed on and off, are for the whole match as planned; a change at a period break counts as a sub.</p>
           </div>
           <div id="fairnessGraphWrap" style="display:none;">
             <div class="fair-legend">
@@ -1310,7 +1317,8 @@ function availableGkEligible() {
 
 function renderGkSection() {
   const gkSectionEl = document.getElementById('gkSection');
-  if (!HAS_GK) { gkSectionEl.style.display = 'none'; validateSetup(); return; }
+  // "Pick it myself": the coach puts keepers in goal on the blank pitch.
+  if (!HAS_GK || cfg.autoSubs === false) { gkSectionEl.style.display = 'none'; validateSetup(); return; }
   gkSectionEl.style.display = 'block';
 
   const eligible = availableGkEligible();
@@ -1420,6 +1428,7 @@ function updatePlanModeUI() {
     ? 'The planner builds the best starting team and a substitution schedule from your team approach, which you can still change.'
     : "You get a blank pitch: tap each position to choose who starts, then add every substitution yourself in the plan (or on the fly during the match). The planner suggests nothing and fills nothing in (you can switch it on later in Details > Settings).";
   document.getElementById('generateBtn').textContent = auto ? 'Generate match plan' : 'Open blank pitch';
+  if (typeof renderGkSection === 'function' && document.getElementById('screen-setup').classList.contains('active')) { try { renderGkSection(); } catch (e) { /* setup not ready */ } }
   if (typeof renderTodayAndExceptions === 'function' && document.getElementById('secToday')) { try { renderTodayAndExceptions(); } catch (e) { /* not ready yet */ } }
 }
 planModeRow.addEventListener('click', e => {
@@ -1658,6 +1667,7 @@ function chooseAutoKeeper(state, t) {
 // Handles a scheduled goalkeeper change at any period boundary, not just half-time.
 function applyPeriodGKChange(state, t) {
   if (!HAS_GK) return;
+  if (cfg.autoSubs === false) return; // "Pick it myself": only the coach changes the keeper
   const seg = state.gkSegments.find(s => s.from === t);
   if (!seg) return;
   if (seg.player === null || seg.player === undefined) {
@@ -2066,7 +2076,11 @@ function regeneratePlan() {
         const frozen = Math.max(0, ...lockedEvents.filter(e => e.type === 'freeze').map(e => e.until));
         if (frozen <= now) pinPastPlan(now + 1, null);
       }
+      const prevPlan = PLAN && PLAN.engine === 'window' && !PLAN.incomplete && PLAN.windows ? PLAN : null;
       PLAN = planWithNewEngine(now);
+      PLAN.coachEvents = coachEventsNow().length;
+      PLAN.todayKey = todayKeyNow();
+      if (prevPlan && currentMatchId && !suppressChangeLog) { try { logPlannerChanges(prevPlan, PLAN, now); } catch (e) { diag.add('warn', 'change log: ' + e.message); } }
       if (typeof schedulePersist === 'function') schedulePersist();
       logPlanSummary();
       return;
@@ -2074,6 +2088,10 @@ function regeneratePlan() {
   }
   const state = simulate(startingLineup, lockedEvents);
   PLAN = {rotations: state.rotations, projectedMinutes: state.minutesPlayed, decisions: state.decisions, gkSegments: state.gkSegments};
+  if (cfg.autoSubs === false && HAS_GK) {
+    // "Pick it myself": the keeper each period is whoever the coach has in goal.
+    PLAN.gkSegments = PERIOD_BOUNDS.slice(0, -1).map((from, i) => ({from, to: PERIOD_BOUNDS[i + 1], player: (computeStateAt(from).onPitch.GK) || null}));
+  }
   if (typeof schedulePersist === 'function') schedulePersist();
   logPlanSummary();
 }
@@ -2210,6 +2228,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
   lastAutoPoppedKey = null;
   resolvedKeys = new Set(); snoozes = {};
   dismissedDecisionKeys = new Set();
+  planChanges = []; PLAN = null;
   score = {us: 0, them: 0}; goalEvents = []; matchAwards = []; matchNotes = [];
   setPlanSubTab('live');
   currentMatchId = newMatchId();
@@ -3272,7 +3291,15 @@ function makePlannerProblem(opts) {
   if (opts.startState || opts.fixedFirst) fixedStarts.add(from);
   return {spec, duration, periodBounds, players, byId, slots: baseSlots, eras, slotsAt, grid, avail, canKeep, periodOf, pins, fixedStarts,
     from, prefix: opts.prefix || [], startState: opts.startState || null, fixedFirst: opts.fixedFirst || null, reference: opts.reference || null,
-    keepers: opts.keepers || [], rng: mulberry32(hashSeed(opts.seed || 'plan')), ids: players.map(p => p.id)};
+    keepers: opts.keepers || [], rng: mulberry32(hashSeed(opts.seed || 'plan')), ids: players.map(p => p.id),
+    // The coach's own keeper choices: that player stays in goal from then
+    // until the end of the period (or the coach's next keeper change).
+    gkLocks: (opts.gkLocks || []).filter(l => l.to > from && byId[l.pid])};
+}
+const gkLockAt = (P, t) => P.gkLocks.find(l => t >= l.from && t < l.to) || null;
+function respectsGkLocks(P, ws) {
+  for (const w of ws) { const l = gkLockAt(P, w.from), g = gkOf(P, w); if (l && g && w.onPitch[g.id] !== l.pid) return false; }
+  return true;
 }
 const outsOf = (P, w) => (w.slots || P.slotsAt(w.from)).filter(s => s.group !== 'GK');
 const gkOf = (P, w) => (w.slots || P.slotsAt(w.from)).find(s => s.group === 'GK') || null;
@@ -3388,7 +3415,8 @@ function initialRota(P, jitter) {
     const forced = forcedOnPitch(P, w, prev);
     if (forced) w.onPitch = forced;
     else {
-      const k = gk ? (P.from > 0 && P.periodOf(w.from) === P.periodOf(P.from) && prev && prev.onPitch[(gkOf(P, prev) || {}).id]) || keepers[P.periodOf(w.from)] : null;
+      const lock = gkLockAt(P, w.from);
+      const k = gk ? (lock && lock.pid) || (P.from > 0 && P.periodOf(w.from) === P.periodOf(P.from) && prev && prev.onPitch[(gkOf(P, prev) || {}).id]) || keepers[P.periodOf(w.from)] : null;
       if (gk && k) w.onPitch[gk.id] = k;
       const cands = P.ids.filter(id => id !== k && eligibleIn(P, id, w) && caps[id] > 0);
       const startPins = w.from === 0 ? (spec.startPins || {}) : {};
@@ -3433,7 +3461,8 @@ function repairReference(P) {
     // Goal first (whoever can keep is scarce), then the outfield: as shown
     // where that still works, else whoever was there, else the best fit.
     for (const slots of [w.slots.filter(s => s.group === 'GK'), w.slots.filter(s => s.group !== 'GK')]) {
-      for (const sl of slots) { const pid = ref && ref.onPitch[sl.id]; if (ok(pid, sl)) { on[sl.id] = pid; used.add(pid); } }
+      for (const sl of slots) { const l = sl.group === 'GK' ? gkLockAt(P, w.from) : null; if (l && ok(l.pid, sl)) { on[sl.id] = l.pid; used.add(l.pid); } }
+      for (const sl of slots) { if (on[sl.id]) continue; const pid = ref && ref.onPitch[sl.id]; if (ok(pid, sl)) { on[sl.id] = pid; used.add(pid); } }
       for (const sl of slots) {
         if (on[sl.id]) continue;
         const keep = prev && prev.onPitch[sl.id];
@@ -3550,6 +3579,7 @@ function randomMove(P, ws) {
     out[ei - 1].to = nt; out[ei].from = nt;
   }
   if (P.pins.length && !respectsPins(P, out)) return null;
+  if (P.gkLocks.length && !respectsGkLocks(P, out)) return null;
   return out;
 }
 
@@ -3585,6 +3615,21 @@ function planMatchWindows(opts) {
   if (repaired && mode === 'major') {
     const card = ev(repaired);
     if (!card.tiers.t0.count && !card.tiers.t1.count) return finish(repaired);
+  }
+  // 'minimal': the coach has reviewed this plan. Keep it as it is unless it
+  // now breaks a rule or guarantee, and then only fix that, starting from it.
+  if (repaired && mode === 'minimal') {
+    const refCard = ev(repaired);
+    if (!refCard.tiers.t0.count && !refCard.tiers.t1.count) return finish(repaired);
+    let cur = repaired, card = refCard, since = 0;
+    for (let i = 0; i < budget && since < stall; i++) {
+      const cand = randomMove(P, cur); if (!cand) continue;
+      const c = ev(cand);
+      const v = compareScorecards(c, card, P.spec);
+      if (v.cmp < 0) { cur = cand; card = c; since = 0; } else since++;
+    }
+    const v = compareScorecards(card, refCard, P.spec);
+    return finish(v.cmp < 0 && v.tier <= 1 ? cur : repaired);
   }
   const starts = [];
   if (repaired && mode !== 'full') starts.push(() => repaired);
@@ -3700,8 +3745,134 @@ function shownPlanWindows() {
 // Plans the open match with the new engine and puts the result in the app's
 // usual plan format. Before kick-off with no coach edits it plans the whole
 // match; otherwise it keeps everything up to `now` and plans the rest.
+// The coach's own keeper changes (a sub into goal, or a swap involving goal):
+// that player keeps goal until the period ends or the coach changes it again.
+function coachKeeperLocks() {
+  const gk = (SLOTS.find(s => s.group === 'GK') || {}).id; if (!gk) return [];
+  const evs = lockedEvents.filter(e => (e.type === 'sub' && e.slot === gk && (e.manual || /coach|unavailable|unplanned/.test(e.reason || ''))) || (e.type === 'swap' && (e.a === gk || e.b === gk)))
+    .sort((a, b) => a.time - b.time);
+  const locks = [];
+  for (const e of evs) {
+    let pid = e.on;
+    if (e.type === 'swap') { try { pid = computeStateAt(e.time).onPitch[gk]; } catch (err) { pid = null; } }
+    if (!pid) continue;
+    const end = PERIOD_BOUNDS.find(b => b > e.time) ?? DURATION;
+    const prevLock = locks[locks.length - 1]; if (prevLock && prevLock.to > e.time) prevLock.to = e.time;
+    locks.push({from: e.time, to: end, pid});
+  }
+  return locks;
+}
 // Set for one re-plan when the coach changes the approach mid-match.
 let replanFreshOnce = false;
+// Set for one re-plan when the coach undoes the planner's changes.
+let replanModeOnce = null, referenceOnce = null, suppressChangeLog = false;
+
+/* ---------- Changes the planner makes to a plan the coach has seen ----------
+ * Every re-plan is compared with the plan before it. Anything the planner
+ * changed that the coach didn't ask for (a sub moved, added or dropped, a
+ * different starting line-up) is recorded with what caused it, labelled in
+ * the timeline, and can be undone: the plan goes back to how it was, kept
+ * only where the coach's own action needs it to change. */
+let planChanges = [];
+function coachEventsNow() { return lockedEvents.filter(e => e.type !== 'pin' && e.type !== 'freeze'); }
+function todayKeyNow() { return JSON.stringify([(matchFixture && matchFixture.today) || 'normal', (matchFixture && matchFixture.todayEras) || []]); }
+function describeCause(events, todayChanged, now) {
+  const e = events.filter(x => x.type !== 'defer');
+  const last = e[e.length - 1];
+  if (!last) return todayChanged ? 'after Today was changed' : 'after a re-plan';
+  if (last.type === 'unavailable') return `after ${last.player} was marked unavailable at ${last.time}'`;
+  if (last.type === 'available') return `after ${last.player} was marked available again at ${last.time}'`;
+  if (last.type === 'skip') return last.deleted ? `after you removed ${last.on} on for ${last.off} at ${last.time}'` : `after you skipped ${last.on} on for ${last.off}`;
+  if (last.type === 'swap') return `after your position swap at ${last.time}'`;
+  if (last.type === 'formation') return `after the formation change at ${last.time}'`;
+  if (last.type === 'sub' && /confirmed after a delay/.test(last.reason || '')) return `after ${last.on} came on late, at ${last.time}'`;
+  if (last.type === 'sub' && /^confirmed$/.test(last.reason || '')) return `after you confirmed ${last.on} on at ${last.time}'`;
+  if (last.type === 'sub') return `after your change: ${last.on} on at ${last.time}'`;
+  return 'after your change';
+}
+function logPlannerChanges(prev, next, now) {
+  // Compared minute by minute: who comes on and who goes off.
+  const coach = coachEventsNow();
+  const at = (P, t) => P.rotations.filter(r => !r.type && r.time === t);
+  const coachTouched = t => coach.some(e => (e.type === 'sub' || e.type === 'skip') && e.time === t);
+  const times = [...new Set(prev.rotations.concat(next.rotations).filter(r => !r.type && r.time > now).map(r => r.time))].sort((x, y) => x - y);
+  const changes = [];
+  const names = list => listJoin(list.slice().sort());
+  for (const t of times) {
+    const A = at(prev, t), B = at(next, t);
+    const onA = A.map(r => r.on), onB = B.map(r => r.on), offA = A.map(r => r.off), offB = B.map(r => r.off);
+    const same = (x, y) => x.length === y.length && x.every(v => y.includes(v));
+    if (same(onA, onB) && same(offA, offB)) continue;
+    // A change the coach made themselves at this minute isn't the planner's.
+    if (coachTouched(t)) {
+      const extraOn = onB.filter(x => !onA.includes(x) && !coach.some(e => e.type === 'sub' && e.time === t && e.on === x));
+      const extraOff = offB.filter(x => !offA.includes(x));
+      if (!extraOn.length && offB.length <= offA.length && extraOff.length <= 1) continue;
+    }
+    const keys = B.map(r => `${r.time}|${r.off}|${r.on}`);
+    let text;
+    if (!A.length) text = `${t}': new change, ${names(onB)} on for ${names(offB)}`;
+    else if (!B.length) text = `${t}': change dropped (was ${names(onA)} on for ${names(offA)})`;
+    else if (same(onA, onB)) text = `${t}': ${names(offB.filter(x => !offA.includes(x)))} now come${offB.filter(x => !offA.includes(x)).length > 1 ? '' : 's'} off instead of ${names(offA.filter(x => !offB.includes(x)))}`;
+    else if (same(offA, offB)) text = `${t}': ${names(onB.filter(x => !onA.includes(x)))} now come${onB.filter(x => !onA.includes(x)).length > 1 ? '' : 's'} on instead of ${names(onA.filter(x => !onB.includes(x)))}`;
+    else text = `${t}': now ${names(onB)} on for ${names(offB)} (was ${names(onA)} on for ${names(offA)})`;
+    changes.push({kind: 'minute', time: t, keys, text});
+  }
+  if (now === 0 && prev.windows[0] && next.windows[0]) {
+    const s0 = new Set(Object.values(prev.windows[0].onPitch)), s1 = new Set(Object.values(next.windows[0].onPitch));
+    const inn = [...s1].filter(x => !s0.has(x)), out = [...s0].filter(x => !s1.has(x));
+    if (inn.length) changes.unshift({kind: 'lineup', text: `Starting line-up: ${listJoin(inn)} in, ${listJoin(out)} out`});
+  }
+  if (!changes.length) return;
+  const newEvents = coach.slice(prev.coachEvents || 0);
+  const entry = {id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), minute: now, at: Date.now(),
+    cause: describeCause(newEvents, prev.todayKey !== todayKeyNow(), now), changes, ref: prev.windows, seen: false, undone: false};
+  planChanges.push(entry);
+  if (planChanges.length > 20) planChanges.splice(0, planChanges.length - 20);
+}
+function latestPlanChange() { const e = planChanges[planChanges.length - 1]; return e && !e.undone ? e : null; }
+// Undo: re-plan keeping the plan as it was before, except where the coach's
+// own action needs it to change.
+function undoPlannerChange(id) {
+  const e = planChanges.find(x => x.id === id); if (!e || e.undone) return;
+  replanModeOnce = 'off'; referenceOnce = e.ref; suppressChangeLog = true;
+  try { regeneratePlan(); } finally { replanModeOnce = null; referenceOnce = null; suppressChangeLog = false; }
+  e.undone = true; e.seen = true;
+  openPicker = null; render(currentT); saveLiveMatchState();
+}
+function planChangeHtml(e, withUndo) {
+  return `<div class="pc-entry ${e.undone ? 'undone' : ''}"><div class="pc-head">${e.minute ? `${e.minute}' · ` : ''}${esc(e.cause)}${e.undone ? ' · <b>undone</b>' : ''}</div>
+    <ul>${e.changes.map(c => `<li>${esc(c.text)}</li>`).join('')}</ul>
+    ${withUndo && !e.undone ? `<span class="decision-link" data-undo-change="${e.id}">Undo these changes</span>` : ''}</div>`;
+}
+function renderPlanChanges() {
+  const box = document.getElementById('planChangesBox'), pill = document.getElementById('planChangePill');
+  if (!box || !pill) return;
+  const latest = latestPlanChange();
+  const show = planChanges.length && cfg.engine === 'window' && !matchFinished;
+  box.style.display = show ? 'block' : 'none';
+  if (show) {
+    const list = planChanges.slice().reverse();
+    box.innerHTML = `<h2 style="margin:0 0 6px;">Changes the planner made</h2>
+      <div class="config-note" style="margin-bottom:6px;">After you've seen the plan, anything the planner changes is listed here. You can undo the latest.</div>
+      ${list.slice(0, 3).map(e => planChangeHtml(e, e === latest)).join('')}${list.length > 3 ? `<div class="config-note">+${list.length - 3} earlier</div>` : ''}`;
+    box.querySelectorAll('[data-undo-change]').forEach(b => b.addEventListener('click', () => undoPlannerChange(b.dataset.undoChange)));
+  }
+  const fresh = latest && !latest.seen && !matchFinished;
+  pill.style.display = fresh ? 'flex' : 'none';
+  if (fresh) pill.innerHTML = `<span class="tag">PLAN</span> <span>The planner changed ${latest.changes.length} thing${latest.changes.length === 1 ? '' : 's'} · tap to review</span>`;
+}
+function openPlanChangeReview() {
+  const e = latestPlanChange(); if (!e) return;
+  e.seen = true;
+  const overlay = openModal(`<div class="picker-title">The planner changed your plan</div>${planChangeHtml(e, false)}
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="pcUndo">Undo these changes</button><button class="btn btn-primary" id="pcOk">Keep them</button></div>`, {wide: true});
+  overlay.querySelector('#pcOk').addEventListener('click', () => { overlay.remove(); renderPlanChanges(); saveLiveMatchState(); });
+  overlay.querySelector('#pcUndo').addEventListener('click', () => { overlay.remove(); undoPlannerChange(e.id); });
+}
+document.addEventListener('click', ev => { if (ev.target.closest && ev.target.closest('#planChangePill')) openPlanChangeReview(); });
+// Subs the latest (kept) planner change added or moved, for a timeline label.
+function plannerChangedKeys() { const e = latestPlanChange(); return new Set(e ? e.changes.flatMap(c => c.keys || (c.key ? [c.key] : [])) : []); }
 function planWithNewEngine(now) {
   now = Math.min(now || 0, DURATION);
   // At (or past) full time there is nothing left to plan: the match is
@@ -3716,7 +3887,7 @@ function planWithNewEngine(now) {
     return {rotations: past.rotations.filter(r => r.time < DURATION), projectedMinutes: projected, decisions: [], gkSegments, scorecard, engine: 'window',
       windows: past.segments.map(s => ({from: s.from, to: s.to, slots: s.slots, onPitch: s.onPitch})), plannedAt: DURATION};
   }
-  const reference = shownPlanWindows();
+  const reference = referenceOnce || shownPlanWindows();
   const refAt = t => { const w = reference && reference.find(x => t >= x.from && t < x.to); return w && w.onPitch; };
   const spec = currentMatchSpec(undefined, now);
   if (reference) { spec.reference = {duration: DURATION, periodBounds: [...PERIOD_BOUNDS], segments: reference.map(w => ({from: w.from, to: w.to, slots: w.slots || SLOTS, onPitch: w.onPitch}))}; spec.now = now; }
@@ -3725,10 +3896,12 @@ function planWithNewEngine(now) {
   const {pins, eras} = futurePinsFromEvents(now, refAt);
   const res = planMatchWindows({players: PLAYERS, slots: SLOTS, duration: DURATION, periodBounds: [...PERIOD_BOUNDS], spec,
     keepers: GK_SEGMENTS.map(sg => ({...sg})), seed: (currentMatchId || 'draft') + ':' + PLAYERS.map(p => p.id).join(',') + ((matchFixture && matchFixture.planSalt) || ''),
-    fixedFirst: !editing && lineupByCoach && lineupComplete() ? {...startingLineup} : null,
+    // The starting line-up stays as the coach has seen it (or picked it):
+    // only the coach changes it, or "Show me another".
+    fixedFirst: now === 0 && lineupComplete() && (lineupByCoach || reference) ? {...startingLineup} : null,
     from: now, prefix: past ? past.segments : [], startState: past ? {onPitch: past.onPitch, slots: past.slots} : null,
-    eras, slotPins: pins, reference: editing ? reference : null,
-    mode: replanFreshOnce ? 'fresh' : liveMode ? (spec.replan || 'nextStable') : (editing ? 'nextStable' : 'full'),
+    eras, slotPins: pins, reference: editing ? reference : null, gkLocks: coachKeeperLocks(),
+    mode: replanModeOnce ? replanModeOnce : replanFreshOnce ? 'fresh' : liveMode ? (spec.replan || 'nextStable') : (editing ? 'minimal' : 'full'),
     budget: editing ? 1500 : 2500, restarts: editing ? 1 : 2});
   if (!editing) startingLineup = {...res.windows[0].onPitch};
   const futureRots = rotaToRotations(res.windows, PERIOD_BOUNDS);
@@ -4003,6 +4176,7 @@ function render(t) {
   const strongNow = ((matchFixture && matchFixture.todayEras) || []).some(e => e.today === 'mustwin' && e.from <= t);
   document.getElementById('goStrongestLink').style.display = (liveMode && !matchFinished && !halfTimeActive && !strongNow) ? 'block' : 'none';
   try { renderScoreStrip(); } catch (e) { /* the strip never blocks the pitch */ }
+  try { renderPlanChanges(); } catch (e) { /* the change log never blocks the pitch */ }
   const benchRow = document.getElementById('benchRow');
   benchRow.innerHTML = '';
   for (const p of PLAYERS) if (!onPitchSet.has(p.id)) {
@@ -4022,7 +4196,7 @@ function render(t) {
   } else if (upcoming) {
     const mins = upcoming.time - t;
     nextSubEl.classList.remove('done');
-    nextSubEl.innerHTML = `<span class="tag">${mins === 0 ? 'NOW' : 'in ' + mins + "'"}</span> <span><strong>${upcoming.on}</strong> ON &nbsp;·&nbsp; <strong>${upcoming.off}</strong> OFF <span style="color:var(--ink-soft)">(${upcoming.slot})</span></span>`;
+    nextSubEl.innerHTML = `<span class="tag">${mins === 0 ? 'NOW' : 'in ' + mins + "'"}</span> <span><strong>${upcoming.on}</strong> ON &nbsp;·&nbsp; <strong>${upcoming.off}</strong> OFF <span style="color:var(--ink-soft)">(${subPlaceLabel(upcoming)})</span></span>`;
   } else {
     nextSubEl.classList.add('done');
     nextSubEl.innerHTML = `<span class="tag">FT</span> <span>No further changes planned</span>`;
@@ -4042,6 +4216,7 @@ function render(t) {
   const fairEl = document.getElementById('fairness');
   fairEl.innerHTML = '';
   const tableRows = [];
+  const counts = playerMatchCounts(DURATION);
   for (const p of PLAYERS) {
     const total = PLAN.projectedMinutes[p.id];
     const gk = Math.min(gkMins[p.id] || 0, total);
@@ -4064,13 +4239,10 @@ function render(t) {
     // is the same projected end-of-match figure the bar already showed.
     const playedSoFar = now.minutesPlayed[p.id];
     const gkSoFar = now.gkMinutes[p.id] || 0;
-    const targetSoFar = Math.round(TARGETS[p.id] * (t / DURATION));
-    const soFarBasis = cfg.gkCountsForFairness ? playedSoFar : playedSoFar - gkSoFar;
-    const diff = soFarBasis - targetSoFar;
-    tableRows.push(`<tr><td>${p.id}</td><td>${playedSoFar}'${gkSoFar > 0 ? ` <span style="color:var(--ink-soft);">(${gkSoFar} GK)</span>` : ''}</td><td class="${diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : ''}">${diff > 0 ? '+' : ''}${diff}</td><td>${Math.round(total)}'${gk > 0 ? ` <span style="color:var(--ink-soft);">(${Math.round(gk)} GK)</span>` : ''}</td></tr>`);
+    tableRows.push(`<tr><td>${p.id}</td><td>${playedSoFar}'${gkSoFar > 0 ? ` <span style="color:var(--ink-soft);">(${gkSoFar} GK)</span>` : ''}</td><td>${Math.round(total)}'${gk > 0 ? ` <span style="color:var(--ink-soft);">(${Math.round(gk)} GK)</span>` : ''}</td>${countCells(counts[p.id])}</tr>`);
   }
   document.getElementById('fairnessTable').innerHTML =
-    `<tr><th>Player</th><th>So far</th><th>Diff</th><th>Forecast total</th></tr>${tableRows.join('')}`;
+    `<tr><th>Player</th><th>So far</th><th>Forecast<br>total</th>${COUNT_HEADERS}</tr>${tableRows.join('')}`;
 }
 
 // "Theo ATT → MID" style description of the position changes planned at a
@@ -4079,16 +4251,33 @@ function slotLabelAt(time, slotId) {
   const sl = computeStateAt(time).activeSlots.find(x => x.id === slotId);
   return sl ? sl.label : slotId;
 }
+// What actually changes position at a minute, read from who is where just
+// before and just after it: players who stay on and change position. Anyone
+// coming off isn't "moving"; anyone coming on is shown where they end up on
+// their own sub line (subPlaceLabel), so nothing here can contradict a sub.
 function reshuffleMovesAt(time) {
+  if (time <= 0) return [];
+  const before = computeStateAt(time - 1), after = computeStateAt(time);
+  const label = (st, sl) => (st.activeSlots.find(x => x.id === sl) || {}).label || sl;
+  const slotOf = (st, pid) => Object.keys(st.onPitch).find(k => st.onPitch[k] === pid);
+  const formation = PLAN.rotations.some(r => r.type === 'formation' && r.time === time);
   const out = [];
-  // Someone who has just come on has no "from" position worth showing - they
-  // simply end up in their best spot - while a player already out there moves.
-  const cameOn = new Set(PLAN.rotations.filter(r => !r.type && r.time === time).map(r => r.on));
-  PLAN.rotations.filter(r => r.type === 'reshuffle' && r.time === time).forEach(r =>
-    r.moves.forEach(m => out.push(cameOn.has(m.pid)
-      ? `${m.pid} plays ${slotLabelAt(time, m.to)}`
-      : `${m.pid} ${slotLabelAt(time, m.from)} → ${slotLabelAt(time, m.to)}`)));
+  for (const sl of after.activeSlots.map(x => x.id)) {
+    const pid = after.onPitch[sl]; if (!pid) continue;
+    const was = slotOf(before, pid); if (!was) continue;
+    const from = label(before, was), to = label(after, sl);
+    if (from !== to && !(formation && from === to)) out.push(`${pid} ${from} → ${to}`);
+  }
   return out;
+}
+// Where the player coming on actually plays after everything at that minute.
+function subPlaceLabel(r) {
+  try {
+    const st = computeStateAt(r.time);
+    const sl = Object.keys(st.onPitch).find(k => st.onPitch[k] === r.on);
+    const slot = st.activeSlots.find(x => x.id === (sl || r.slot));
+    return slot ? slot.label : r.slot;
+  } catch (e) { return r.slot; }
 }
 function movesHtml(time) {
   const m = reshuffleMovesAt(time);
@@ -4106,6 +4295,7 @@ function isDeletableSub(r) {
 
 function renderTimeline(t, upcoming) {
   const tl = document.getElementById('timeline');
+  let changedKeys = new Set(); try { changedKeys = plannerChangedKeys(); } catch (e) { /* none */ }
   tl.innerHTML = '';
   const grouped = {};
   for (const r of PLAN.rotations) (grouped[r.time] = grouped[r.time] || []).push(r);
@@ -4142,12 +4332,12 @@ function renderTimeline(t, upcoming) {
         return;
       }
       const isPast = time < t;
-      const badge = r.edited ? '<span class="edited-badge">edited</span>' : '';
+      const badge = r.edited ? '<span class="edited-badge">edited</span>' : (changedKeys.has(`${r.time}|${r.off}|${r.on}`) ? '<span class="edited-badge planner">changed by planner</span>' : '');
       const canDelete = isDeletableSub(r) && !matchFinished && (!liveMode || time > liveElapsedMinute());
       const structural = !r.type && !isDeletableSub(r) && !matchFinished && (!liveMode || time > liveElapsedMinute());
       const del = canDelete ? `<span class="tl-del" data-del-time="${time}" data-del-slot="${r.slot}" title="Remove this substitution">✕ Remove</span>`
         : structural ? `<span class="tl-del" style="opacity:.55; cursor:default;" title="${r.reason === 'unavailable replacement' ? 'Needed because a player is unavailable' : 'Keeper rotation - change it in the keeper settings'}">🔒 ${r.reason === 'unavailable replacement' ? 'Cover' : 'Keeper'}</span>` : '';
-      inner += `<div class="tl-swap">${del}<span class="on ${isPast ? 'locked-past' : ''}" data-time="${time}" data-slot="${r.slot}">↑ ${r.on}</span>${badge} · <span class="off">↓ ${r.off}</span> <span style="color:var(--ink-soft)">(${r.slot})</span>${whyLinkHtml(r)}</div>`;
+      inner += `<div class="tl-swap">${del}<span class="on ${isPast ? 'locked-past' : ''}" data-time="${time}" data-slot="${r.slot}">↑ ${r.on}</span>${badge} · <span class="off">↓ ${r.off}</span> <span style="color:var(--ink-soft)">(${r.on} plays ${subPlaceLabel(r)})</span>${whyLinkHtml(r)}</div>`;
     });
     div.innerHTML = inner;
     tl.appendChild(div);
@@ -4339,18 +4529,25 @@ function renderStartPicker() {
   holder.innerHTML = '';
   if (openPicker && openPicker.kind === 'start') holder.appendChild(buildPicker(openPicker.slotId, 0));
 }
+// How well a player fits a position, for pickers: comfort for outfield
+// positions, goalkeeping ability for goal.
+function slotFit(p, slot) {
+  if (slot.group === 'GK') { const g = p.goal ?? (p.gk ? 2 : 0); return {rank: g, text: GOAL_LEVELS[g] || 'Cannot', warn: g < 2}; }
+  const t = p.positions[slot.group] ?? 0; return {rank: t, text: TIER_NAMES[t], warn: t <= 1};
+}
+const byFit = slot => (a, b) => slotFit(b, slot).rank - slotFit(a, slot).rank || (a.id < b.id ? -1 : 1);
 function buildPicker(slotId, time) {
   const slot = computeStateAt(time).activeSlots.find(s => s.id === slotId);
   const currentOccupant = openPicker.kind === 'start' ? startingLineup[slotId] : PLAN.rotations.find(r => r.slot === slotId && r.time === time)?.on;
   const occupiedIds = new Set(Object.values(computeStateAt(time).onPitch));
-  const candidates = PLAYERS.filter(p => p.id !== currentOccupant && !occupiedIds.has(p.id));
+  const candidates = PLAYERS.filter(p => p.id !== currentOccupant && !occupiedIds.has(p.id)).sort(byFit(slot));
   const wrap = document.createElement('div'); wrap.className = 'picker';
   const title = document.createElement('div'); title.className = 'picker-title'; title.textContent = currentOccupant ? `Replace ${currentOccupant} at ${slot.label} with:` : `Who plays ${slot.label}?`;
   wrap.appendChild(title);
   candidates.forEach(p => {
-    const tier = p.positions[slot.group] ?? 0;
+    const fit = slotFit(p, slot);
     const row = document.createElement('div'); row.className = 'picker-opt';
-    row.innerHTML = `<span>${p.id}</span><span class="tier ${tier <= 1 ? 'warn' : ''}">${TIER_NAMES[tier]}</span>`;
+    row.innerHTML = `<span>${p.id}</span><span class="tier ${fit.warn ? 'warn' : ''}">${fit.text}</span>`;
     row.addEventListener('click', () => {
       if (openPicker.kind === 'start') { startingLineup = {...startingLineup, [slotId]: p.id}; lineupByCoach = true; }
       else {
@@ -4709,6 +4906,7 @@ function buildMatchSnapshot() {
     currentPeriodIdx, halfTimeActive, matchFinished, pendingHalfTimeBoundaryIdx,
     resolvedKeys: [...resolvedKeys], snoozes: {...snoozes},
     dismissedDecisionKeys: [...dismissedDecisionKeys],
+    planChanges: planChanges.slice(-20),
     // score
     score: {...score}, goalEvents: JSON.parse(JSON.stringify(goalEvents)),
     awards: JSON.parse(JSON.stringify(matchAwards)), notes: JSON.parse(JSON.stringify(matchNotes)),
@@ -4865,6 +5063,7 @@ function restoreLiveMatch(saved, recordId) {
   awayPeriods = JSON.parse(JSON.stringify(saved.awayPeriods || {}));
   matchFixture = {opponent: '', date: '', venue: '', competition: '', ...(saved.fixture || {})};
   currentMatchId = null; // regenerate without writing until fully restored
+  PLAN = null; planChanges = JSON.parse(JSON.stringify(saved.planChanges || []));
   if (saved.savedPlan && saved.savedPlan.engine === 'window' && cfg.engine === 'window') PLAN = {...saved.savedPlan, decisions: [], scorecard: null};
   else regeneratePlan();
   currentMatchId = recordId || currentMatchId;
@@ -5234,7 +5433,7 @@ function dueCardHtml(r, mins, i) {
   const moves = reshuffleMovesAt(r.time);
   return `
     <div class="action-panel" style="margin:0 0 10px;">
-      <div class="headline">${overdue > 0 ? `Due ${overdue}' ago` : 'Due now'}: <strong>${r.on}</strong> ON · <strong>${r.off}</strong> OFF <span style="color:var(--ink-soft); font-weight:400;">(${r.slot})</span>${whyLinkHtml(r)}</div>
+      <div class="headline">${overdue > 0 ? `Due ${overdue}' ago` : 'Due now'}: <strong>${r.on}</strong> ON · <strong>${r.off}</strong> OFF <span style="color:var(--ink-soft); font-weight:400;">(${r.on} plays ${subPlaceLabel(r)})</span>${whyLinkHtml(r)}</div>
       ${moves.length ? `<div class="tl-moves" style="margin:-4px 0 8px;">⇄ Positions: ${moves.join(' · ')}</div>` : ''}
       <div class="action-btn-row">
         <button class="action-btn done" data-due-i="${i}" data-act="done">DONE</button>
@@ -5329,7 +5528,7 @@ function openSubsPopup() {
       return dueCardHtml(r, mins, i);
     }).join('');
 
-    const futureRows = future.map(r => `<div class="picker-opt" style="cursor:default; flex-wrap:wrap;"><span>in ${r.time - mins}' · <strong>${r.on}</strong> ON / <strong>${r.off}</strong> OFF${whyLinkHtml(r)}</span><span style="color:var(--ink-soft);">${r.slot}</span>${movesHtml(r.time).replace('class="tl-moves"', 'class="tl-moves" style="width:100%;"')}</div>`).join('');
+    const futureRows = future.map(r => `<div class="picker-opt" style="cursor:default; flex-wrap:wrap;"><span>in ${r.time - mins}' · <strong>${r.on}</strong> ON / <strong>${r.off}</strong> OFF${whyLinkHtml(r)}</span><span style="color:var(--ink-soft);">${r.on} plays ${subPlaceLabel(r)}</span>${movesHtml(r.time).replace('class="tl-moves"', 'class="tl-moves" style="width:100%;"')}</div>`).join('');
     const emptyRow = (!due.length && !future.length) ? '<div class="picker-opt" style="cursor:default;"><span>No further changes planned</span></div>' : '';
 
     card.innerHTML = `
@@ -5360,13 +5559,13 @@ function openLiveChangePicker(slotId) {
   const slot = state.activeSlots.find(s => s.id === slotId);
   const currentPid = state.onPitch[slotId];
   const occupiedIds = new Set(Object.values(state.onPitch));
-  const candidates = PLAYERS.filter(p => p.id !== currentPid && !occupiedIds.has(p.id) && availableAt(p.id, mins));
+  const candidates = PLAYERS.filter(p => p.id !== currentPid && !occupiedIds.has(p.id) && availableAt(p.id, mins)).sort(byFit(slot));
   const overlay = openModal(`
     <div class="picker-title">Replace ${currentPid} (${slot.label}) with:</div>
-    ${candidates.map(p => {
-      const tier = p.positions[slot.group] ?? 0;
-      return `<div class="picker-opt" data-on="${p.id}"><span>${p.id}</span><span class="tier ${tier <= 1 ? 'warn' : ''}">${TIER_NAMES[tier]}</span></div>`;
-    }).join('')}
+    ${candidates.length ? candidates.map(p => {
+      const fit = slotFit(p, slot);
+      return `<div class="picker-opt" data-on="${p.id}"><span>${p.id}</span><span class="tier ${fit.warn ? 'warn' : ''}">${fit.text}</span></div>`;
+    }).join('') : '<div class="config-note">Nobody is free on the bench.</div>'}
     <div class="picker-cancel" id="lcCancel">Cancel</div>`);
   overlay.querySelectorAll('.picker-opt').forEach(el => {
     el.addEventListener('click', () => {
@@ -5415,7 +5614,7 @@ function openPlayerActionMenu(pid, slotId) {
   const mins = editMinute();
   const slot = slotId ? stateForEdit(mins).activeSlots.find(s => s.id === slotId) : null;
   const rows = [];
-  if (slotId && slot.group !== 'GK') rows.push({label: 'Substitute off', run: () => openLiveChangePicker(slotId)});
+  if (slotId) rows.push({label: 'Substitute off', run: () => openLiveChangePicker(slotId)});
   if (slotId) rows.push({label: 'Swap positions with another player on the pitch', run: () => openSwapPicker(slotId)});
   if (cfg.engine === 'window' && cfg.autoSubs !== false && PLAN && !PLAN.incomplete) rows.push({label: `Why? (how the plan uses ${pid})`, run: () => openWhyForPlayer(pid, mins)});
   if (availableAt(pid, mins)) rows.push({label: 'Mark unavailable', run: () => markPlayerUnavailable(pid)});
@@ -5505,10 +5704,13 @@ function markPlayerUnavailable(pid) {
     unavailableFrom[pid] = mins;
     // Any planned change still waiting that involves this player, their
     // position or whoever covers them didn't happen (see makeLiveEdit).
-    let askForKeeper = false;
+    let askForKeeper = false, askForCover = null;
+    const manual = effectiveCfgAt(cfg, mins).autoSubs === false;
     makeLiveEdit(mins, () => {
       lockedEvents.push({time: mins, type: 'unavailable', player: pid});
       if (!onPitchSet.has(pid)) return;
+      // "Pick it myself": the coach chooses who comes on.
+      if (manual) { askForCover = Object.entries(state.onPitch).find(([sid, p2]) => p2 === pid)[0]; return; }
       const slotId = Object.entries(state.onPitch).find(([sid, p2]) => p2 === pid)[0];
       const slot = state.activeSlots.find(s => s.id === slotId);
       if (slot.group === 'GK') {
@@ -5527,6 +5729,7 @@ function markPlayerUnavailable(pid) {
       const slotId = Object.entries(state.onPitch).find(([sid, p2]) => p2 === pid)[0];
       setTimeout(() => openKeeperCoverPicker(pid, mins, stateForEdit(mins), slotId), 0);
     }
+    if (askForCover) setTimeout(() => openLiveChangePicker(askForCover), 0);
   }, 'Mark unavailable');
 }
 
@@ -5616,28 +5819,50 @@ function renderHalfTimePanel(periodIdx) {
 // both show the same breakdown: how each player's actual minutes compare to
 // their (pro-rated, if mid-match) target, split out GK time, how far off
 // that leaves them, and their longest single spell on the bench so far.
+// Per player, from the plan (up to `upTo`, default full time): periods
+// started and finished on the pitch, and times subbed on and off (a change at
+// a period break counts as a sub; being in the kick-off line-up doesn't).
+const matchCountsCache = new WeakMap();
+function playerMatchCounts(upTo) {
+  upTo = Math.min(upTo ?? DURATION, DURATION);
+  let c = matchCountsCache.get(PLAN); if (!c) { c = {}; matchCountsCache.set(PLAN, c); }
+  if (c[upTo]) return c[upTo];
+  const ids = PLAYERS.map(p => p.id);
+  const out = Object.fromEntries(ids.map(id => [id, {started: 0, finished: 0, on: 0, off: 0}]));
+  const onAt = [];
+  for (let t = 0; t < upTo; t++) onAt.push(new Set(Object.values(computeStateAt(t).onPitch)));
+  for (let i = 0; i + 1 < PERIOD_BOUNDS.length; i++) {
+    const a = PERIOD_BOUNDS[i], b = PERIOD_BOUNDS[i + 1];
+    if (a >= upTo) break;
+    ids.forEach(id => { if (onAt[a].has(id)) out[id].started++; });
+    if (b <= upTo) ids.forEach(id => { if (onAt[b - 1].has(id)) out[id].finished++; });
+  }
+  for (let t = 1; t < upTo; t++) ids.forEach(id => {
+    const now = onAt[t].has(id), was = onAt[t - 1].has(id);
+    if (now && !was) out[id].on++;
+    if (!now && was) out[id].off++;
+  });
+  c[upTo] = out;
+  return out;
+}
+const COUNT_HEADERS = '<th>Periods<br>started</th><th>Periods<br>finished</th><th>Subbed<br>on</th><th>Subbed<br>off</th>';
+const countCells = k => `<td>${k.started}</td><td>${k.finished}</td><td>${k.on}</td><td>${k.off}</td>`;
 function buildSummaryTable(atMinute) {
   const proRated = atMinute < DURATION;
   const state = computeStateAt(atMinute);
   const longestBench = computeLongestBenchSpell(atMinute);
+  const counts = playerMatchCounts(atMinute);
   const rows = PLAYERS.map(p => {
-    const target = Math.round(TARGETS[p.id] * (atMinute / DURATION));
     const actual = state.minutesPlayed[p.id];
     const gkMins = state.gkMinutes[p.id] || 0;
-    // Diff is measured on whatever basis the target represents - outfield-only
-    // unless the coach opted GK time in, so a keeper's stint in goal doesn't
-    // show up as a false "overplayed" reading.
-    const diffBasis = cfg.gkCountsForFairness ? actual : actual - gkMins;
-    const diff = diffBasis - target;
-    return `<tr><td>${p.id}</td><td>${target}'</td><td>${actual}'${gkMins > 0 ? ` <span style="color:var(--ink-soft);">(${gkMins} GK)</span>` : ''}</td><td class="${diff > 0 ? 'diff-pos' : diff < 0 ? 'diff-neg' : ''}">${diff > 0 ? '+' : ''}${diff}</td><td>${longestBench[p.id]}'</td></tr>`;
+    return `<tr><td>${p.id}</td><td>${actual}'${gkMins > 0 ? ` <span style="color:var(--ink-soft);">(${gkMins} GK)</span>` : ''}</td>${countCells(counts[p.id])}<td>${longestBench[p.id]}'</td></tr>`;
   }).join('');
   return `
-    <table class="summary-table">
-      <tr><th>Player</th><th>Target${proRated ? '*' : ''}</th><th>Actual</th><th>Diff</th><th>Longest bench</th></tr>
+    <div style="overflow-x:auto;"><table class="summary-table">
+      <tr><th>Player</th><th>Minutes</th>${COUNT_HEADERS}<th>Longest<br>off</th></tr>
       ${rows}
-    </table>
-    ${proRated ? `<p class="config-note">*Target pro-rated to ${atMinute}' - what each player's fair share works out to at this point in the match, not the full-match target.</p>` : ''}
-    <p class="config-note">Actual = total minutes played so far (GK time shown separately in brackets where it doesn't count toward fairness). Diff = Actual minus Target - positive means ahead of their fair share, negative means behind. Longest bench = their longest single unbroken spell off the pitch so far.</p>`;
+    </table></div>
+    <p class="config-note">Minutes played${proRated ? ` up to ${atMinute}'` : ''} (time in goal in brackets). A change at a period break counts as a sub on or off; starting the match doesn't. Longest off = the longest single spell off the pitch.</p>`;
 }
 
 // Every unbroken spell each player spends off the pitch up to `atMinute`,
@@ -5918,29 +6143,32 @@ function renderLineupCanvas() {
   const fin = computeStateAt(DURATION);
   const longest = computeLongestBenchSpell(DURATION);
   const list = PLAYERS.slice().sort((a, b) => PLAN.projectedMinutes[b.id] - PLAN.projectedMinutes[a.id]);
-  const colName = PAD, colBar = PAD + 190, barW = 380, colTot = colBar + barW + 70, colTarget = colTot + 110, colBench = colTarget + 110;
+  const cnt = playerMatchCounts(DURATION);
+  const colName = PAD, colBar = PAD + 165, barW = 270, colTot = colBar + barW + 80;
+  const cols = [colTot + 95, colTot + 185, colTot + 265, colTot + 345, W - PAD];
   y += 36;
   txt('Player', colName, y, {size: 18, color: C.soft, weight: 700});
   txt('Minutes (outfield + GK)', colBar, y, {size: 18, color: C.soft, weight: 700});
   txt('Total', colTot, y, {size: 18, color: C.soft, weight: 700, align: 'right'});
-  txt('Target', colTarget, y, {size: 18, color: C.soft, weight: 700, align: 'right'});
-  txt('Longest off', colBench + 40, y, {size: 18, color: C.soft, weight: 700, align: 'right'});
+  [['Periods', 'started'], ['Periods', 'finished'], ['Subbed', 'on'], ['Subbed', 'off'], ['Longest', 'off']].forEach(([a1, a2], i) => {
+    txt(a1, cols[i], y - 20, {size: 16, color: C.soft, weight: 700, align: 'right'});
+    txt(a2, cols[i], y, {size: 16, color: C.soft, weight: 700, align: 'right'});
+  });
   y += 10;
   for (const p of list) {
     y += 44;
     const total = PLAN.projectedMinutes[p.id], gk = Math.min(fin.gkMinutes[p.id] || 0, total), out = total - gk;
+    const k = cnt[p.id];
     txt(p.id, colName, y, {size: 24, weight: 600});
     g.fillStyle = '#E8E4D4'; g.fillRect(colBar, y - 20, barW, 22);
     g.fillStyle = C.turf2; g.fillRect(colBar, y - 20, barW * out / DURATION, 22);
     g.fillStyle = C.amber; g.fillRect(colBar + barW * out / DURATION, y - 20, barW * gk / DURATION, 22);
-    const tgt = cfg.gkCountsForFairness ? TARGETS[p.id] : TARGETS[p.id];
-    g.fillStyle = C.ink; g.fillRect(colBar + barW * Math.min(1, tgt / DURATION) - 1, y - 26, 3, 34);
     txt(`${Math.round(total)}'`, colTot, y, {size: 24, weight: 700, align: 'right'});
-    txt(`${Math.round(tgt)}'`, colTarget, y, {size: 22, color: C.soft, align: 'right'});
-    txt(`${longest[p.id]}'`, colBench + 40, y, {size: 22, color: C.soft, align: 'right'});
+    [k.started, k.finished, k.on, k.off].forEach((v, i) => txt(String(v), cols[i], y, {size: 22, color: C.ink, align: 'right'}));
+    txt(`${longest[p.id]}'`, cols[4], y, {size: 22, color: C.soft, align: 'right'});
   }
   y += 34;
-  txt('Green = outfield minutes, amber = in goal, black tick = fair share (outfield). Target and "longest off" are outfield-based.', PAD, y, {size: 17, color: C.soft});
+  txt('Green = outfield minutes, amber = in goal. A change at a period break counts as a sub on or off.', PAD, y, {size: 17, color: C.soft});
   y += 40;
   y += 10; rule(y); y += 38;
 
@@ -5976,7 +6204,7 @@ function renderLineupCanvas() {
       x += txt(r.on, x, ry, {size: 27, weight: 700}) + 18;
       x += txt('\u2193 ', x, ry, {size: 26, weight: 800, color: C.coral});
       x += txt(r.off, x, ry, {size: 27, weight: 700}) + 18;
-      txt(`(${r.slot})`, x, ry, {size: 22, color: C.soft});
+      txt(`(${r.on} plays ${subPlaceLabel(r)})`, x, ry, {size: 22, color: C.soft});
       ry += lineH;
     }
     y = Math.max(ry, rowTop + 60) - 6;
@@ -7614,7 +7842,7 @@ function openScorecardSheet() {
   }).join('');
   const preMatch = !liveMode && !matchFinished;
   let benchWhy = '';
-  if (preMatch && cfg.autoSubs !== false) {
+  if (preMatch && cfg.autoSubs !== false && !lineupByCoach) {
     try {
       const st = computeStateAt(0);
       const bench = PLAYERS.map(p => p.id).filter(id => !Object.values(st.onPitch).includes(id));
@@ -7622,11 +7850,20 @@ function openScorecardSheet() {
       if (rows) benchWhy = `<h3>Who starts</h3>${rows}`;
     } catch (e) { diag.add('warn', 'bench why: ' + e.message); }
   }
+  let suggestHtml = '';
+  if (cfg.autoSubs === false && !matchFinished) {
+    let sug = [];
+    try { sug = manualSuggestions(); } catch (e) { diag.add('warn', 'suggestions: ' + e.message); }
+    window.__suggestions = sug;
+    suggestHtml = `<h3>Suggestions (you decide)</h3>${sug.length ? `<p class="alt">You're picking the team yourself, so the planner changes nothing. These are the subs it would add to fit your team approach.</p>` +
+      sug.slice(0, 8).map((r, i) => `<div class="ln"><span class="mk">+</span><span style="flex:1;">${r.time}': ${esc(r.on)} on for ${esc(r.off)}</span><span class="decision-link" data-add-sug="${i}">Add</span></div>`).join('') +
+      (sug.length > 1 ? `<span class="decision-link" id="sugAll">Add all ${Math.min(sug.length, 8)}</span>` : '') : '<p class="alt">No changes suggested: your plan already fits your team approach.</p>'}`;
+  }
   const canAnother = preMatch && cfg.engine === 'window' && cfg.autoSubs !== false && !lineupByCoach && !lockedEvents.some(e => e.type !== 'pin' && e.type !== 'freeze');
   const overlay = openModal(`<div class="why-sheet">
     <div class="picker-title">How this plan scores</div>
     <p class="alt">${esc(approachSummaryLine(spec))}</p>
-    ${blocks}${benchWhy}
+    ${blocks}${suggestHtml}${benchWhy}
     <p class="alt" style="margin-top:10px;">Tap any change in Details › Subs, or any player, for why it's planned that way.</p>
     <div class="modal-btn-row" style="flex-wrap:wrap;">
       ${canAnother ? `<button class="btn btn-ghost" id="scAnother">Show me another</button>` : ''}
@@ -7635,10 +7872,44 @@ function openScorecardSheet() {
       <button class="btn btn-primary" id="scClose">Close</button>
     </div></div>`, {wide: true});
   overlay.querySelector('#scClose').addEventListener('click', () => overlay.remove());
+  const applySug = list => { let n = 0; list.forEach(r => { if (addSuggestedSub(r)) n++; }); if (n) { regeneratePlan(); openPicker = null; render(currentT); saveLiveMatchState(); } overlay.remove(); if (n) openScorecardSheet(); };
+  overlay.querySelectorAll('[data-add-sug]').forEach(b => b.addEventListener('click', () => applySug([window.__suggestions[+b.dataset.addSug]])));
+  const sa = overlay.querySelector('#sugAll'); if (sa) sa.addEventListener('click', () => applySug(window.__suggestions.slice(0, 8)));
   overlay.querySelector('#scApproach').addEventListener('click', () => { overlay.remove(); openApproachScreen(); });
   const an = overlay.querySelector('#scAnother'); if (an) an.addEventListener('click', () => { overlay.remove(); showAnotherPlan(); });
   const fi = overlay.querySelector('#scFirst'); if (fi) fi.addEventListener('click', () => { overlay.remove(); matchFixture.planSalt = ''; replanForSalt(); });
 }
+// "Pick it myself": what the planner would change, as suggestions only. It
+// plans around everything the coach has set (their line-up, keepers and
+// changes) and lists the extra subs it would make; nothing is applied
+// unless the coach adds it.
+function manualSuggestions() {
+  if (!PLAN || PLAN.incomplete || !lineupComplete()) return [];
+  const now = liveMode && !matchFinished ? liveElapsedMinute() : 0;
+  if (now >= DURATION - 1) return [];
+  const spec = currentMatchSpec(undefined, now);
+  const seen = planFromEngine().segments;
+  const refAt = t => { const w = seen.find(x => t >= x.from && t < x.to); return w && w.onPitch; };
+  const past = now > 0 ? replayUntil(now) : null;
+  const {pins, eras} = futurePinsFromEvents(now, refAt);
+  const gkId = (SLOTS.find(sl => sl.group === 'GK') || {}).id;
+  const keepers = HAS_GK ? PERIOD_BOUNDS.slice(0, -1).map((from, i) => ({from, to: PERIOD_BOUNDS[i + 1], player: (refAt(from) || {})[gkId] || null})) : [];
+  const res = planMatchWindows({players: PLAYERS, slots: SLOTS, duration: DURATION, periodBounds: [...PERIOD_BOUNDS], spec, keepers,
+    seed: 'suggest:' + (currentMatchId || ''), fixedFirst: now === 0 ? {...startingLineup} : null, from: now,
+    prefix: past ? past.segments : [], startState: past ? {onPitch: past.onPitch, slots: past.slots} : null,
+    eras, slotPins: pins, mode: 'full', budget: 1200, restarts: 1});
+  const mine = PLAN.rotations.filter(x => !x.type);
+  return rotaToRotations(res.windows, PERIOD_BOUNDS).filter(r => !r.type && r.time > now && !mine.some(x => x.time === r.time && x.on === r.on && x.off === r.off));
+}
+function addSuggestedSub(r) {
+  const before = computeStateAt(Math.max(0, r.time - 1)).onPitch;
+  const slot = Object.keys(before).find(k => before[k] === r.off);
+  if (!slot || Object.values(computeStateAt(r.time).onPitch).includes(r.on)) { showAlert(`That change no longer fits your plan: ${r.off} isn't on at ${r.time}', or ${r.on} already is.`); return false; }
+  lockedEvents.push({time: r.time, type: 'sub', slot, on: r.on, reason: 'coach planned', manual: true});
+  resolvedKeys.add(rotationKey({time: r.time, slot}));
+  return true;
+}
+
 // "Show me another": the next plan the planner finds with a different
 // starting point that actually differs from this one.
 function replanForSalt() {
