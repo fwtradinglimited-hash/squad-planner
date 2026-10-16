@@ -757,7 +757,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.14';
+const APP_VERSION = 'beta 0.15';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -8492,7 +8492,7 @@ const ETHOS_TOUR_KEYS = ['preset', 'sliders.season', 'rules.leagueMinPct', 'rule
  * event is a fixed name from the list below, plus at most one short, fixed
  * detail (a format like "7-a-side-50min", never anything the coach typed).
  */
-var STATS_ENDPOINT = 'https://cocoach.goatcounter.com/count';
+var STATS_ENDPOINT = 'https://co-coach.goatcounter.com/count';
 var statsQueue = [], statsLoading = false;
 function statEvents() {
   return {

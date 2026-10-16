@@ -93,7 +93,7 @@ const sent = page => page.evaluate(() => window.__sent.map(v => v.path));
     ok(await p3.locator('script[src*="gc.zgo.at"]').count() === 0, 'GoatCounter isn\'t even loaded while counts are off');
     await p3.evaluate(() => setStats(true)); await p3.waitForTimeout(100);
     s = await p3.evaluate(() => { const sc = document.querySelector('script[src*="gc.zgo.at"]'); return sc ? sc.dataset.goatcounter : null; });
-    ok(s === 'https://cocoach.goatcounter.com/count', 'once on, it loads and sends to the Co-Coach account', s);
+    ok(s === 'https://co-coach.goatcounter.com/count', 'once on, it loads and sends to the Co-Coach account', s);
     for (const r of held) await r.abort().catch(() => {});
     await ctx.close();
   }
