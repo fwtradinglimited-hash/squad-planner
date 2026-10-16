@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Join the Co-Coach beta</title>
+<meta name="description" content="Co-Coach plans fair line-ups and substitutions, runs match day from the touchline and tracks every player's minutes. Free beta for grassroots football coaches.">
+<meta property="og:title" content="Co-Coach: your assistant coach for match day">
+<meta property="og:description" content="Fair line-ups and substitutions planned for you, live match mode and season minutes for every player. Free beta for grassroots coaches.">
+<meta property="og:image" content="https://co-coach.uk/icons/icon-512.png">
+<meta property="og:url" content="https://co-coach.uk/beta/">
+<meta name="theme-color" content="#1F4A33">
+<link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --turf: #1F4A33; --turf-deep: #163826; --turf-line: #2F6347; --chalk: #F4F1E6; --chalk-soft: #C9D6CB;
+    --amber: #E3A23C; --amber-ink: #3D2A0C;
+    --page: #EEF2EC; --card: #FFFFFF; --ink: #12241A; --soft: #4A5D50; --line: #D5DED6; --bad: #A8402F;
+  }
+  :root:not([data-theme="light"]) { @media (prefers-color-scheme: dark) {
+    --page: #0E1712; --card: #17251C; --ink: #EDEBDF; --soft: #A9BBAD; --line: #2A3B30; --bad: #E58A78;
+  } }
+  :root[data-theme="dark"] { --page: #0E1712; --card: #17251C; --ink: #EDEBDF; --soft: #A9BBAD; --line: #2A3B30; --bad: #E58A78; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 16px; }
+  .display { font-family: "Oswald", "Arial Narrow", sans-serif; font-weight: 600; letter-spacing: -0.01em; line-height: 1.02; }
+  :focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; border-radius: 4px; }
+
+  /* Hero: the pitch */
+  .hero { background: var(--turf); color: var(--chalk); padding: calc(18px + env(safe-area-inset-top, 0px)) 0 34px; position: relative; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(180deg, transparent 0 56px, rgba(255,255,255,.035) 56px 112px); pointer-events: none; }
+  .hero .wrap { position: relative; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: "Oswald", sans-serif; font-weight: 600; font-size: 20px; text-decoration: none; }
+  .brand img { width: 34px; height: 34px; border-radius: 8px; }
+  .hero h1 { font-size: clamp(44px, 13vw, 76px); margin: 30px 0 14px; color: var(--chalk); }
+  .hero p.lede { font-size: 17.5px; line-height: 1.5; color: var(--chalk-soft); margin: 0 0 22px; max-width: 34em; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+  .btn { display: inline-block; border: 0; border-radius: 12px; padding: 14px 22px; font: 600 17px/1.2 "Oswald", sans-serif; letter-spacing: .01em; cursor: pointer; text-decoration: none; text-align: center; }
+  .btn-amber { background: var(--amber); color: var(--amber-ink); }
+  .btn-amber:hover { filter: brightness(1.05); }
+  .btn-turf { background: var(--turf); color: var(--chalk); }
+  .link-quiet { color: var(--chalk-soft); font-size: 15px; }
+
+  /* The minutes board: the one memorable thing */
+  .board { margin-top: 30px; border: 2px solid rgba(244,241,230,.75); border-radius: 14px; padding: 16px 16px 12px; position: relative; }
+  .board-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 12px; margin-bottom: 10px; }
+  .board-head span { white-space: nowrap; }
+  .board-head b { font-family: "Oswald", sans-serif; font-weight: 600; font-size: 19px; }
+  .board-head span { font-size: 13px; color: var(--chalk-soft); }
+  .row { display: grid; grid-template-columns: 62px 1fr 52px; gap: 10px; align-items: center; font-size: 14px; padding: 3px 0; position: relative; z-index: 1; }
+  .row .bar { height: 10px; background: rgba(244,241,230,.13); border-radius: 6px; overflow: hidden; }
+  .row .bar i { display: block; height: 100%; width: var(--w); background: var(--chalk); border-radius: 6px; transform-origin: left; animation: fill 1.1s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d); }
+  .row .bar i.gk { background: var(--amber); }
+  .row .min { text-align: right; font-variant-numeric: tabular-nums; color: var(--chalk-soft); }
+  .board-foot { font-size: 13px; color: var(--chalk-soft); margin-top: 10px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .board-foot .k { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  @keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @media (prefers-reduced-motion: reduce) { .row .bar i { animation: none; } }
+
+  /* Body */
+  section { padding: 34px 0 6px; }
+  h2 { font-family: "Oswald", sans-serif; font-weight: 600; font-size: 30px; line-height: 1.1; margin: 0 0 16px; }
+  .does { margin: 0; padding: 0; list-style: none; }
+  .does li { padding: 14px 0; border-top: 1px solid var(--line); }
+  .does li:last-child { border-bottom: 1px solid var(--line); }
+  .does b { display: block; font-size: 17px; margin-bottom: 2px; }
+  .does span { color: var(--soft); font-size: 15.5px; }
+  .steps { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+  .steps li { counter-increment: s; position: relative; padding: 2px 0 16px 46px; color: var(--soft); font-size: 15.5px; }
+  .steps li b { color: var(--ink); display: block; font-size: 16.5px; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--turf); color: var(--ink); font: 600 16px/28px "Oswald", sans-serif; text-align: center; }
+  :root:not([data-theme="light"]) { @media (prefers-color-scheme: dark) { .steps li::before { border-color: var(--chalk-soft); } } }
+
+  /* Form */
+  .join { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px 18px; margin: 8px 0 10px; }
+  .join h2 { margin-bottom: 6px; }
+  .join .intro { color: var(--soft); margin: 0 0 16px; font-size: 15.5px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-weight: 600; font-size: 15px; margin-bottom: 5px; }
+  .field .opt { font-weight: 400; color: var(--soft); }
+  .field input, .field select { width: 100%; font: inherit; font-size: 16px; padding: 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--page); color: var(--ink); }
+  .field input:focus, .field select:focus { border-color: var(--turf); outline: none; box-shadow: 0 0 0 3px rgba(227,162,60,.45); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .check { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; font-size: 14.5px; line-height: 1.45; margin: 4px 0 14px; }
+  .check input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--turf); }
+  .note { font-size: 14px; color: var(--soft); margin: 0 0 16px; }
+  .err { color: var(--bad); font-size: 14.5px; font-weight: 600; margin: 0 0 12px; display: none; }
+  .join .btn { width: 100%; }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+  /* Done */
+  .done { display: none; }
+  .done h2 { font-size: 34px; }
+  .done .open { display: block; margin: 16px 0 8px; }
+  .inapp { display: none; border: 2px solid var(--amber); border-radius: 12px; padding: 12px 14px; margin: 12px 0; font-size: 15px; }
+  .copy-row { display: flex; gap: 8px; margin-top: 8px; }
+  .copy-row code { flex: 1; background: var(--page); border-radius: 8px; padding: 9px 10px; font-size: 14px; }
+  .copy-row button { font: 600 14px "Oswald", sans-serif; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 0 12px; cursor: pointer; }
+
+  details { border-top: 1px solid var(--line); padding: 12px 0; }
+  details:last-of-type { border-bottom: 1px solid var(--line); }
+  summary { font-weight: 600; cursor: pointer; font-size: 16px; }
+  details p { color: var(--soft); margin: 8px 0 0; font-size: 15.5px; }
+  footer { padding: 30px 0 calc(34px + env(safe-area-inset-bottom, 0px)); font-size: 14px; color: var(--soft); }
+  footer a { margin-right: 16px; }
+  @media (max-width: 380px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../icons/icon-192.png" alt="">Co-Coach</a>
+    <h1 class="display">Your assistant coach for match day</h1>
+    <p class="lede">Co-Coach plans a fair line-up and every substitution, runs the clock from the touchline, and keeps track of every player's minutes across the season. Free beta for grassroots football coaches.</p>
+    <div class="cta-row">
+      <a class="btn btn-amber" href="#join" id="heroJoin">Join the free beta</a>
+      <a class="link-quiet" href="../">Already joined? Open Co-Coach</a>
+    </div>
+
+    <div class="board" aria-label="Example: minutes played by each player after six matches">
+      <div class="board-head"><b>Minutes this season</b><span>Example squad, 6 matches</span></div>
+      <div id="rows"></div>
+      <div class="board-foot"><span><i class="k" style="background:var(--chalk)"></i>Outfield</span><span><i class="k" style="background:var(--amber)"></i>Includes time in goal</span></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <h2>What it does</h2>
+    <ul class="does">
+      <li><b>Plans the team for you</b><span>Tell it who's available and how you like to play. It picks the line-up and a substitution plan, keepers included, so minutes even out.</span></li>
+      <li><b>Runs match day from your phone</b><span>Match clock, sub alerts, goals and scorers. Someone's late or injured? Change it on the touchline and it re-plans the rest of the game.</span></li>
+      <li><b>Keeps the season in one place</b><span>Minutes, positions, goals and awards for every player, with a check that flags anyone falling behind.</span></li>
+      <li><b>Leaves you in charge</b><span>Every suggestion comes with a reason, nothing changes without you seeing it, and you can pick the team yourself instead.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>How the beta works</h2>
+    <ol class="steps">
+      <li><b>Sign up below</b>It takes a minute. We'll email you a short welcome.</li>
+      <li><b>Open Co-Coach and add it to your home screen</b>No app store. It's free, works with no signal at the pitch and runs on iPhone and Android.</li>
+      <li><b>Use it for your next few matches</b>Any format, from 3-a-side to 11-a-side.</li>
+      <li><b>Tell us what to fix</b>Send feedback from inside the app. Beta coaches decide what gets built next.</li>
+    </ol>
+  </section>
+
+  <section id="join">
+    <form class="join" id="joinForm" novalidate>
+      <h2 id="joinTitle">Join the free beta</h2>
+      <p class="intro" id="joinIntro">For coaches and managers of grassroots teams. Built by a grassroots coach.</p>
+      <div class="pair">
+        <div class="field"><label for="fName">First name</label><input id="fName" name="name" autocomplete="given-name" required maxlength="40"></div>
+        <div class="field"><label for="fEmail">Email</label><input id="fEmail" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="120"></div>
+      </div>
+      <div class="pair">
+        <div class="field"><label for="fAge">Age group you coach</label>
+          <select id="fAge" name="age" required><option value="">Choose…</option><option>U6 or younger</option><option>U7–U8</option><option>U9–U10</option><option>U11–U12</option><option>U13–U14</option><option>U15–U16</option><option>U17–U18</option><option>Adults</option><option>Several age groups</option></select></div>
+        <div class="field"><label for="fFormat">Match format</label>
+          <select id="fFormat" name="format" required><option value="">Choose…</option><option>5-a-side or smaller</option><option>7-a-side</option><option>9-a-side</option><option>11-a-side</option><option>More than one</option></select></div>
+      </div>
+      <div class="field"><label for="fHeard">Where did you hear about Co-Coach? <span class="opt">(optional)</span></label>
+        <select id="fHeard" name="heard"><option value="">Choose…</option><option>Facebook group</option><option>Another coach or my club</option><option>WhatsApp</option><option>Search</option><option>Other</option></select></div>
+      <label class="check"><input type="checkbox" id="fAdult" required><span>I'm 18 or over and coach or manage a team.</span></label>
+      <label class="check"><input type="checkbox" id="fNews"><span>Also email me Co-Coach news, including when the full version launches. <span style="color:var(--soft)">Optional. Unsubscribe any time.</span></span></label>
+      <p class="note">We'll email you about the beta: a welcome, important updates and the odd question about how it's going. We won't share your details. See our <a href="../privacy.html#beta">privacy policy</a>.</p>
+      <div class="hp" aria-hidden="true"><label>Leave this empty <input type="checkbox" id="fBot" tabindex="-1"></label></div>
+      <p class="err" id="formErr" role="alert"></p>
+      <button class="btn btn-turf" type="submit" id="joinBtn">Join the beta</button>
+    </form>
+
+    <div class="join done" id="done" tabindex="-1">
+      <h2 class="display" id="doneTitle">You're in</h2>
+      <p class="intro" id="doneText">Thanks for joining. Look out for a welcome email from us in the next day or two. In the meantime, Co-Coach is ready to use now.</p>
+      <div class="inapp" id="inapp"><b>One thing first:</b> you're viewing this inside <span id="inappName">another app</span>. Open Co-Coach in Safari or Chrome so your teams are saved properly: tap the <b>•••</b> or <b>⋮</b> menu and choose <b>Open in browser</b>, or copy the link.
+        <div class="copy-row"><code>https://co-coach.uk</code><button type="button" id="copyBtn">Copy link</button></div></div>
+      <a class="btn btn-amber open" href="../">Open Co-Coach</a>
+      <p class="note" style="margin:10px 0 0;">When it opens, follow the "Add to home screen" steps on its Home screen. It takes 30 seconds and makes Co-Coach open like an app.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Questions</h2>
+    <details><summary>Is it free?</summary><p>Yes, it's free during the beta. If that ever changes, beta coaches will hear about it well in advance.</p></details>
+    <details><summary>Do I need to download anything?</summary><p>No. Co-Coach runs in your phone's browser. Add it to your home screen and it opens like any other app, even with no signal.</p></details>
+    <details><summary>What about my players' details?</summary><p>You only enter first names or nicknames. Your squad and matches are saved on your phone, not on our servers, and nothing about your players is shared.</p></details>
+    <details><summary>Will it work for my team?</summary><p>It handles any squad size, 3-a-side to 11-a-side, any match length and any number of periods, with or without a goalkeeper.</p></details>
+  </section>
+</main>
+
+<footer class="wrap">
+  <a href="../privacy.html">Privacy policy</a><a href="../">Open Co-Coach</a>
+  <p style="margin:12px 0 0;">Co-Coach is made in the UK by a grassroots coach.</p>
+</footer>
+
+<script>
+// Sign-ups are sent with Web3Forms (the same service as in-app feedback) and
+// arrive by email. BETA_MODE 'waitlist' turns the form into a waiting list
+// when a wave is full.
+var BETA_MODE = 'open';
+var FORM_URL = 'https://api.web3forms.com/submit';
+var FORM_KEY = 'b52923a1-b560-4072-aba6-8b119c3536f3';
+var PRIVACY_VERSION = '2026-10-16';
+
+(function minutesBoard() {
+  var squad = [['Alfie', 196, 0], ['Maya', 201, 1], ['Theo', 188, 0], ['Isla', 199, 0], ['Jayden', 192, 1], ['Ruby', 203, 0], ['Kai', 186, 0], ['Freya', 195, 0], ['Leo', 190, 0]];
+  var max = 220;
+  document.getElementById('rows').innerHTML = squad.map(function (p, i) {
+    return '<div class="row"><span>' + p[0] + '</span><span class="bar"><i class="' + (p[2] ? 'gk' : '') + '" style="--w:' + (p[1] / max * 100).toFixed(1) + '%; --d:' + (0.25 + i * 0.06).toFixed(2) + 's"></i></span><span class="min">' + p[1] + ' min</span></div>';
+  }).join('');
+})();
+
+function inAppBrowser() {
+  var ua = navigator.userAgent;
+  if (/Instagram/.test(ua)) return 'Instagram';
+  if (/FBAN|FBAV|FB_IAB|FBIOS|FB4A|Messenger/.test(ua)) return 'Facebook';
+  if (/musical_ly|TikTok|Bytedance/i.test(ua)) return 'TikTok';
+  return null;
+}
+function already() { try { return JSON.parse(localStorage.getItem('cc_beta') || 'null'); } catch (e) { return null; } }
+
+if (BETA_MODE === 'waitlist') {
+  document.getElementById('joinTitle').textContent = 'Join the waiting list';
+  document.getElementById('joinIntro').textContent = "This round of the beta is full. Leave your details and we'll email you when the next places open.";
+  document.getElementById('joinBtn').textContent = 'Join the waiting list';
+  document.getElementById('heroJoin').textContent = 'Join the waiting list';
+}
+
+var form = document.getElementById('joinForm');
+function fail(msg, el) {
+  var e = document.getElementById('formErr'); e.textContent = msg; e.style.display = 'block';
+  if (el) el.focus();
+}
+function showDone(name) {
+  form.style.display = 'none';
+  var d = document.getElementById('done'); d.style.display = 'block';
+  if (BETA_MODE === 'waitlist') {
+    document.getElementById('doneTitle').textContent = "You're on the list";
+    document.getElementById('doneText').textContent = "Thanks" + (name ? ', ' + name : '') + ". We'll email you as soon as the next places open.";
+    d.querySelector('.open').style.display = 'none'; d.querySelector('.note').style.display = 'none';
+  } else if (name) {
+    document.getElementById('doneTitle').textContent = "You're in, " + name;
+  }
+  var app = inAppBrowser();
+  if (app && BETA_MODE !== 'waitlist') { document.getElementById('inappName').textContent = app; document.getElementById('inapp').style.display = 'block'; }
+  d.focus();
+}
+document.getElementById('copyBtn').addEventListener('click', function () {
+  var b = this;
+  try { navigator.clipboard.writeText('https://co-coach.uk').then(function () { b.textContent = 'Copied'; }, function () { b.textContent = 'Copy failed'; }); }
+  catch (e) { b.textContent = 'Copy failed'; }
+});
+
+form.addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  document.getElementById('formErr').style.display = 'none';
+  var name = document.getElementById('fName').value.trim();
+  var email = document.getElementById('fEmail').value.trim();
+  var age = document.getElementById('fAge').value, fmt = document.getElementById('fFormat').value, heard = document.getElementById('fHeard').value;
+  var news = document.getElementById('fNews').checked;
+  if (!name) return fail('Enter your first name.', document.getElementById('fName'));
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return fail('Enter your email address, like name@example.com.', document.getElementById('fEmail'));
+  if (!age) return fail('Choose the age group you coach.', document.getElementById('fAge'));
+  if (!fmt) return fail('Choose your match format.', document.getElementById('fFormat'));
+  if (!document.getElementById('fAdult').checked) return fail('Tick the box to confirm you\'re 18 or over and coach a team.', document.getElementById('fAdult'));
+  if (document.getElementById('fBot').checked) { showDone(name); return; } // spam bots tick hidden boxes
+
+  var when = new Date().toISOString();
+  var kind = BETA_MODE === 'waitlist' ? 'waiting list' : 'beta';
+  var message = [
+    'Name: ' + name, 'Email: ' + email, 'Age group: ' + age, 'Format: ' + fmt, 'Heard about us: ' + (heard || 'not given'),
+    '', 'Signed up for: ' + kind,
+    'Beta emails (needed to take part): yes',
+    'News and launch emails: ' + (news ? 'YES (ticked the optional box)' : 'no'),
+    'Confirmed 18+ and coaches a team: yes',
+    'Agreed at: ' + when + ' (privacy policy version ' + PRIVACY_VERSION + ')',
+    'Page: ' + location.href.split('#')[0],
+  ].join('\n');
+  var btn = document.getElementById('joinBtn'), label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  fetch(FORM_URL, {
+    method: 'POST', headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+    body: JSON.stringify({access_key: FORM_KEY, subject: 'Co-Coach ' + kind + ' sign-up: ' + name + ' (' + age + ', ' + fmt + ')' + (news ? ' [news: yes]' : ''), from_name: 'Co-Coach sign-ups', name: name, email: email, message: message, botcheck: ''}),
+  }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || j.success === false) throw new Error(j.message || ('HTTP ' + r.status)); }); })
+    .then(function () {
+      try { localStorage.setItem('cc_beta', JSON.stringify({at: when, news: news, mode: BETA_MODE})); } catch (e) { /* private mode */ }
+      showDone(name);
+    })
+    .catch(function () {
+      btn.disabled = false; btn.textContent = label;
+      fail(navigator.onLine === false ? "You're offline. Check your signal and press the button again." : "That didn't go through. Press the button again in a minute.");
+    });
+});
+
+var prev = already();
+if (prev) {
+  var n = document.createElement('p'); n.className = 'note'; n.style.margin = '0 0 14px';
+  n.textContent = "You've already signed up on this phone, so there's no need to again.";
+  form.insertBefore(n, form.querySelector('.pair'));
+}
+</script>
+</body>
+</html>

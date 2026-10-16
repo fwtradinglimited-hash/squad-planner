@@ -7,6 +7,10 @@ Not legal advice: a working list of what the app needs, and when.
 - Web3Forms agreement checked and recorded (`web3forms-dpa.md`); privacy
   policy lists its current sub-processors.
 - Squad and match data stays on each coach's device; the app doesn't send it to us.
+- Beta sign-up page (co-coach.uk/beta): news emails need a separate,
+  unticked box; each sign-up email records the choices, time and policy version.
+- Usage counts are opt-in (off by default), use GoatCounter (EU, no cookies,
+  no stored IPs) and never include names or anything typed.
 
 ## Before inviting the first coach other than you (beta)
 - Pay the ICO data protection fee. From then on you hold other people's
@@ -15,6 +19,14 @@ Not legal advice: a working list of what the app needs, and when.
   Check with the ICO fee checker: https://ico.org.uk/fee-checker
   Then add the registration number to the privacy policy.
 - Save the full Web3Forms agreement as a PDF in this folder.
+- Create the GoatCounter account with site code `cocoach`
+  (https://www.goatcounter.com/signup), so counts arrive at
+  cocoach.goatcounter.com. If that code is taken, change STATS_ENDPOINT in
+  index.html. Until then, coaches who opt in send nothing that's kept.
+- Keep the sign-up list (name, email, news yes/no, date) in one private
+  sheet. Delete beta-only sign-ups 6 months after the beta ends.
+- Send news emails only to people marked "news: yes", with an unsubscribe
+  line in every email.
 
 ## Before public launch
 - Short terms of use (no warranty, fair use, it's the coach's job to get

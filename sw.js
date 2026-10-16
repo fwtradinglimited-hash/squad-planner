@@ -5,7 +5,7 @@
 // VERSION must match APP_VERSION in index.html (a test checks this). Changing
 // it is what makes devices fetch the new files: the new worker downloads them
 // in the background and the app offers "Update now" (or uses them next launch).
-const VERSION = 'beta 0.13';
+const VERSION = 'beta 0.14';
 const CACHE = 'co-coach-' + VERSION.replace(/\s+/g, '-');
 const FONT_CACHE = 'co-coach-fonts';
 const APP_FILES = ['./', 'index.html', 'privacy.html', 'manifest.webmanifest',
@@ -45,10 +45,11 @@ self.addEventListener('fetch', event => {
   // opens (even offline) and never mixes files from two versions.
   event.respondWith((async () => {
     const c = await caches.open(CACHE);
-    const hit = await c.match(req, {ignoreSearch: true}) ||
-      (req.mode === 'navigate' ? await c.match('index.html') : null);
+    const hit = await c.match(req, {ignoreSearch: true});
     if (hit) return hit;
+    // Anything else (e.g. the beta sign-up page) comes from the network; with
+    // no signal, a page request falls back to the app itself.
     try { return await fetch(req); }
-    catch (e) { return Response.error(); }
+    catch (e) { return (req.mode === 'navigate' && await c.match('index.html')) || Response.error(); }
   })());
 });

@@ -757,8 +757,8 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.13';
-const PRIVACY_VERSION = '2026-10-12';
+const APP_VERSION = 'beta 0.14';
+const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
   let buf = [];
@@ -1114,6 +1114,7 @@ function refreshPlanTab() {
   t.classList.toggle('disabled', !relevant);
 }
 function showScreen(name) {
+  track('screen', name);
   refreshPlanTab();
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
@@ -2197,6 +2198,9 @@ function activeGkSegments() { return (PLAN && PLAN.gkSegments && PLAN.gkSegments
 
 /* ---- GENERATE button: build match state from squad + setup choices ---- */
 document.getElementById('generateBtn').addEventListener('click', () => {
+  track('match-planned', cfg.autoSubs === false ? 'pick-myself' : 'planner');
+  track('match-format', `${PLAYERS_ON_PITCH}-a-side-${DURATION}min-${PERIODS}-periods`);
+  try { track('approach-style', teamEthos.preset); } catch (e) { /* ignore */ }
   clearLiveMatchState(); // legacy single-slot save - the library below replaces it
   // An in-progress (live) match is NOT thrown away by planning another one:
   // it stays in the Matches tab to resume. Unstarted drafts are replaced.
@@ -3858,6 +3862,7 @@ function latestPlanChange() { const e = planChanges[planChanges.length - 1]; ret
 // Undo: re-plan keeping the plan as it was before, except where the coach's
 // own action needs it to change.
 function undoPlannerChange(id) {
+  track('planner-change-undone');
   const e = planChanges.find(x => x.id === id); if (!e || e.undone) return;
   replanModeOnce = 'off'; referenceOnce = e.ref; suppressChangeLog = true;
   try { regeneratePlan(); } finally { replanModeOnce = null; referenceOnce = null; suppressChangeLog = false; }
@@ -4654,6 +4659,7 @@ let dismissedDecisionKeys = new Set();
 // Removing a planned sub: the planner works around it, and the coach sees
 // what changed (with an undo).
 function deletePlannedSub(time, slot) {
+  track('plan-sub-removed');
   const r = PLAN.rotations.find(x => !x.type && x.time === time && x.slot === slot);
   if (!r) return;
   const savedLocked = JSON.parse(JSON.stringify(lockedEvents));
@@ -4703,6 +4709,7 @@ function updateScoreDisplay() {
   document.getElementById('scoreThem').textContent = score.them;
 }
 function recordGoal(scorer, mins, assist) {
+  if (liveMode) track('live-goal');
   // OG is only ever reached via the "Goal for us" flow (an opponent's own
   // goal, crediting us), so it counts for us just like a named scorer.
   const forUs = scorer !== 'OPP';
@@ -5247,6 +5254,7 @@ function startMatch() {
   matchStartTs = Date.now(); pausedAccumMs = 0; pauseStartedAt = null;
   currentPeriodIdx = 0; halfTimeActive = false; matchFinished = false;
   liveMode = true;
+  track('match-started');
   setPlaying(false);
   document.getElementById('previewControls').style.display = 'none';
   document.getElementById('liveStatusRow').style.display = 'flex';
@@ -5405,6 +5413,7 @@ function settlePendingFor(slotIds, playerIds, mins) {
 // A coach's own change during play: `make` adds its events; any waiting
 // change it touches is settled first (above), on the pitch as shown.
 function makeLiveEdit(mins, make) {
+  track('live-change');
   const shown = stateForEdit(mins).onPitch;
   const n = lockedEvents.length;
   make();
@@ -5721,6 +5730,7 @@ function openKeeperCoverPicker(pid, mins, state, gkSlotId) {
 }
 
 function markPlayerUnavailable(pid) {
+  if (liveMode) track('live-player-unavailable');
   const mins = editMinute();
   const state = stateForEdit(mins);
   const onPitchSet = new Set(Object.values(state.onPitch));
@@ -5956,7 +5966,7 @@ function finishMatch(atMinute, opts) {
   refreshPlanTab();
   finishedAtMinute = atMinute;
   clearInterval(liveTicker);
-  if (!(opts && opts.restoring)) saveLiveMatchState(); // kept in the Matches tab as a finished match
+  if (!(opts && opts.restoring)) { saveLiveMatchState(); track('match-finished', atMinute < DURATION ? 'ended-early' : 'full-time'); } // kept in the Matches tab as a finished match
   // The full-time summary lives on the Live tab (inside #halfTimePanel) - jump
   // there now so it's actually visible even if the coach ended the match from
   // the Details tab (where the "End match now" button lives).
@@ -6290,6 +6300,7 @@ function exportFileName() {
   return `lineup-${slug(matchFixture.opponent) || 'match'}${matchFixture.date ? '-' + matchFixture.date : ''}.png`;
 }
 function openExportModal() {
+  track('lineup-image-opened');
   if (!PLAN) return;
   let canvas;
   try { canvas = renderLineupCanvas(); }
@@ -6418,6 +6429,7 @@ function renderSummaryCanvas(opts) {
   return out;
 }
 function openSummaryModal() {
+  track('summary-opened');
   if (!PLAN || !matchFinished) return;
   const opts = {minutes: true, notes: false};
   const slug = x => (x || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -6659,6 +6671,7 @@ function renderHome() {
       <div class="config-note">No upcoming fixture planned yet.</div><button class="btn btn-primary" id="homePlan" style="margin-top:10px;">+ Plan a fixture</button>`, 'id="homeNext"');
   }
   html += installCardHtml();
+  html += statsCardHtml();
   // last result
   if (last) {
     const s = last.stats; const sc = {};
@@ -6729,6 +6742,7 @@ function renderHome() {
   el.innerHTML = html;
   bindFbPrompt(el);
   bindInstallCard(el);
+  bindStatsCard(el);
   const g = id => document.getElementById(id);
   if (g('homeResume')) g('homeResume').addEventListener('click', () => openMatchFromLibrary(live.id));
   if (g('homeNextOpen')) g('homeNextOpen').addEventListener('click', () => openMatchFromLibrary(next.id));
@@ -6891,6 +6905,7 @@ diag.onError = function (msg) {
 
 const FB_FACES = [['1', '😞', 'Not good'], ['2', '😐', 'OK'], ['3', '🙂', 'Good'], ['4', '😍', 'Love it']];
 function openFeedbackModal(opts) {
+  track('feedback-opened');
   opts = opts || {};
   const st = fbState();
   let rating = opts.rating || '';
@@ -6949,7 +6964,7 @@ function fbPrompt() {
 function fbPromptHtml() {
   const pr = fbPrompt(); if (!pr) return '';
   const link = (id, label) => `<span id="${id}" style="font-size:12px; color:var(--ink-soft); text-decoration:underline; cursor:pointer;">${label}</span>`;
-  if (pr.kind === 'notice') return `<div class="form-card" id="fbCard" data-fbkind="notice"><div style="font-weight:600; margin-bottom:4px;">Your players' privacy</div><div class="config-note" style="margin-bottom:8px;">Your squad and matches are stored only on this device. Please use first names or nicknames only. If the app hits an error, and whenever you send feedback, it sends us a technical log and the current match, with player, team and opposition names replaced by "Player 1, 2..." and your match notes left out. See the <a href="privacy.html" target="_blank" rel="noopener">privacy policy</a> or Privacy &amp; data in the team menu.</div>
+  if (pr.kind === 'notice') return `<div class="form-card" id="fbCard" data-fbkind="notice"><div style="font-weight:600; margin-bottom:4px;">Your players' privacy</div><div class="config-note" style="margin-bottom:8px;">Your squad and matches are stored only on this device. Please use first names or nicknames only. If the app hits an error, and whenever you send feedback, it sends us a technical log and the current match, with player, team and opposition names replaced by "Player 1, 2..." and your match notes left out. Anonymous usage counts are off unless you turn them on. See the <a href="privacy.html" target="_blank" rel="noopener">privacy policy</a> or Privacy &amp; data in the team menu.</div>
     <button class="btn btn-primary" id="fbNoticeOk">OK, got it</button></div>`;
   if (pr.kind === 'error') return `<div class="form-card" id="fbCard" data-fbkind="error"><div style="font-weight:600; margin-bottom:4px;">Something went wrong earlier</div><div class="config-note" style="margin-bottom:8px;">Sorry about that - the technical details have been sent to us automatically. If you can tell us what you were doing, it helps a lot.</div>
     <button class="btn btn-primary" id="fbErrSend">Tell us what happened</button><div style="display:flex; gap:16px; margin-top:8px;">${link('fbNotNow', 'Not now')}${link('fbMute', "Don't ask me for feedback")}</div></div>`;
@@ -6994,6 +7009,7 @@ function switchToTeam(id) {
   } else go();
 }
 function addTeam() {
+  track('team-added');
   const t = {id: newTeamId(), name: '', suffix: '', setupDone: false, legacy: false, wizStep: 0, created: Date.now()};
   t.suffix = ':' + t.id;
   profile.teams.push(t); profile.activeTeamId = t.id; saveProfile();
@@ -7024,6 +7040,7 @@ function openTeamMenu() {
       <span class="decision-link" id="tmCoach">${profile.coach.name ? 'Change my name' : 'Add my name'}</span>
       <span class="decision-link" id="tmTour">Quick-start guide</span>
       ${isInstalled() ? '' : '<span class="decision-link" id="tmInstall">Add to home screen</span>'}
+      ${lsGet('cc_beta') ? '' : '<a class="decision-link" id="tmBeta" href="beta/#join" style="text-decoration:none;">Join the beta mailing list</a>'}
       <span class="decision-link" id="tmBackup">Backup &amp; restore</span>
       <span class="decision-link" id="tmFeedback">Send feedback / report a problem</span>
       <span class="decision-link" id="tmPrivacy">Privacy &amp; data</span>
@@ -7060,7 +7077,8 @@ function openPrivacyModal() {
     <div style="font-size:13.5px; line-height:1.5;">
       <p style="margin:0 0 8px;"><b>Where your data is:</b> your teams, players and matches are stored <b>only on this device</b>. We can't see or recover them.</p>
       <p style="margin:0 0 8px;"><b>What's recorded about players:</b> first name or nickname, optional shirt number, positions, and match minutes, goals, assists and awards. No surnames, photos, birth dates or contact details - please keep it that way, and keep match notes to football matters.</p>
-      <p style="margin:0 0 8px;"><b>What we receive:</b> only feedback and error reports. They contain a technical log and the current match with names replaced by "Player 1, 2..." and your notes left out.</p>
+      <p style="margin:0 0 8px;"><b>What we receive:</b> feedback and error reports. They contain a technical log and the current match with names replaced by "Player 1, 2..." and your notes left out.</p>
+      <p style="margin:0 0 8px;"><b>Anonymous usage counts: <span id="pvStatsState">${statsOn() ? 'on' : 'off'}</span>.</b> ${STATS_EXPLAIN} <span class="decision-link" id="pvStatsToggle" style="font-size:13px;">${statsOn() ? 'Turn off' : 'Turn on'}</span></p>
       <p style="margin:0 0 8px; color:var(--ink-soft);">Your report code: <b>${esc(fbState().installId || '')}</b> (quote it if you contact us about your data). This team: ${squad.length} players, ${lib.length} matches.</p>
       <p style="margin:0 0 10px;"><a href="privacy.html" target="_blank" rel="noopener">Read the full privacy policy</a></p>
     </div>
@@ -7069,6 +7087,12 @@ function openPrivacyModal() {
     <div class="modal-btn-row"><button class="btn btn-ghost" id="pvClose">Close</button></div>`, {wide: true});
   overlay.querySelector('#pvClose').addEventListener('click', () => overlay.remove());
   overlay.querySelector('#pvBackup').addEventListener('click', openBackupModal);
+  overlay.querySelector('#pvStatsToggle').addEventListener('click', e => {
+    setStats(!statsOn());
+    overlay.querySelector('#pvStatsState').textContent = statsOn() ? 'on' : 'off';
+    e.target.textContent = statsOn() ? 'Turn off' : 'Turn on';
+    try { renderHome(); } catch (er) { /* ignore */ }
+  });
   overlay.querySelector('#pvDelete').addEventListener('click', () => {
     overlay.remove();
     showConfirm('Permanently delete ALL teams, players, matches and settings on this device? This cannot be undone. (Tip: download a copy first if you want to keep anything.)', () => {
@@ -7092,6 +7116,7 @@ function openBackupModal() {
   const msg = t => { const m = overlay.querySelector('#bkMsg'); m.style.display = 'block'; m.textContent = t; };
   overlay.querySelector('#bkClose').addEventListener('click', () => overlay.remove());
   overlay.querySelector('#bkExport').addEventListener('click', () => {
+    track('backup-downloaded');
     const blob = new Blob([JSON.stringify(collectBackup(), null, 1)], {type: 'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `co-coach-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -7105,6 +7130,7 @@ function openBackupModal() {
     if (!obj || !['co-coach', 'squad-planner'].includes(obj.app) || !obj.data || typeof obj.data !== 'object') return msg("That file isn't a Co-Coach backup.");
     overlay.remove();
     showConfirm('Restore this backup? It replaces everything currently saved on this device.', () => {
+      track('backup-restored');
       try {
         const rm = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('rf_')) rm.push(k); }
         rm.forEach(k => localStorage.removeItem(k));
@@ -7159,6 +7185,7 @@ function renderWizard() {
       ${profile.coach.name ? '' : '<div class="field"><label>Your name (optional)</label><input type="text" id="wzCoach" placeholder="e.g. Sam"></div>'}
       <div class="field"><label>Team name</label><input type="text" id="wzTeam" placeholder="e.g. Riverside U10s" value="${esc(t.name)}"></div>
       <div class="check-row" style="margin:8px 0 2px; align-items:flex-start;"><input type="checkbox" id="wzConsent" ${t.consent ? 'checked' : ''} style="margin-top:3px;"><label for="wzConsent" style="font-size:12.5px; line-height:1.4;">I'm 18 or over, and I have permission from my club and my players' parents or carers to record players' <b>first names</b>, positions and match stats in this app. Data stays on this device. <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a></label></div>
+      ${first && !profile.stats ? `<div class="check-row" style="margin:8px 0 2px; align-items:flex-start;"><input type="checkbox" id="wzStats" style="margin-top:3px;"><label for="wzStats" style="font-size:12.5px; line-height:1.4;">Optional: help improve Co-Coach by sharing anonymous usage counts (which features get used). Never names, match details or anything about your players.</label></div>` : ''}
       ${err}${nav(null, 'Next')}</div>`;
     if (body.querySelector('#wzInstallHow')) body.querySelector('#wzInstallHow').addEventListener('click', () => openInstallGuide('ios'));
     body.querySelector('#wizNext').addEventListener('click', () => {
@@ -7166,6 +7193,7 @@ function renderWizard() {
       if (!name) return fail('Give your team a name.');
       if (!body.querySelector('#wzConsent').checked) return fail('Please tick the box to confirm before continuing.');
       t.consent = {v: PRIVACY_VERSION, at: Date.now()}; fbState().noticeSeen = PRIVACY_VERSION;
+      const st = body.querySelector('#wzStats'); if (st) setStats(st.checked);
       t.name = name;
       const c = body.querySelector('#wzCoach'); if (c && c.value.trim()) profile.coach.name = c.value.trim();
       saveProfile(); refreshTeamHeader(); wizGo(1);
@@ -7273,7 +7301,7 @@ function renderWizard() {
       <button class="btn btn-primary" id="wizFinish">Show me around (1 min)</button>
       <button class="btn btn-ghost" id="wizSkip">Skip the tour</button></div>`;
     const done = tour => {
-      t.setupDone = true; saveProfile();
+      t.setupDone = true; saveProfile(); track('setup-completed', profile.teams.length > 1 ? 'another-team' : 'first-team');
       refreshTeamHeader(); renderSquadList(); renderPresetList(); renderDefaultsUI(); renderApproachSection(); refreshPlannerVisibility();
       showScreen('squad');
       if (tour) startTour('squad'); else { profile.tourDone = true; saveProfile(); showTourBanner(); }
@@ -7370,6 +7398,7 @@ function tourUsesMock(st) { return !!(st.needsClosedMatch && currentMatchId); }
 function tourSelFor(st) { return st.sel && !tourUsesMock(st) ? st.sel : null; }
 function tourAvailableSteps() { return TOUR_STEPS.slice(); }
 function startTour(returnTo) {
+  track('tour-started');
   document.querySelectorAll('.modal-overlay').forEach(e => e.remove());
   tourSteps = tourAvailableSteps(); tourIdx = 0;
   tourReturn = returnTo || (document.querySelector('.screen.active') ? document.querySelector('.screen.active').id.replace('screen-', '') : 'squad');
@@ -7409,9 +7438,9 @@ function tourShow() {
     ${st.bullets ? `<ul>${st.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
     ${(() => { const L = st.setFor ? st.setFor() : []; return L.length ? `<div class="tour-setfor"><b>Set up from your answers</b><ul>${L.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''; })()}
     <div class="tour-btns">${last ? '' : '<span class="tour-skip" id="tourSkip">Skip tour</span>'}${tourIdx > 0 ? '<button class="btn btn-ghost" id="tourPrev">Back</button>' : ''}<button class="btn btn-primary" id="tourNext">${last ? 'Finish' : 'Next'}</button></div>`;
-  card.querySelector('#tourNext').addEventListener('click', () => { if (last) endTour(true); else { tourIdx++; tourShow(); } });
+  card.querySelector('#tourNext').addEventListener('click', () => { if (last) { track('tour-completed'); endTour(true); } else { tourIdx++; tourShow(); } });
   const prev = card.querySelector('#tourPrev'); if (prev) prev.addEventListener('click', () => { tourIdx--; tourShow(); });
-  const skip = card.querySelector('#tourSkip'); if (skip) skip.addEventListener('click', () => endTour(true));
+  const skip = card.querySelector('#tourSkip'); if (skip) skip.addEventListener('click', () => { track('tour-skipped', 'step-' + (tourIdx + 1)); endTour(true); });
   layer.querySelector('#tourBack').style.display = tourSelFor(st) ? 'none' : 'block';
   const el = tourSelFor(st) ? document.querySelector(tourSelFor(st)) : null;
   if (el) { el.scrollIntoView({block: el.getBoundingClientRect().height > window.innerHeight * 0.5 ? 'start' : 'center', behavior: 'instant'}); }
@@ -7497,6 +7526,7 @@ function choiceRow(name, options, current) {
 }
 // Any change the coach makes is theirs from then on: the "Set for you" label goes.
 function changeEthos(mut, keys) {
+  track('approach-changed');
   mut(teamEthos);
   teamEthos = normaliseEthos(teamEthos);
   (keys || []).forEach(k => { delete teamEthos.setFor[k]; });
@@ -7749,6 +7779,7 @@ function renderTodayAndExceptions() {
   });
 }
 function openExceptionSheet(pid) {
+  track('player-exception');
   const ex = draftFixture.exceptions || (draftFixture.exceptions = {});
   const x = ex[pid] || {};
   const p = squad.find(q => q.id === pid);
@@ -7858,6 +7889,7 @@ function approachSummaryLine(spec) {
   return `Your approach: ${pre.label}${tweaks ? ' (fine-tuned)' : ''}${today}. After your rules and guarantees it looks at ${priorityWords(spec.priority)}.`;
 }
 function openScorecardSheet() {
+  track('scorecard-opened');
   const sc = planScorecard(); if (!sc) return;
   const {card, spec} = sc;
   const areas = ['rules', 'guarantees', ...spec.priority, 'smoothness'];
@@ -7932,6 +7964,7 @@ function manualSuggestions() {
   return rotaToRotations(res.windows, PERIOD_BOUNDS).filter(r => !r.type && r.time > now && !mine.some(x => x.time === r.time && x.on === r.on && x.off === r.off));
 }
 function addSuggestedSub(r) {
+  track('suggestion-added');
   const before = computeStateAt(Math.max(0, r.time - 1)).onPitch;
   const slot = Object.keys(before).find(k => before[k] === r.off);
   if (!slot || Object.values(computeStateAt(r.time).onPitch).includes(r.on)) { showAlert(`That change no longer fits your plan: ${r.off} isn't on at ${r.time}', or ${r.on} already is.`); return false; }
@@ -7946,6 +7979,7 @@ function replanForSalt() {
   PLAN = null; regeneratePlan(); openPicker = null; render(0); saveLiveMatchState();
 }
 function showAnotherPlan() {
+  track('another-plan');
   const key = () => JSON.stringify((PLAN.windows || []).map(w => [w.from, w.onPitch]));
   const before = key();
   let n = parseInt(String(matchFixture.planSalt || '').replace(/\D/g, ''), 10) || 0;
@@ -8093,6 +8127,7 @@ function openWhySheet(title, reasons) {
   return overlay;
 }
 function openWhyForRotation(time, slot) {
+  track('why-opened');
   const r = PLAN && PLAN.rotations.find(x => !x.type && x.time === time && x.slot === slot);
   if (!r) return;
   let reasons;
@@ -8101,6 +8136,7 @@ function openWhyForRotation(time, slot) {
 }
 // "Why?" for a player at minute t: the change that last moved them or moves them next.
 function openWhyForPlayer(pid, t) {
+  track('why-opened');
   const subs = PLAN.rotations.filter(r => !r.type && (r.on === pid || r.off === pid));
   const onNow = Object.values(stateForEdit(t).onPitch).includes(pid);
   const next = subs.filter(r => r.time > t).sort((a, b) => a.time - b.time)[0];
@@ -8448,6 +8484,106 @@ function setForTourLines(keys) {
 }
 const ETHOS_TOUR_KEYS = ['preset', 'sliders.season', 'rules.leagueMinPct', 'rules.strengthMode', 'rules.unitFloor', 'sliders.positions', 'sliders.changes', 'timing', 'rules.oneChangePerUnit', 'keepers', 'live.replan', 'priority'];
 
+/* ================= USAGE STATS (opt-in) =================
+ * Off unless the coach turns it on. When on, the app counts which features get
+ * used (e.g. "Match kicked off", "Why? explanation opened") through GoatCounter,
+ * which sets no cookies, doesn't store IP addresses and keeps only totals.
+ * Nothing about players, teams, opponents, scores or notes is ever sent: every
+ * event is a fixed name from the list below, plus at most one short, fixed
+ * detail (a format like "7-a-side-50min", never anything the coach typed).
+ */
+var STATS_ENDPOINT = 'https://cocoach.goatcounter.com/count';
+var statsQueue = [], statsLoading = false;
+function statEvents() {
+  return {
+    'app-opened': {title: 'App opened', perVisit: true},
+    'screen': {title: 'Screen viewed', perVisit: true},
+    'stats-on': {title: 'Usage stats turned on'},
+    'setup-completed': {title: 'Team set up'},
+    'team-added': {title: 'Another team added'},
+    'match-planned': {title: 'Match planned'},
+    'match-format': {title: 'Match format planned'},
+    'approach-style': {title: 'Team approach used for a match'},
+    'match-started': {title: 'Match kicked off'},
+    'match-finished': {title: 'Match finished'},
+    'live-change': {title: 'Change made during a live match'},
+    'live-goal': {title: 'Goal recorded during a live match'},
+    'live-player-unavailable': {title: 'Player marked unavailable during a match'},
+    'plan-sub-removed': {title: 'Planned substitution removed'},
+    'planner-change-undone': {title: "Planner's change undone"},
+    'scorecard-opened': {title: 'Plan scorecard opened'},
+    'another-plan': {title: '"Show another plan" used'},
+    'suggestion-added': {title: 'Planner suggestion added'},
+    'why-opened': {title: '"Why?" explanation opened'},
+    'approach-changed': {title: 'Team approach changed'},
+    'player-exception': {title: 'Player exception set for a match'},
+    'lineup-image-opened': {title: 'Line-up image opened'},
+    'summary-opened': {title: 'Match summary opened'},
+    'backup-downloaded': {title: 'Backup downloaded'},
+    'backup-restored': {title: 'Backup restored'},
+    'feedback-opened': {title: 'Feedback form opened'},
+    'tour-started': {title: 'Tour started'},
+    'tour-completed': {title: 'Tour completed'},
+    'tour-skipped': {title: 'Tour skipped'},
+    'install-guide-opened': {title: 'Home-screen guide opened'},
+    'app-installed': {title: 'Added to home screen'},
+  };
+}
+function statsOn() { try { return !!(profile && profile.stats && profile.stats.on); } catch (e) { return false; } }
+function setStats(on) {
+  profile.stats = {on: !!on, at: Date.now(), v: PRIVACY_VERSION};
+  saveProfile();
+  if (on) { track('stats-on'); track('app-opened', openedFrom()); }
+  else statsQueue.length = 0;
+}
+function openedFrom() { return isInstalled() ? 'home-screen' : inAppBrowser() ? 'in-app-browser' : 'browser'; }
+function track(key, detail) {
+  try {
+    if (!statsOn()) return;
+    const ev = statEvents()[key]; if (!ev) return;
+    let path = key, title = ev.title;
+    if (detail != null) {
+      const d = String(detail).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+      if (d) { path += '/' + d; title += ': ' + d; }
+    }
+    statsQueue.push({path, title, event: true, no_session: !ev.perVisit});
+    if (statsQueue.length > 40) statsQueue.shift();
+    statsFlush();
+  } catch (e) { /* stats must never break the app */ }
+}
+function statsFlush() {
+  const gc = window.goatcounter;
+  if (gc && typeof gc.count === 'function') {
+    while (statsQueue.length) { try { gc.count(statsQueue.shift()); } catch (e) { /* ignore */ } }
+    return;
+  }
+  if (statsLoading || !navigator.onLine) return;
+  statsLoading = true;
+  window.goatcounter = Object.assign(window.goatcounter || {}, {no_onload: true, no_events: true});
+  const sc = document.createElement('script');
+  sc.async = true; sc.src = 'https://gc.zgo.at/count.js'; sc.dataset.goatcounter = STATS_ENDPOINT;
+  sc.onload = () => { statsLoading = false; statsFlush(); };
+  sc.onerror = () => { statsLoading = false; sc.remove(); };
+  document.head.appendChild(sc);
+}
+window.addEventListener('online', () => { if (statsOn() && statsQueue.length) statsFlush(); });
+
+const STATS_EXPLAIN = 'Counts of which features get used (for example "match kicked off" or "Why? opened"), the match format, and your device type. Never names, teams, opponents, scores, notes or anything about your players. No cookies, and your IP address isn\'t stored.';
+function statsCardHtml() {
+  if (profile.stats || !activeTeam().setupDone) return '';
+  // One question at a time: after the privacy notice, and once the home-screen card is dealt with.
+  try { const pr = fbPrompt(); if (pr && pr.kind === 'notice') return ''; } catch (e) { /* ignore */ }
+  if (installCardHtml()) return '';
+  return homeCard(`<div style="font-weight:600; margin-bottom:4px;">Help improve Co-Coach?</div>
+    <div class="config-note" style="margin-bottom:8px;">Share anonymous counts of which features you use, so we can see what helps coaches and fix what's confusing. Never names, teams, opponents, scores, notes or anything about your players, and no cookies. You can turn it off any time in Privacy &amp; data.</div>
+    <div style="display:flex; gap:8px;"><button class="btn btn-ghost" id="statsNo" style="margin:0;">No thanks</button><button class="btn btn-primary" id="statsYes">Yes, share counts</button></div>`, 'id="statsCard"');
+}
+function bindStatsCard(root) {
+  const y = root.querySelector('#statsYes'); if (!y) return;
+  y.addEventListener('click', () => { setStats(true); renderHome(); });
+  root.querySelector('#statsNo').addEventListener('click', () => { setStats(false); renderHome(); });
+}
+
 /* ================= INSTALL & OFFLINE =================
  * Co-Coach is a web app that coaches add to their home screen. This block:
  *  - registers the service worker (sw.js) that keeps a copy of the app's own
@@ -8479,7 +8615,7 @@ function inAppBrowser(ua) {
 function installState() { if (!profile.install) profile.install = {}; return profile.install; }
 let deferredInstall = null; // Android/Chrome's own install prompt, when offered
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; try { renderHome(); } catch (er) { /* not ready yet */ } });
-window.addEventListener('appinstalled', () => { deferredInstall = null; installState().installedAt = Date.now(); saveProfile(); try { renderHome(); } catch (e) { /* ignore */ } });
+window.addEventListener('appinstalled', () => { track('app-installed'); deferredInstall = null; installState().installedAt = Date.now(); saveProfile(); try { renderHome(); } catch (e) { /* ignore */ } });
 
 function installCardHtml() {
   if (isInstalled() || inAppBrowser()) return '';
@@ -8532,6 +8668,7 @@ function installGuideSteps(kind, inApp) {
   return out;
 }
 function openInstallGuide(tab) {
+  track('install-guide-opened');
   const inApp = inAppBrowser(), dev = deviceKind();
   let kind = tab || (dev === 'desktop' ? 'ios' : dev);
   const hasData = loadMatchLibrary().length > 0 || (profile.teams || []).some(t => squadSizeOf(t) > 0);
@@ -8600,6 +8737,7 @@ function registerServiceWorker() {
 /* ================= INIT ================= */
 showInAppBanner();
 registerServiceWorker();
+track('app-opened', openedFrom());
 renderSquadList();
 try { renderApproachSection(); refreshPlannerVisibility(); } catch (e) { console.warn(e); }
 
