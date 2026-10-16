@@ -3,7 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Riverside U10s — Squad & Match Planner</title>
+<title>Co-Coach</title>
+<meta name="description" content="Your assistant coach for grassroots football: line-ups, fair substitutions, live match days and season stats.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1F4A33">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Co-Coach">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -364,6 +373,16 @@
   .tour-banner .tb-text { flex: 1; }
   .tour-banner .btn { width: auto; padding: 7px 12px; margin: 0; font-size: 12.5px; }
   .tour-banner .tb-x { cursor: pointer; color: var(--ink-soft); padding: 2px 6px; font-size: 16px; }
+  .update-bar { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); max-width: 520px; margin: 0 auto; display: flex; align-items: center; gap: 10px; background: var(--turf-1); color: var(--chalk); border-radius: 12px; padding: 10px 12px; z-index: 900; box-shadow: 0 6px 20px rgba(0,0,0,.25); font-size: 13px; }
+  .update-bar span { flex: 1; }
+  .update-bar .btn { width: auto; padding: 7px 12px; background: var(--amber); color: var(--amber-ink); font-size: 12.5px; }
+  .ig-tabs { display: flex; gap: 6px; background: var(--bench-card); border-radius: 10px; padding: 4px; margin: 4px 0 12px; }
+  .ig-tab { flex: 1; text-align: center; padding: 7px 4px; border-radius: 8px; font-size: 13px; cursor: pointer; color: var(--ink-soft); }
+  .ig-tab.on { background: var(--card); color: var(--ink); font-weight: 600; }
+  .ig-steps { margin: 0; padding-left: 0; list-style: none; counter-reset: ig; }
+  .ig-steps li { counter-increment: ig; position: relative; padding: 0 0 10px 34px; font-size: 13.5px; line-height: 1.45; }
+  .ig-steps li::before { content: counter(ig); position: absolute; left: 0; top: -1px; width: 24px; height: 24px; border-radius: 50%; background: var(--turf-1); color: var(--chalk); font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .ig-icon { display: inline-block; vertical-align: -4px; width: 18px; height: 18px; }
 </style>
 </head>
 <body>
@@ -377,6 +396,11 @@
   <div class="tour-banner" id="tourBanner" style="display:none;">
     <div class="tb-text"><b>New here?</b> Take a 1-minute tour of the app.</div>
     <button class="btn btn-primary" id="tourBannerGo">Show me</button><span class="tb-x" id="tourBannerX" title="Dismiss">✕</span>
+  </div>
+
+  <div class="tour-banner" id="inAppBanner" style="display:none;">
+    <div class="tb-text"><b>Open Co-Coach in your browser.</b> You're viewing it inside <span id="inAppName">another app</span>, which may not keep your teams saved.</div>
+    <button class="btn btn-primary" id="inAppHow">How?</button><span class="tb-x" id="inAppX" title="Dismiss">✕</span>
   </div>
 
   <div class="tabs">
@@ -733,7 +757,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.12';
+const APP_VERSION = 'beta 0.13';
 const PRIVACY_VERSION = '2026-10-12';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -6253,7 +6277,7 @@ function renderLineupCanvas() {
   y += 10;
   rule(y); y += 38;
 
-  txt(`Made with the Squad & Rotation Planner · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, y, {size: 17, color: C.soft});
+  txt(`Made with Co-Coach · co-coach.uk · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, y, {size: 17, color: C.soft});
   y += PAD;
 
   const out = document.createElement('canvas'); out.width = W; out.height = y;
@@ -6387,7 +6411,7 @@ function renderSummaryCanvas(opts) {
     y += 10;
   }
   g.fillStyle = C.line; g.fillRect(PAD, y, W - 2 * PAD, 2); y += 38;
-  txt(`Made with the Squad & Rotation Planner · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, y, {size: 17, color: C.soft});
+  txt(`Made with Co-Coach · co-coach.uk · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, y, {size: 17, color: C.soft});
   y += PAD;
   const out = document.createElement('canvas'); out.width = W; out.height = y;
   out.getContext('2d').drawImage(c, 0, 0, W, y, 0, 0, W, y);
@@ -6634,6 +6658,7 @@ function renderHome() {
     html += homeCard(`<div style="font-size:11px; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:4px;">NEXT FIXTURE</div>
       <div class="config-note">No upcoming fixture planned yet.</div><button class="btn btn-primary" id="homePlan" style="margin-top:10px;">+ Plan a fixture</button>`, 'id="homeNext"');
   }
+  html += installCardHtml();
   // last result
   if (last) {
     const s = last.stats; const sc = {};
@@ -6703,6 +6728,7 @@ function renderHome() {
   }
   el.innerHTML = html;
   bindFbPrompt(el);
+  bindInstallCard(el);
   const g = id => document.getElementById(id);
   if (g('homeResume')) g('homeResume').addEventListener('click', () => openMatchFromLibrary(live.id));
   if (g('homeNextOpen')) g('homeNextOpen').addEventListener('click', () => openMatchFromLibrary(next.id));
@@ -6814,7 +6840,7 @@ function fbCompose(head, tier) {
   return head + '\n\n----- DIAGNOSTICS -----\n' + fbDiagnostics(anon, sizes[0]) + (sizes[1] ? '\n\n----- MATCH DATA (' + (currentMatchId ? 'open match' : 'most recent match') + ') -----\n' + fbMatchData(anon, snap, sizes[1]) : '\n\n(match data omitted - too large)');
 }
 async function fbPost(item) {
-  const body = {access_key: FEEDBACK_KEY, subject: item.subject, from_name: item.from_name || 'Squad planner user', message: item.message, botcheck: ''};
+  const body = {access_key: FEEDBACK_KEY, subject: item.subject, from_name: item.from_name || 'Co-Coach user', message: item.message, botcheck: ''};
   if (item.email) body.email = item.email;
   const r = await fetch(FEEDBACK_URL, {method: 'POST', headers: {'Content-Type': 'application/json', Accept: 'application/json'}, body: JSON.stringify(body)});
   const j = await r.json().catch(() => ({}));
@@ -6859,7 +6885,7 @@ diag.onError = function (msg) {
     st.autoCount++; saveProfile();
     const snap = fbSnapshot(); const anon = fbAnonymiser(snap);
     const head = `AUTOMATIC ERROR REPORT\nCoach: ${profile.coach.name || '(no name)'}\n\nErrors:\n${msgs.map(m => '- ' + anon(m)).join('\n')}`;
-    await fbDeliver(`[Squad planner ${APP_VERSION}] AUTO ERROR: ${anon(msgs[0]).slice(0, 80)}`, head, {});
+    await fbDeliver(`[Co-Coach ${APP_VERSION}] AUTO ERROR: ${anon(msgs[0]).slice(0, 80)}`, head, {});
   }, 4000);
 };
 
@@ -6898,7 +6924,7 @@ function openFeedbackModal(opts) {
     const head = [kind === 'bug' ? 'PROBLEM REPORT' : 'FEEDBACK', face ? `Rating: ${face[1]} ${face[2]} (${rating}/4)` : null, `Coach: ${profile.coach.name || '(no name)'}`, email ? `Reply to: ${email}` : null, '', text || '(no comment)'].filter(x => x !== null).join('\n');
     diag.add('act', `feedback sent (${kind}${rating ? ', rating ' + rating : ''})`);
     q('#fbSend').disabled = true; q('#fbMsg').style.color = ''; q('#fbMsg').textContent = 'Sending...';
-    const sent = await fbDeliver(`[Squad planner ${APP_VERSION}] ${kind === 'bug' ? 'Problem' : 'Feedback'}${face ? ' ' + face[1] : ''}`, head, {email});
+    const sent = await fbDeliver(`[Co-Coach ${APP_VERSION}] ${kind === 'bug' ? 'Problem' : 'Feedback'}${face ? ' ' + face[1] : ''}`, head, {email});
     st.lastSent = Date.now(); saveProfile();
     overlay.querySelector('.modal-card').innerHTML = `<div class="picker-title">${sent ? 'Thank you!' : 'Saved'}</div><div class="config-note" style="margin-bottom:12px;">${sent ? 'Your feedback has been sent. It really helps.' : "Couldn't send just now - it's saved and will go automatically next time you're online."}</div><div class="modal-btn-row"><button class="btn btn-primary" id="fbDone">Done</button></div>`;
     overlay.querySelector('#fbDone').addEventListener('click', () => overlay.remove());
@@ -6953,7 +6979,7 @@ function teamDisplayName(t) { return (t && t.name) || 'My team'; }
 function refreshTeamHeader() {
   const t = activeTeam();
   document.getElementById('teamTitleText').textContent = teamDisplayName(t);
-  document.title = `${teamDisplayName(t)} - Squad & Match Planner`;
+  document.title = `${teamDisplayName(t)} · Co-Coach`;
 }
 function squadSizeOf(t) { try { const r = lsGet(teamKey('rf_squad_v1', t)); return r ? JSON.parse(r).length : (t.legacy ? DEFAULT_SQUAD.length : 0); } catch (e) { return 0; } }
 function matchCountOf(t) { try { const r = lsGet(teamKey('rf_matches_v1', t)); return r ? JSON.parse(r).length : 0; } catch (e) { return 0; } }
@@ -6997,6 +7023,7 @@ function openTeamMenu() {
       <span class="decision-link" id="tmRename">Rename this team</span>
       <span class="decision-link" id="tmCoach">${profile.coach.name ? 'Change my name' : 'Add my name'}</span>
       <span class="decision-link" id="tmTour">Quick-start guide</span>
+      ${isInstalled() ? '' : '<span class="decision-link" id="tmInstall">Add to home screen</span>'}
       <span class="decision-link" id="tmBackup">Backup &amp; restore</span>
       <span class="decision-link" id="tmFeedback">Send feedback / report a problem</span>
       <span class="decision-link" id="tmPrivacy">Privacy &amp; data</span>
@@ -7009,6 +7036,7 @@ function openTeamMenu() {
   overlay.querySelector('#tmRename').addEventListener('click', () => renameModal('Rename team', activeTeam().name, v => { activeTeam().name = v; saveProfile(); refreshTeamHeader(); }));
   overlay.querySelector('#tmCoach').addEventListener('click', () => renameModal('Your name', profile.coach.name, v => { profile.coach.name = v; saveProfile(); }));
   overlay.querySelector('#tmBackup').addEventListener('click', openBackupModal);
+  if (overlay.querySelector('#tmInstall')) overlay.querySelector('#tmInstall').addEventListener('click', () => { overlay.remove(); openInstallGuide(); });
   overlay.querySelector('#tmFeedback').addEventListener('click', () => openFeedbackModal());
   overlay.querySelector('#tmPrivacy').addEventListener('click', openPrivacyModal);
   overlay.querySelector('#tmTour').addEventListener('click', () => { overlay.remove(); startTour(); });
@@ -7051,7 +7079,7 @@ function openPrivacyModal() {
 function collectBackup() {
   const data = {};
   try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('rf_') && k !== 'rf_diag_v1' && k !== 'rf_fbq_v1') data[k] = localStorage.getItem(k); } } catch (e) { /* ignore */ }
-  return {app: 'squad-planner', format: 1, exportedAt: new Date().toISOString(), data};
+  return {app: 'co-coach', format: 1, exportedAt: new Date().toISOString(), data};
 }
 function openBackupModal() {
   const overlay = openModal(`<div class="picker-title">Backup &amp; restore</div>
@@ -7066,7 +7094,7 @@ function openBackupModal() {
   overlay.querySelector('#bkExport').addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(collectBackup(), null, 1)], {type: 'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `squad-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `co-coach-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   });
@@ -7074,7 +7102,7 @@ function openBackupModal() {
   overlay.querySelector('#bkFile').addEventListener('change', async e => {
     const f = e.target.files[0]; if (!f) return;
     let obj; try { obj = JSON.parse(await f.text()); } catch (er) { return msg("That file isn't a valid backup."); }
-    if (!obj || obj.app !== 'squad-planner' || !obj.data || typeof obj.data !== 'object') return msg("That file isn't a Squad Planner backup.");
+    if (!obj || !['co-coach', 'squad-planner'].includes(obj.app) || !obj.data || typeof obj.data !== 'object') return msg("That file isn't a Co-Coach backup.");
     overlay.remove();
     showConfirm('Restore this backup? It replaces everything currently saved on this device.', () => {
       try {
@@ -7125,12 +7153,14 @@ function renderWizard() {
   const first = profile.teams.length === 1;
   if (step === 'team') {
     body.innerHTML = `${dots}<div class="form-card">
-      <div class="wiz-hero">${first ? 'Welcome' : 'Add a team'}</div>
+      <div class="wiz-hero">${first ? 'Welcome to Co-Coach' : 'Add a team'}</div>
       <div class="config-note" style="margin-bottom:12px;">${first ? "Let's set up your team in a few quick steps - your squad, your usual match format, how you like to rotate, and your strongest line-up." : 'A few quick steps and this team is ready. Teams are kept completely separate.'}</div>
+      ${first && deviceKind() === 'ios' && !isInstalled() && !inAppBrowser() ? '<div class="warn-box" id="wzInstallTip"><b>Tip: add Co-Coach to your home screen first.</b> On iPhone, the home-screen app saves its own copy of your team, so set up there. <span class="decision-link" id="wzInstallHow" style="font-size:12.5px;">Show me how</span></div>' : ''}
       ${profile.coach.name ? '' : '<div class="field"><label>Your name (optional)</label><input type="text" id="wzCoach" placeholder="e.g. Sam"></div>'}
       <div class="field"><label>Team name</label><input type="text" id="wzTeam" placeholder="e.g. Riverside U10s" value="${esc(t.name)}"></div>
       <div class="check-row" style="margin:8px 0 2px; align-items:flex-start;"><input type="checkbox" id="wzConsent" ${t.consent ? 'checked' : ''} style="margin-top:3px;"><label for="wzConsent" style="font-size:12.5px; line-height:1.4;">I'm 18 or over, and I have permission from my club and my players' parents or carers to record players' <b>first names</b>, positions and match stats in this app. Data stays on this device. <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a></label></div>
       ${err}${nav(null, 'Next')}</div>`;
+    if (body.querySelector('#wzInstallHow')) body.querySelector('#wzInstallHow').addEventListener('click', () => openInstallGuide('ios'));
     body.querySelector('#wizNext').addEventListener('click', () => {
       const name = body.querySelector('#wzTeam').value.trim();
       if (!name) return fail('Give your team a name.');
@@ -7302,7 +7332,7 @@ const TOUR_MOCKS = {
 };
 function tourMockHtml(st) { const m = st.mock; if (!m) return ''; const [k, arg] = m.split(':'); const f = TOUR_MOCKS[k]; return f ? `<div class="tour-mock" aria-hidden="true">${f(arg === undefined ? undefined : +arg)}</div>` : ''; }
 const TOUR_STEPS = [
-  {title: 'Welcome to your team hub', text: "A quick tour of the app. It takes about a minute and you can skip it at any time - replay it from the team menu (tap your team name).",
+  {title: 'Welcome to Co-Coach', text: "Your assistant coach for match days. A quick tour of the app. It takes about a minute and you can skip it at any time - replay it from the team menu (tap your team name).",
     bullets: ['Squad - your players, line-up presets and defaults', 'Matches - every fixture, planned, live and finished', 'Match Plan - the plan and live match mode for the fixture you open']},
   {screen: 'home', sel: '#homeNext', title: 'Your dashboard', text: 'Home shows your next fixture and last result. As you finish matches it builds your season: form, top scorers, assists, awards, minutes for every player and a fair-minutes check that flags anyone who is falling behind.'},
   {screen: 'squad', sel: '#teamTitle', title: 'Your teams', text: 'Tap your team name to switch teams, add another side, rename a team, or back up your data. Each team has its own squad, fixtures and presets.'},
@@ -8418,7 +8448,158 @@ function setForTourLines(keys) {
 }
 const ETHOS_TOUR_KEYS = ['preset', 'sliders.season', 'rules.leagueMinPct', 'rules.strengthMode', 'rules.unitFloor', 'sliders.positions', 'sliders.changes', 'timing', 'rules.oneChangePerUnit', 'keepers', 'live.replan', 'priority'];
 
+/* ================= INSTALL & OFFLINE =================
+ * Co-Coach is a web app that coaches add to their home screen. This block:
+ *  - registers the service worker (sw.js) that keeps a copy of the app's own
+ *    files so it opens with no signal, and offers "Update now" when a new
+ *    version has downloaded;
+ *  - shows a home-screen card and a step-by-step guide for iPhone and Android;
+ *  - spots in-app browsers (Facebook, Instagram...) where data may not be kept
+ *    and Add to Home Screen isn't available, and explains how to get out.
+ */
+function isInstalled() {
+  try { return matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true; }
+  catch (e) { return false; }
+}
+function deviceKind(ua) {
+  ua = ua || navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ios';
+  if (/Android/.test(ua)) return 'android';
+  return 'desktop';
+}
+function inAppBrowser(ua) {
+  ua = ua || navigator.userAgent;
+  if (/Instagram/.test(ua)) return 'Instagram';
+  if (/FBAN|FBAV|FB_IAB|FBIOS|FB4A|Messenger/.test(ua)) return 'Facebook';
+  if (/musical_ly|TikTok|Bytedance/i.test(ua)) return 'TikTok';
+  if (/Snapchat/.test(ua)) return 'Snapchat';
+  if (/\bLine\//.test(ua)) return 'LINE';
+  return null;
+}
+function installState() { if (!profile.install) profile.install = {}; return profile.install; }
+let deferredInstall = null; // Android/Chrome's own install prompt, when offered
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; try { renderHome(); } catch (er) { /* not ready yet */ } });
+window.addEventListener('appinstalled', () => { deferredInstall = null; installState().installedAt = Date.now(); saveProfile(); try { renderHome(); } catch (e) { /* ignore */ } });
+
+function installCardHtml() {
+  if (isInstalled() || inAppBrowser()) return '';
+  const kind = deviceKind(); if (kind === 'desktop') return '';
+  const st = installState(); if (st.snoozeUntil && Date.now() < st.snoozeUntil) return '';
+  const why = kind === 'ios'
+    ? "It opens like an app, works with no signal at the pitch, and keeps your teams safer: Safari can clear saved data from websites you haven't opened for a week or so."
+    : 'It opens like an app and works with no signal at the pitch.';
+  return homeCard(`<div style="display:flex; gap:12px; align-items:center;"><img src="icons/icon-192.png" alt="" width="46" height="46" style="border-radius:11px; flex:0 0 46px;">
+      <div style="flex:1;"><div style="font-weight:600; margin-bottom:2px;">Add Co-Coach to your home screen</div><div class="config-note">${why}</div></div></div>
+    <button class="btn btn-primary" id="installGo" style="margin-top:10px;">${deferredInstall ? 'Install Co-Coach' : 'Show me how (30 seconds)'}</button>
+    <div style="margin-top:8px;"><span class="decision-link secondary" id="installLater">Not now</span></div>`, 'id="installCard"');
+}
+function bindInstallCard(root) {
+  const go = root.querySelector('#installGo'); if (!go) return;
+  go.addEventListener('click', () => { if (deferredInstall) promptInstall(); else openInstallGuide(); });
+  root.querySelector('#installLater').addEventListener('click', () => {
+    const st = installState(); st.snoozes = (st.snoozes || 0) + 1;
+    // A week at a time; after the third "not now", only the team menu offers it.
+    st.snoozeUntil = Date.now() + (st.snoozes >= 3 ? 3650 : 7) * 86400000;
+    saveProfile(); renderHome();
+  });
+}
+function promptInstall() {
+  const ev = deferredInstall; if (!ev) return openInstallGuide();
+  ev.prompt();
+  (ev.userChoice || Promise.resolve({})).then(c => { if (c && c.outcome === 'accepted') deferredInstall = null; try { renderHome(); } catch (e) { /* ignore */ } });
+}
+
+const IG_SHARE = '<svg class="ig-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>';
+const IG_PLUS = '<svg class="ig-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-label="Add"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>';
+function installGuideSteps(kind, inApp) {
+  const out = [];
+  if (inApp) {
+    out.push(kind === 'ios'
+      ? `<b>Leave ${esc(inApp)} first.</b> Tap the <b>•••</b> menu (top or bottom right) and choose <b>Open in external browser</b> or <b>Open in Safari</b>. Or copy the link below and paste it into Safari.`
+      : `<b>Leave ${esc(inApp)} first.</b> Tap the <b>⋮</b> menu (top right) and choose <b>Open in external browser</b> or <b>Open in Chrome</b>. Or copy the link below and paste it into Chrome.`);
+  }
+  if (kind === 'ios') {
+    out.push(`In <b>Safari</b>, tap the <b>Share</b> button ${IG_SHARE} at the bottom of the screen (top right on iPad). On newer iPhones you may need to tap <b>•••</b> first, then <b>Share</b>.`);
+    out.push(`Scroll down and tap <b>Add to Home Screen</b> ${IG_PLUS}. If you can't see it, scroll to the bottom and tap <b>Edit Actions</b> to add it.`);
+    out.push('Keep the name <b>Co-Coach</b> and tap <b>Add</b>.');
+    out.push('From now on, open Co-Coach from the new icon on your home screen.');
+  } else {
+    out.push('In <b>Chrome</b>, tap the <b>⋮</b> menu at the top right. (In Samsung Internet, tap <b>☰</b> at the bottom right.)');
+    out.push('Tap <b>Add to Home screen</b> or <b>Install app</b>. (Samsung Internet: <b>Add page to</b> then <b>Home screen</b>.)');
+    out.push('Tap <b>Install</b> or <b>Add</b> to confirm.');
+    out.push('From now on, open Co-Coach from the new icon on your home screen or in your apps list.');
+  }
+  return out;
+}
+function openInstallGuide(tab) {
+  const inApp = inAppBrowser(), dev = deviceKind();
+  let kind = tab || (dev === 'desktop' ? 'ios' : dev);
+  const hasData = loadMatchLibrary().length > 0 || (profile.teams || []).some(t => squadSizeOf(t) > 0);
+  const overlay = openModal('<div id="igBody"></div>', {wide: true});
+  const draw = () => {
+    const steps = installGuideSteps(kind, inApp);
+    const note = kind === 'ios' && hasData && !inApp
+      ? `<div class="warn-box" style="margin-top:4px;"><b>Already set up your team here?</b> On iPhone, the home-screen app keeps its own separate copy of your data. Before you start: tap your team name, then <b>Backup &amp; restore</b>, then <b>Download backup</b>. Then open the new icon and choose <b>Restore from a backup file</b>.</div>` : '';
+    overlay.querySelector('#igBody').innerHTML = `<div class="picker-title">Add Co-Coach to your home screen</div>
+      ${dev === 'desktop' ? '<div class="config-note" style="margin-bottom:8px;">Co-Coach is made for your phone. Open <b>co-coach.uk</b> on your phone and follow these steps there.</div>' : ''}
+      <div class="ig-tabs"><div class="ig-tab ${kind === 'ios' ? 'on' : ''}" data-ig="ios">iPhone / iPad</div><div class="ig-tab ${kind === 'android' ? 'on' : ''}" data-ig="android">Android</div></div>
+      ${kind === 'android' && deferredInstall ? '<button class="btn btn-primary" id="igInstallNow" style="margin-bottom:12px;">Install Co-Coach now</button><div class="config-note" style="margin:-4px 0 10px;">Or do it yourself:</div>' : ''}
+      <ol class="ig-steps">${steps.map(x => `<li>${x}</li>`).join('')}</ol>
+      ${note}
+      ${inApp ? `<div style="display:flex; gap:8px; align-items:center; margin:6px 0 4px;"><code style="flex:1; background:var(--bench-card); padding:8px 10px; border-radius:8px; font-size:13px;">https://co-coach.uk</code><button class="btn btn-ghost" id="igCopy" style="width:auto; padding:8px 12px;">Copy link</button></div>` : ''}
+      <div class="config-note" style="margin-top:6px;">The app is the same either way. It's free, there's nothing to download from an app store, and your teams stay on your phone.</div>
+      <div class="modal-btn-row"><button class="btn btn-ghost" id="igClose">Done</button></div>`;
+    overlay.querySelectorAll('[data-ig]').forEach(t => t.addEventListener('click', () => { kind = t.dataset.ig; draw(); }));
+    overlay.querySelector('#igClose').addEventListener('click', () => overlay.remove());
+    const now = overlay.querySelector('#igInstallNow'); if (now) now.addEventListener('click', () => { overlay.remove(); promptInstall(); });
+    const cp = overlay.querySelector('#igCopy');
+    if (cp) cp.addEventListener('click', () => {
+      const done = () => { cp.textContent = 'Copied'; };
+      try { navigator.clipboard.writeText('https://co-coach.uk').then(done, () => { cp.textContent = 'Copy failed'; }); } catch (e) { cp.textContent = 'Copy failed'; }
+    });
+  };
+  draw();
+  return overlay;
+}
+function showInAppBanner() {
+  const app = inAppBrowser(), b = document.getElementById('inAppBanner');
+  if (!b) return;
+  let hidden = false; try { hidden = !!sessionStorage.getItem('cc_inapp_x'); } catch (e) { /* ignore */ }
+  if (!app || isInstalled() || hidden) { b.style.display = 'none'; return; }
+  document.getElementById('inAppName').textContent = app;
+  b.style.display = 'flex';
+}
+document.getElementById('inAppHow').addEventListener('click', () => openInstallGuide());
+document.getElementById('inAppX').addEventListener('click', () => { try { sessionStorage.setItem('cc_inapp_x', '1'); } catch (e) { /* ignore */ } document.getElementById('inAppBanner').style.display = 'none'; });
+
+let swUpdating = false;
+function showUpdateBar(worker) {
+  const bar = document.getElementById('updateBar'); bar.style.display = 'flex';
+  document.getElementById('updateNow').onclick = () => {
+    swUpdating = true;
+    try { saveLiveMatchState(); } catch (e) { /* nothing live */ }
+    worker.postMessage('skipWaiting');
+  };
+}
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (swUpdating) location.reload(); });
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    const offer = w => {
+      if (!w) return;
+      const check = () => { if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdateBar(w); };
+      check(); w.addEventListener('statechange', check);
+    };
+    offer(reg.waiting);
+    reg.addEventListener('updatefound', () => offer(reg.installing));
+    // Look for a new version whenever the app comes back to the front.
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(e => console.warn('Offline support unavailable:', e && e.message));
+}
+
 /* ================= INIT ================= */
+showInAppBanner();
+registerServiceWorker();
 renderSquadList();
 try { renderApproachSection(); refreshPlannerVisibility(); } catch (e) { console.warn(e); }
 
@@ -8439,5 +8620,6 @@ try { if (navigator.storage && navigator.storage.persist) navigator.storage.pers
   if (live) openMatchFromLibrary(live.id); else showScreen('home');
 })();
 </script>
+<div class="update-bar" id="updateBar" style="display:none;"><span>A new version of Co-Coach is ready.</span><button class="btn" id="updateNow">Update now</button></div>
 </body>
 </html>
