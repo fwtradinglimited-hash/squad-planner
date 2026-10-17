@@ -338,6 +338,32 @@
   .t3-name { display: inline-block; padding: 1px 7px; margin: 1px 0; border-radius: 7px; background: var(--bench-card); cursor: pointer; font-weight: 600; }
   .t3-name.sel { background: var(--amber); color: var(--amber-ink); }
   .t3-v { color: var(--ink-soft); font-size: 12.5px; }
+  .tw { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .fmt-tabs { display: flex; gap: 6px; overflow-x: auto; margin: 4px 0 4px; padding-bottom: 2px; scrollbar-width: none; }
+  .fmt-tabs::-webkit-scrollbar { display: none; }
+  .fmt-tab { flex: 0 0 auto; border: 1px solid var(--card-line); background: var(--card); color: var(--ink); border-radius: 20px; padding: 7px 14px; font-family: "Oswald", sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .fmt-tab.on { background: var(--turf-1); color: var(--chalk); border-color: var(--turf-1); }
+  .fmt-hint { font-size: 11.5px; color: var(--ink-soft); margin: 0 0 8px 2px; }
+  .ov-row { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; padding: 7px 0; border-top: 1px solid var(--card-line); cursor: pointer; font-size: 13.5px; }
+  .ov-row:first-of-type { border-top: 0; }
+  .ov-row span:nth-child(2) { grid-column: 1; color: var(--ink-soft); font-size: 12.5px; }
+  .ov-row .ov-wdl { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-weight: 600; }
+  .t3-ww summary { cursor: pointer; list-style: none; }
+  .t3-ww summary::after { content: ' ▾'; color: var(--ink-soft); }
+  .t3-ww[open] summary::after { content: ' ▴'; }
+  .t3-stats { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .t3-stats th, .t3-stats td { padding: 5px 4px; border-bottom: 1px solid var(--card-line); text-align: center; }
+  .t3-stats th { font-size: 11.5px; color: var(--ink-soft); font-weight: 600; }
+  .t3-stats td:first-child, .t3-stats th:first-child { text-align: left; font-weight: 600; }
+  .t3-hi { background: #FCEFD9; color: var(--amber-ink); font-weight: 700; }
+  :root[data-theme="dark"] .t3-hi { background: rgba(227,162,60,.28); color: var(--ink); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .t3-hi { background: rgba(227,162,60,.28); color: var(--ink); } }
+  .t3-grid { border-collapse: collapse; font-size: 12px; }
+  .t3-grid th { font-size: 11px; color: var(--ink-soft); font-weight: 600; padding: 3px; }
+  .t3-grid tr th:first-child { text-align: left; color: var(--ink); white-space: nowrap; padding-right: 6px; }
+  .t3-gc { width: 26px; height: 26px; text-align: center; border: 1px solid var(--card-line); background: color-mix(in srgb, var(--good) calc(var(--a) * 70%), transparent); font-weight: 600; }
+  .t3-self { background: var(--bench-card); border: 1px solid var(--card-line); }
+  .t3-zero { color: var(--coral); font-weight: 700; }
   .t3-totals { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--card-line); font-size: 14px; }
   .t3-note { font-size: 12px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
   .t3-clock { font-family: "Oswald", sans-serif; font-size: 22px; font-weight: 600; color: var(--turf-1); font-variant-numeric: tabular-nums; }
@@ -825,7 +851,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.22';
+const APP_VERSION = 'beta 0.23';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -6650,8 +6676,8 @@ function backfillMatchStats() {
 }
 
 function recDate(r) { return (r.fixture && r.fixture.date) || new Date(r.createdAt || 0).toISOString().slice(0, 10); }
-function aggregateStats() {
-  const fin = loadMatchLibrary().filter(r => r.status === 'finished' && r.stats).sort((a, b) => recDate(a) < recDate(b) ? -1 : recDate(a) > recDate(b) ? 1 : (a.createdAt || 0) - (b.createdAt || 0));
+function aggregateStats(filter) {
+  const fin = loadMatchLibrary().filter(r => r.status === 'finished' && r.stats && (!filter || filter(r))).sort((a, b) => recDate(a) < recDate(b) ? -1 : recDate(a) > recDate(b) ? 1 : (a.createdAt || 0) - (b.createdAt || 0));
   const team = {played: fin.length, w: 0, d: 0, l: 0, gf: 0, ga: 0, cs: 0, mins: 0};
   const pl = {};
   for (const r of fin) {
@@ -6750,6 +6776,147 @@ function resultBadge(r) {
   const c = r === 'W' ? '#2F7D52' : r === 'L' ? '#C1503F' : '#E3A23C';
   return `<span style="display:inline-block; min-width:22px; text-align:center; padding:2px 7px; border-radius:6px; background:${c}; color:#fff; font-family:Oswald,sans-serif; font-size:12px;">${r}</span>`;
 }
+// The season cards (results, form, scorers, assists, awards, minutes, fair
+// minutes) for one set of finished matches.
+function homeSeasonCards(agg, title, withIds) {
+  const T = agg.team; let html = '';
+    const pct = Math.round((T.w * 3 + T.d) / (T.played * 3) * 100);
+    const tile = (v, l) => `<div style="background:var(--bench-card); border-radius:10px; padding:10px 4px; text-align:center;"><div style="font-family:Oswald,sans-serif; font-size:21px; font-weight:600;">${v}</div><div style="font-size:10.5px; color:var(--ink-soft);">${l}</div></div>`;
+    html += homeCard(`<h2 style="margin-top:0;">${esc(title)}</h2>
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">${tile(T.played, 'Played')}${tile(T.w + '-' + T.d + '-' + T.l, 'W-D-L')}${tile(T.gf, 'Scored')}${tile(T.ga, 'Conceded')}</div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px;">${tile((T.gf / T.played).toFixed(1), 'Goals / game')}${tile(T.cs, 'Clean sheets')}${tile(pct + '%', 'Points won')}</div>
+      <div style="display:flex; align-items:center; gap:6px; margin-top:10px;"><span style="font-size:12px; color:var(--ink-soft);">Form</span>${agg.matches.slice(-5).map(m => resultBadge(m.stats.result)).join(' ')}</div>`);
+    // scorers
+    const scorers = Object.values(agg.players).filter(a => a.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 5);
+    if (scorers.length) {
+      const mx = scorers[0].goals;
+      html += homeCard(`<h2 style="margin-top:0;">Top scorers</h2>${scorers.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer;"><span style="width:84px; font-size:13.5px; font-weight:600;">${esc(a.id)}</span><div style="flex:1; background:var(--card-line); border-radius:5px; height:10px;"><div style="width:${a.goals / mx * 100}%; height:10px; border-radius:5px; background:var(--amber);"></div></div><b style="width:22px; text-align:right;">${a.goals}</b></div>`).join('')}`);
+    }
+    // assists
+    const assisters = Object.values(agg.players).filter(a => a.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 5);
+    if (assisters.length) {
+      const mxa = assisters[0].assists;
+      html += homeCard(`<h2 style="margin-top:0;">Top assists</h2>${assisters.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer;"><span style="width:84px; font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(a.id)}</span><div style="flex:1; height:12px; border-radius:6px; background:var(--card-line);"><div style="height:100%; width:${a.assists / mxa * 100}%; border-radius:6px; background:#4A86C5;"></div></div><b style="width:22px; text-align:right;">${a.assists}</b></div>`).join('')}`);
+    }
+    // awards
+    const awardTally = {};
+    agg.matches.forEach(m => ((m.snapshot && m.snapshot.awards) || []).forEach(aw => { if (!aw.name || !aw.pid) return; const t = awardTally[aw.name] || (awardTally[aw.name] = {}); t[aw.pid] = (t[aw.pid] || 0) + 1; }));
+    const awardNames = Object.keys(awardTally);
+    if (awardNames.length) {
+      html += homeCard(`<h2 style="margin-top:0;">Awards</h2>${awardNames.map(n => `<div style="padding:6px 0; border-bottom:1px solid var(--card-line);"><div style="font-size:12px; color:var(--ink-soft);">🏆 ${esc(n)}</div><div style="font-size:13.5px; font-weight:600;">${Object.entries(awardTally[n]).sort((a, b) => b[1] - a[1]).map(([pid, c]) => `${esc(pid)}${c > 1 ? ' ×' + c : ''}`).join(', ')}</div></div>`).join('')}`);
+    }
+    // minutes
+    const squadIds = new Set(squad.map(p => p.id));
+    // Fair minutes follow the team approach: unless time in goal counts as
+    // playing time, it's left out of both the minutes played and the minutes
+    // available (the same rule the planner uses).
+    const gkCounts = gkTimeCounts(), fair = fairMinutes;
+    const anyGk = Object.values(agg.players).some(a => a.gk > 0);
+    const gkNote = anyGk ? (gkCounts ? ' Time in goal counts, as your team approach says.' : " Time in goal isn't counted, as your team approach says.") : '';
+    const rows = Object.values(agg.players).filter(a => squadIds.has(a.id) || a.apps > 0).sort((a, b) => fair(b).m - fair(a).m);
+    const played = rows.filter(a => a.avail > 0);
+    const mn = played.length ? fair(played[played.length - 1]).m : 0, mxm = played.length ? fair(played[0]).m : 0;
+    const totals = {gk: 0, def: 0, mid: 0, att: 0}; rows.forEach(a => POS_KEYS.forEach(k => { totals[k] += a[k]; }));
+    const tt = POS_KEYS.reduce((t, k) => t + totals[k], 0);
+    html += homeCard(`<h2 style="margin-top:0;">Minutes played</h2>
+      <div class="config-note" style="margin-bottom:8px;">Gap between most and least: <b>${mxm - mn}'</b> over ${T.played} match${T.played === 1 ? '' : 'es'}.${gkNote} Tap a player for their profile.</div>
+      <div style="display:flex; gap:10px; font-size:11px; color:var(--ink-soft); margin-bottom:4px;">${POS_KEYS.map(k => `<span><span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:${POS_COLORS[k.toUpperCase()]};"></span> ${k.toUpperCase()}</span>`).join('')}</div>
+      ${rows.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="padding:6px 0; border-bottom:1px solid var(--card-line); cursor:pointer;"><div style="display:flex; gap:8px; font-size:13.5px;"><b style="flex:1;">${esc(a.id)}</b><span style="color:var(--ink-soft);">${a.apps}/${a.avail} games</span>${!gkCounts && a.gk > 0 ? `<span style="color:var(--ink-soft); font-size:12px;">+${a.gk}' in goal</span>` : ''}<b style="width:44px; text-align:right;">${fair(a).m}'</b></div><div style="margin-top:4px;">${posBar(a)}</div></div>`).join('')}`, (withIds ? 'id="homeMinutes"' : ''));
+    // fair-minutes nudge: who is getting a smaller share of the minutes they were available for
+    const nudgeRows = rows.filter(a => squadIds.has(a.id) && fair(a).av > 0);
+    const totAvail = nudgeRows.reduce((t, a) => t + fair(a).av, 0), totMins = nudgeRows.reduce((t, a) => t + fair(a).m, 0);
+    if (nudgeRows.length >= 3 && T.played >= 2 && totAvail) {
+      const avgShare = totMins / totAvail;
+      const low = nudgeRows.map(a => ({a, share: fair(a).m / fair(a).av})).filter(x => x.share < avgShare - 0.10)
+        .sort((x, y) => x.share - y.share).slice(0, 4);
+      if (low.length) {
+        html += homeCard(`<h2 style="margin-top:0;">⚖️ Fair-minutes check</h2>
+          <div class="config-note" style="margin-bottom:6px;">These players have had a smaller share of the minutes they were available for (squad average ${Math.round(avgShare * 100)}%). Worth giving them extra time soon.${gkNote}</div>
+          ${low.map(x => { const gap = Math.max(1, Math.round((avgShare - x.share) * fair(x.a).av)); return `<div class="home-row" data-pid="${esc(x.a.id)}" style="display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--card-line); cursor:pointer;"><b style="flex:1;">${esc(x.a.id)}</b><span style="font-size:12.5px; color:var(--ink-soft);">${Math.round(x.share * 100)}% of available</span><b style="color:#B8741A;">~${gap}' behind</b></div>`; }).join('')}`, (withIds ? 'id="homeFairNudge"' : ''));
+      } else {
+        html += homeCard(`<h2 style="margin-top:0;">⚖️ Fair-minutes check</h2><div class="config-note">Minutes are well balanced. Everyone is within 10 points of the squad average (${Math.round(avgShare * 100)}% of available time).${gkNote}</div>`, (withIds ? 'id="homeFairNudge"' : ''));
+      }
+    }
+  return html;
+}
+
+function bindHomePanels(el) {
+  const panels = homePanels(); if (!panels.length) return;
+  const go = key => { homePanelKey = key; homePanelPicked = true; renderHome(); const t = document.getElementById('fmtTabs'); if (t) t.scrollIntoView({block: 'nearest'}); };
+  el.querySelectorAll('[data-fmt]').forEach(b => b.addEventListener('click', () => go(b.dataset.fmt)));
+  el.querySelectorAll('[data-ov]').forEach(r => r.addEventListener('click', () => { const k = r.dataset.ov; const p = k === 'm' ? panels.find(x => x.kind === 'matches') : panels.find(x => x.key === k); if (p) go(p.key); }));
+  const box = el.querySelector('#fmtPanel'); if (!box || panels.length < 2) return;
+  let x0 = null, y0 = null;
+  box.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, {passive: true});
+  box.addEventListener('touchend', e => {
+    if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return; // a sideways swipe only
+    const i = panels.findIndex(p => p.key === homePanelKey); const j = i + (dx < 0 ? 1 : -1);
+    if (j >= 0 && j < panels.length) go(panels[j].key);
+  });
+}
+// Home's season stats come in panels, one per kind of football: each match
+// format played (7v7 matches...), tournament games, and Future Fit 3v3.
+let homePanelKey = null, homePanelPicked = false;
+function homePanels() {
+  const fin = loadMatchLibrary().filter(r => r.status === 'finished' && r.stats);
+  // Most recent by match date, then by when it was finished (same-day matches).
+  const latest = list => list.reduce((m, r) => Math.max(m, ((recDate(r) ? Date.parse(recDate(r)) : 0) || 0) + (r.updatedAt || 0) / 1e13), 0);
+  const out = [];
+  const reg = fin.filter(r => !(r.fixture && r.fixture.tournamentId));
+  const byFmt = {};
+  reg.forEach(r => { const n = (r.snapshot && r.snapshot.playersOnPitch) || 0; (byFmt[n] = byFmt[n] || []).push(r); });
+  Object.entries(byFmt).sort((a, b) => latest(b[1]) - latest(a[1])).forEach(([n, list]) => {
+    const f = r => !(r.fixture && r.fixture.tournamentId) && ((r.snapshot && r.snapshot.playersOnPitch) || 0) === +n;
+    out.push({key: 'm' + n, kind: 'matches', label: `${n}v${n} matches`, count: list.length, when: latest(list),
+      html: withIds => homeSeasonCards(aggregateStats(f), `${n}v${n} matches: season so far`, withIds)});
+  });
+  const tg = fin.filter(r => r.fixture && r.fixture.tournamentId);
+  if (tg.length) {
+    const f = r => !!(r.fixture && r.fixture.tournamentId);
+    out.push({key: 'tour', kind: 'tournaments', label: 'Tournaments', count: tg.length, when: latest(tg), html: withIds => homeTournamentHtml(f, withIds)});
+  }
+  const mds = loadThrees().filter(m => Math.min(m.current || 0, m.roundsCount) > 0);
+  if (mds.length) out.push({key: 'ff3', kind: 'ff3', label: 'Future Fit 3v3', count: mds.length, when: Math.max(...mds.map(m => (Date.parse(m.date || '') || 0) + (m.createdAt || 0) / 1e13)), html: () => homeThreesHtml(mds)});
+  // The most recently played kind comes first.
+  return out.sort((a, b) => b.when - a.when);
+}
+const wdl = t => `${t.w}-${t.d}-${t.l}`;
+function homeOverviewHtml(panels) {
+  const rows = [];
+  const reg = aggregateStats(r => !(r.fixture && r.fixture.tournamentId)).team;
+  if (reg.played) rows.push(['m', 'Matches', `${reg.played} played`, `W-D-L ${wdl(reg)}`]);
+  const tg = aggregateStats(r => !!(r.fixture && r.fixture.tournamentId));
+  if (tg.team.played) { const n = new Set(tg.matches.map(r => r.fixture.tournamentId)).size; rows.push(['tour', 'Tournaments', `${n} tournament${n === 1 ? '' : 's'} · ${tg.team.played} game${tg.team.played === 1 ? '' : 's'}`, `W-D-L ${wdl(tg.team)}`]); }
+  const mds = loadThrees().filter(m => Math.min(m.current || 0, m.roundsCount) > 0);
+  if (mds.length) {
+    const games = mds.reduce((t, m) => t + Math.min(m.current || 0, m.roundsCount) * 0 + m.rounds.slice(0, Math.min(m.current || 0, m.roundsCount)).reduce((a, r) => a + r.games.filter(g => threesOurSide(g) !== null).length, 0), 0);
+    const tt = mds.reduce((t, m) => { const x = threesTotals(m); return {W: t.W + x.W, D: t.D + x.D, L: t.L + x.L}; }, {W: 0, D: 0, L: 0});
+    rows.push(['ff3', 'Future Fit 3v3', `${mds.length} matchday${mds.length === 1 ? '' : 's'} · ${games} games v other clubs`, tt.W + tt.D + tt.L ? `W-D-L ${tt.W}-${tt.D}-${tt.L}` : '']);
+  }
+  return homeCard(`<h2 style="margin-top:0;">This season</h2>${rows.map(([k, name, a, b]) => `<div class="ov-row" data-ov="${k}"><b>${name}</b><span>${a}</span><span class="ov-wdl">${b}</span></div>`).join('')}`, 'id="homeOverview"');
+}
+function homeTournamentHtml(f, withIds) {
+  const agg = aggregateStats(f);
+  const n = new Set(agg.matches.map(r => r.fixture.tournamentId)).size;
+  const names = [...new Set(agg.matches.map(r => (r.fixture.competition || '').split(' · ')[0]).filter(Boolean))];
+  return homeCard(`<div class="config-note" style="margin:0;">${n} tournament${n === 1 ? '' : 's'}${names.length ? ': ' + names.map(esc).join(', ') : ''}. Every tournament game counts here, whatever its format.</div>`) + homeSeasonCards(agg, 'Tournament games', withIds);
+}
+function homeThreesHtml(mds) {
+  const played = mds.flatMap(m => m.rounds.slice(0, Math.min(m.current || 0, m.roundsCount)));
+  const st = threesPlayerStats(played);
+  const tt = mds.reduce((t, m) => { const x = threesTotals(m); return {W: t.W + x.W, D: t.D + x.D, L: t.L + x.L, gf: t.gf + x.gf, ga: t.ga + x.ga, scored: t.scored + x.scored}; }, {W: 0, D: 0, L: 0, gf: 0, ga: 0, scored: 0});
+  const tile = (v, l) => `<div style="background:var(--bench-card); border-radius:10px; padding:10px 4px; text-align:center;"><div style="font-family:Oswald,sans-serif; font-size:21px; font-weight:600;">${v}</div><div style="font-size:10.5px; color:var(--ink-soft);">${l}</div></div>`;
+  const ids = squad.map(p => p.id).filter(id => st[id]);
+  const maxOdd = Math.max(0, ...ids.map(id => st[id].odd)), minOdd = Math.min(...ids.map(id => st[id].odd));
+  return homeCard(`<h2 style="margin-top:0;">Future Fit 3v3: season so far</h2>
+      <div style="display:grid; grid-template-columns:repeat(${tt.W + tt.D + tt.L ? 4 : 2},1fr); gap:8px;">${tile(mds.length, 'Matchdays')}${tile(played.length, 'Game rounds')}${tt.W + tt.D + tt.L ? tile(`${tt.W}-${tt.D}-${tt.L}`, 'W-D-L') + tile(tt.scored ? `${tt.gf}-${tt.ga}` : '-', 'Goals') : ''}</div>
+      ${tt.W + tt.D + tt.L ? '' : '<div class="config-note" style="margin-top:8px;">Results aren&rsquo;t being kept. Turn them on in a matchday&rsquo;s settings if you&rsquo;d like to note wins and scores.</div>'}`, 'id="homeThrees"')
+    + homeCard(`<h2 style="margin-top:0;">Games per player</h2>
+      <div class="config-note" style="margin-bottom:6px;">"Other sizes" are games that weren't a straight 3v3, like 3v2 or 2v1. Co-Coach shares them out over the season.</div>
+      <div class="tw"><table class="t3-stats"><tr><th>Player</th><th>Games</th><th>3v3</th><th>Other sizes</th><th>Sat out</th></tr>
+      ${ids.map(id => { const x = st[id]; return `<tr><td>${esc(id)}</td><td>${x.games}</td><td>${x.full}</td><td class="${maxOdd > minOdd && x.odd === maxOdd ? 't3-hi' : ''}">${x.odd}</td><td>${x.sat}</td></tr>`; }).join('')}</table></div>`);
+}
 function renderHome() {
   const el = document.getElementById('homeBody'); if (!el) return;
   const lib = loadMatchLibrary(); const agg = aggregateStats(); const T = agg.team;
@@ -6792,69 +6959,21 @@ function renderHome() {
       ${((last.snapshot && last.snapshot.awards) || []).map(aw => `<div style="font-size:12.5px; margin-top:3px;">🏆 ${esc(aw.name)}: <b>${esc(aw.pid)}</b></div>`).join('')}
       <button class="btn btn-ghost" id="homeLastOpen" style="margin-top:8px;">View match</button>`);
   }
-  if (!T.played) {
+  const panels = homePanels();
+  if (!panels.length) {
     html += homeCard(`<div class="wiz-hero" style="font-size:20px;">Your season will appear here</div><div class="config-note">Play and finish a match and this page fills with results, form, top scorers, minutes played and where each player has played. Add goals and scorers during the match to see them in the stats.</div>`);
   } else {
-    const pct = Math.round((T.w * 3 + T.d) / (T.played * 3) * 100);
-    const tile = (v, l) => `<div style="background:var(--bench-card); border-radius:10px; padding:10px 4px; text-align:center;"><div style="font-family:Oswald,sans-serif; font-size:21px; font-weight:600;">${v}</div><div style="font-size:10.5px; color:var(--ink-soft);">${l}</div></div>`;
-    html += homeCard(`<h2 style="margin-top:0;">Season so far</h2>
-      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">${tile(T.played, 'Played')}${tile(T.w + '-' + T.d + '-' + T.l, 'W-D-L')}${tile(T.gf, 'Scored')}${tile(T.ga, 'Conceded')}</div>
-      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px;">${tile((T.gf / T.played).toFixed(1), 'Goals / game')}${tile(T.cs, 'Clean sheets')}${tile(pct + '%', 'Points won')}</div>
-      <div style="display:flex; align-items:center; gap:6px; margin-top:10px;"><span style="font-size:12px; color:var(--ink-soft);">Form</span>${agg.matches.slice(-5).map(m => resultBadge(m.stats.result)).join(' ')}</div>`);
-    // scorers
-    const scorers = Object.values(agg.players).filter(a => a.goals > 0).sort((a, b) => b.goals - a.goals).slice(0, 5);
-    if (scorers.length) {
-      const mx = scorers[0].goals;
-      html += homeCard(`<h2 style="margin-top:0;">Top scorers</h2>${scorers.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer;"><span style="width:84px; font-size:13.5px; font-weight:600;">${esc(a.id)}</span><div style="flex:1; background:var(--card-line); border-radius:5px; height:10px;"><div style="width:${a.goals / mx * 100}%; height:10px; border-radius:5px; background:var(--amber);"></div></div><b style="width:22px; text-align:right;">${a.goals}</b></div>`).join('')}`);
-    }
-    // assists
-    const assisters = Object.values(agg.players).filter(a => a.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 5);
-    if (assisters.length) {
-      const mxa = assisters[0].assists;
-      html += homeCard(`<h2 style="margin-top:0;">Top assists</h2>${assisters.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="display:flex; align-items:center; gap:8px; padding:5px 0; cursor:pointer;"><span style="width:84px; font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(a.id)}</span><div style="flex:1; height:12px; border-radius:6px; background:var(--card-line);"><div style="height:100%; width:${a.assists / mxa * 100}%; border-radius:6px; background:#4A86C5;"></div></div><b style="width:22px; text-align:right;">${a.assists}</b></div>`).join('')}`);
-    }
-    // awards
-    const awardTally = {};
-    agg.matches.forEach(m => ((m.snapshot && m.snapshot.awards) || []).forEach(aw => { if (!aw.name || !aw.pid) return; const t = awardTally[aw.name] || (awardTally[aw.name] = {}); t[aw.pid] = (t[aw.pid] || 0) + 1; }));
-    const awardNames = Object.keys(awardTally);
-    if (awardNames.length) {
-      html += homeCard(`<h2 style="margin-top:0;">Awards</h2>${awardNames.map(n => `<div style="padding:6px 0; border-bottom:1px solid var(--card-line);"><div style="font-size:12px; color:var(--ink-soft);">🏆 ${esc(n)}</div><div style="font-size:13.5px; font-weight:600;">${Object.entries(awardTally[n]).sort((a, b) => b[1] - a[1]).map(([pid, c]) => `${esc(pid)}${c > 1 ? ' ×' + c : ''}`).join(', ')}</div></div>`).join('')}`);
-    }
-    // minutes
-    const squadIds = new Set(squad.map(p => p.id));
-    // Fair minutes follow the team approach: unless time in goal counts as
-    // playing time, it's left out of both the minutes played and the minutes
-    // available (the same rule the planner uses).
-    const gkCounts = gkTimeCounts(), fair = fairMinutes;
-    const anyGk = Object.values(agg.players).some(a => a.gk > 0);
-    const gkNote = anyGk ? (gkCounts ? ' Time in goal counts, as your team approach says.' : " Time in goal isn't counted, as your team approach says.") : '';
-    const rows = Object.values(agg.players).filter(a => squadIds.has(a.id) || a.apps > 0).sort((a, b) => fair(b).m - fair(a).m);
-    const played = rows.filter(a => a.avail > 0);
-    const mn = played.length ? fair(played[played.length - 1]).m : 0, mxm = played.length ? fair(played[0]).m : 0;
-    const totals = {gk: 0, def: 0, mid: 0, att: 0}; rows.forEach(a => POS_KEYS.forEach(k => { totals[k] += a[k]; }));
-    const tt = POS_KEYS.reduce((t, k) => t + totals[k], 0);
-    html += homeCard(`<h2 style="margin-top:0;">Minutes played</h2>
-      <div class="config-note" style="margin-bottom:8px;">Gap between most and least: <b>${mxm - mn}'</b> over ${T.played} match${T.played === 1 ? '' : 'es'}.${gkNote} Tap a player for their profile.</div>
-      <div style="display:flex; gap:10px; font-size:11px; color:var(--ink-soft); margin-bottom:4px;">${POS_KEYS.map(k => `<span><span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:${POS_COLORS[k.toUpperCase()]};"></span> ${k.toUpperCase()}</span>`).join('')}</div>
-      ${rows.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="padding:6px 0; border-bottom:1px solid var(--card-line); cursor:pointer;"><div style="display:flex; gap:8px; font-size:13.5px;"><b style="flex:1;">${esc(a.id)}</b><span style="color:var(--ink-soft);">${a.apps}/${a.avail} games</span>${!gkCounts && a.gk > 0 ? `<span style="color:var(--ink-soft); font-size:12px;">+${a.gk}' in goal</span>` : ''}<b style="width:44px; text-align:right;">${fair(a).m}'</b></div><div style="margin-top:4px;">${posBar(a)}</div></div>`).join('')}`, 'id="homeMinutes"');
-    // fair-minutes nudge: who is getting a smaller share of the minutes they were available for
-    const nudgeRows = rows.filter(a => squadIds.has(a.id) && fair(a).av > 0);
-    const totAvail = nudgeRows.reduce((t, a) => t + fair(a).av, 0), totMins = nudgeRows.reduce((t, a) => t + fair(a).m, 0);
-    if (nudgeRows.length >= 3 && T.played >= 2 && totAvail) {
-      const avgShare = totMins / totAvail;
-      const low = nudgeRows.map(a => ({a, share: fair(a).m / fair(a).av})).filter(x => x.share < avgShare - 0.10)
-        .sort((x, y) => x.share - y.share).slice(0, 4);
-      if (low.length) {
-        html += homeCard(`<h2 style="margin-top:0;">⚖️ Fair-minutes check</h2>
-          <div class="config-note" style="margin-bottom:6px;">These players have had a smaller share of the minutes they were available for (squad average ${Math.round(avgShare * 100)}%). Worth giving them extra time soon.${gkNote}</div>
-          ${low.map(x => { const gap = Math.max(1, Math.round((avgShare - x.share) * fair(x.a).av)); return `<div class="home-row" data-pid="${esc(x.a.id)}" style="display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--card-line); cursor:pointer;"><b style="flex:1;">${esc(x.a.id)}</b><span style="font-size:12.5px; color:var(--ink-soft);">${Math.round(x.share * 100)}% of available</span><b style="color:#B8741A;">~${gap}' behind</b></div>`; }).join('')}`, 'id="homeFairNudge"');
-      } else {
-        html += homeCard(`<h2 style="margin-top:0;">⚖️ Fair-minutes check</h2><div class="config-note">Minutes are well balanced. Everyone is within 10 points of the squad average (${Math.round(avgShare * 100)}% of available time).${gkNote}</div>`, 'id="homeFairNudge"');
-      }
-    }
+    // The most recent kind of football, unless the coach has picked one.
+    if (!homePanelPicked || !panels.some(x => x.key === homePanelKey)) homePanelKey = panels[0].key;
+    const cur = panels.find(x => x.key === homePanelKey), ci = panels.indexOf(cur);
+    html += homeOverviewHtml(panels);
+    html += `<div class="fmt-tabs" id="fmtTabs" role="tablist">${panels.map(x => `<button class="fmt-tab ${x.key === cur.key ? 'on' : ''}" role="tab" aria-selected="${x.key === cur.key}" data-fmt="${x.key}">${esc(x.label)}</button>`).join('')}</div>
+      ${panels.length > 1 ? `<div class="fmt-hint">${ci + 1} of ${panels.length} · swipe or tap to switch</div>` : ''}
+      <div id="fmtPanel" data-panel="${cur.key}">${cur.html(true)}</div>`;
   }
   el.innerHTML = html;
   bindFbPrompt(el);
+  bindHomePanels(el);
   bindInstallCard(el);
   bindStatsCard(el);
   const g = id => document.getElementById(id);
@@ -9179,23 +9298,42 @@ function threesRng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13;
 const pairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
 // From earlier games: how often each pair were teammates or opponents, and how
 // often each player was in a small game, a team of four, or sat out.
-function threesHistory(rounds) {
-  const mates = {}, opps = {}, small = {}, big = {}, sat = {};
+// Players a side in a game, counting both clubs: [side 1, side 2] (v them = 3).
+function threesGameTotals(g) {
+  const cap = g.cap || g.sides.map(x => x.length), th = Array.isArray(g.theirs) ? g.theirs : [0, g.theirs || 0];
+  return g.kind === 'opp' ? [cap[0], 3] : [cap[0] + (th[0] || 0), cap[1] + (th[1] || 0)];
+}
+// A game that isn't a straight 3v3 (4 v 3, 3 v 2, 2 v 2, 2 v 1, 1 v 1...).
+function threesOddGame(g) { return threesGameTotals(g).some(t => t !== 3); }
+// From earlier games: how often each pair were teammates or opponents, and how
+// often each player was in a game that wasn't 3v3, a small game, or sat out.
+// `w` weights these games (earlier matchdays count for less); `base` adds to existing counts.
+function threesHistory(rounds, w, base) {
+  w = w == null ? 1 : w;
+  const h = base || {mates: {}, opps: {}, small: {}, big: {}, sat: {}, odd: {}};
+  const add = (o, k) => { o[k] = (o[k] || 0) + w; };
   for (const r of rounds) {
     for (const gm of r.games) {
-      gm.sides.forEach(side => { for (let i = 0; i < side.length; i++) for (let j = i + 1; j < side.length; j++) mates[pairKey(side[i], side[j])] = (mates[pairKey(side[i], side[j])] || 0) + 1; });
+      gm.sides.forEach(side => { for (let i = 0; i < side.length; i++) for (let j = i + 1; j < side.length; j++) add(h.mates, pairKey(side[i], side[j])); });
+      const tot = threesGameTotals(gm);
       if (gm.kind === 'int' || gm.kind === 'mix') {
-        for (const a of gm.sides[0]) for (const b of gm.sides[1]) opps[pairKey(a, b)] = (opps[pairKey(a, b)] || 0) + 1;
-        const th = Array.isArray(gm.theirs) ? gm.theirs : [0, gm.theirs || 0];
-        const size = Math.max(gm.sides[0].length + th[0], gm.sides[1].length + th[1]);
-        if (size < 3) gm.sides.flat().forEach(p => { small[p] = (small[p] || 0) + 1; });
+        for (const a of gm.sides[0]) for (const b of gm.sides[1]) add(h.opps, pairKey(a, b));
+        if (Math.max(...tot) < 3) gm.sides.flat().forEach(p => add(h.small, p));
       }
-      if (gm.kind === 'opp' && gm.sides[0].length > 3) gm.sides[0].forEach(p => { big[p] = (big[p] || 0) + 1; });
+      if (gm.kind === 'opp' && gm.sides[0].length > 3) gm.sides[0].forEach(p => add(h.big, p));
+      if (tot.some(t => t !== 3)) gm.sides.flat().forEach(p => add(h.odd, p));
     }
-    (r.sat || []).forEach(p => { sat[p] = (sat[p] || 0) + 1; });
+    [...(r.sat || []), ...(r.coachSat || []), ...(r.pool || [])].forEach(p => add(h.sat, p));
   }
-  return {mates, opps, small, big, sat};
+  return h;
 }
+// Other Future Fit 3v3s played before this one: their games count at half weight,
+// so teammates and odd-sized games even out across the season too.
+function threesPriorRounds(md) {
+  const key = m => (m.date || '') + '|' + String(m.createdAt || 0).padStart(15, '0');
+  return loadThrees().filter(m => m.id !== md.id && key(m) < key(md)).flatMap(m => (m.rounds || []).slice(0, Math.min(m.current || 0, m.roundsCount)));
+}
+const cloneHist = h => JSON.parse(JSON.stringify(h));
 // Builds one round: places players in the layout's sides, searching for the
 // arrangement that best fits the coach's grouping choice.
 function threesRound(players, layout, ethos, hist, rnd) {
@@ -9207,6 +9345,7 @@ function threesRound(players, layout, ethos, hist, rnd) {
   const pairs = [];
   layout.forEach((s, si) => { if ((s.kind === 'int' || s.kind === 'mix') && !(si > 0 && layout[si - 1].kind === s.kind && layout[si - 1].game === s.game)) pairs.push([si, si + 1]); });
   const smallSide = layout.map(s => (s.kind === 'int' || s.kind === 'mix') && layout.filter(x => x.kind === s.kind && x.game === s.game).every(x => x.size + (x.theirs || 0) < 3));
+  const oddSide = layout.map(s => s.kind === 'opp' ? s.size !== 3 : (s.kind === 'int' || s.kind === 'mix') ? layout.filter(x => x.kind === s.kind && x.game === s.game).some(x => x.size + (x.theirs || 0) !== 3) : false);
   const sideLv = side => side.length ? side.reduce((t, p) => t + lv(p), 0) / side.length : LEVEL_DEFAULT;
   const cost = arr => {
     const sides = cut(arr); let c = 0;
@@ -9214,8 +9353,8 @@ function threesRound(players, layout, ethos, hist, rnd) {
       const kind = layout[si].kind;
       if (kind === 'sit') { side.forEach(p => { const n = (hist.sat[p] || 0) + 1; c += n * n * 25; }); return; }
       for (let i = 0; i < side.length; i++) for (let j = i + 1; j < side.length; j++) { const n = hist.mates[pairKey(side[i], side[j])] || 0; c += n * n * 10; }
-      if (smallSide[si]) side.forEach(p => { const n = (hist.small[p] || 0) + 1; c += n * n * 8; });
-      if (kind === 'opp' && side.length > 3) side.forEach(p => { const n = (hist.big[p] || 0) + 1; c += n * n * 3; });
+      if (oddSide[si]) side.forEach(p => { const n = (hist.odd[p] || 0) + 1; c += n * n * 8; });
+      if (smallSide[si]) side.forEach(p => { const n = (hist.small[p] || 0) + 1; c += n * n * 4; });
     });
     for (const [ia, ib] of pairs) {
       const a = sides[ia], b = sides[ib];
@@ -9280,6 +9419,7 @@ function planThrees(md, from, to) {
   const old = md.rounds || [];
   const rounds = old.slice(0, from);
   const opts = {oneSpare: md.oneSpare || 'sit', mix: md.mixSpares !== false};
+  const prior = threesHistory(threesPriorRounds(md), 0.5);
   const sigOf = layout => layout.filter(s => s.kind !== 'sit').map(s => s.kind + s.size + '/' + (s.theirs || 0)).join(',');
   const roundSig = rd => rd.games.map(g => g.kind === 'opp' ? 'opp' + (g.cap || [g.sides[0].length])[0] + '/0' : (g.cap || [g.sides[0].length, g.sides[1].length]).map((c, i) => g.kind + c + '/' + ((g.theirs || [])[i] || 0)).join(',')).join(',');
   for (let r = from; r < to; r++) {
@@ -9301,7 +9441,7 @@ function planThrees(md, from, to) {
       if (round.sat.length && opp.length) { const g = opp[r % opp.length]; const k = r % g.sides[0].length; const out = round.sat[0]; round.sat[0] = g.sides[0][k]; g.sides[0][k] = out; }
     } else {
       const ethos = md.ethos === 'fixed' ? (squadHasLevels(squad) ? 'balanced' : 'mixed') : md.ethos;
-      round = threesRound(here, layout, ethos, threesHistory(rounds), threesRng((md.seed || 1) * 7919 + r * 104729 + (md.shuffles || 0) * 31));
+      round = threesRound(here, layout, ethos, threesHistory(rounds, 1, cloneHist(prior)), threesRng((md.seed || 1) * 7919 + r * 104729 + (md.shuffles || 0) * 31));
     }
     round.coachSat = ((md.sitOut && md.sitOut[r]) || []).slice();
     round.custom = !!(rows && !note); if (note) round.note = note;
@@ -9314,7 +9454,7 @@ function planThrees(md, from, to) {
 // Places the players not yet placed in a game, filling the open places so
 // teammates repeat as little as possible.
 function threesFillRest(md, r) {
-  const round = md.rounds[r]; const hist = threesHistory(md.rounds.slice(0, r));
+  const round = md.rounds[r]; const hist = threesHistory(md.rounds.slice(0, r), 1, cloneHist(threesHistory(threesPriorRounds(md), 0.5)));
   const open = []; round.games.forEach((g, gi) => g.sides.forEach((side, si) => { for (let k = side.length; k < ((g.cap || [])[si] ?? side.length); k++) open.push([gi, si]); }));
   const pool = (round.pool || []).slice();
   const rnd = threesRng((md.seed || 1) + r * 17 + (md.shuffles || 0));
@@ -9327,6 +9467,42 @@ function threesFillRest(md, r) {
     if (best < 0) break;
     const [gi, si] = open[best]; round.games[gi].sides[si].push(id); round.pool = round.pool.filter(x => x !== id);
   }
+}
+// Per player across the given games: games played, straight 3v3s, other sizes, sat out.
+function threesPlayerStats(rounds) {
+  const out = {};
+  const row = id => out[id] || (out[id] = {id, games: 0, full: 0, odd: 0, sat: 0});
+  for (const r of rounds) {
+    for (const g of r.games) { const odd = threesOddGame(g); g.sides.flat().forEach(id => { const x = row(id); x.games++; if (odd) x.odd++; else x.full++; }); }
+    [...(r.sat || []), ...(r.coachSat || []), ...(r.pool || [])].forEach(id => { row(id).sat++; });
+  }
+  return out;
+}
+let threesStatsScope = 'day', threesStatsOpen = false;
+// "Who's played with whom": per-player counts, a teammates grid, and the pairs
+// who've never played together or often have. For this matchday (as planned),
+// or all Future Fit 3v3s (games played, plus this one as planned).
+function threesWithWhomHtml(md) {
+  const ids = md.players.filter(id => squad.some(p => p.id === id));
+  const others = loadThrees().filter(m => m.id !== md.id).flatMap(m => (m.rounds || []).slice(0, Math.min(m.current || 0, m.roundsCount)));
+  const rounds = threesStatsScope === 'all' ? [...others, ...md.rounds] : md.rounds;
+  const st = threesPlayerStats(rounds), h = threesHistory(rounds);
+  const mate = (a, b) => Math.round(h.mates[pairKey(a, b)] || 0);
+  const maxOdd = Math.max(0, ...ids.map(id => (st[id] || {}).odd || 0)), minOdd = Math.min(...ids.map(id => (st[id] || {}).odd || 0));
+  const pairs = []; for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) pairs.push([ids[i], ids[j], mate(ids[i], ids[j])]);
+  const never = pairs.filter(x => !x[2]), most = pairs.filter(x => x[2] > 0).sort((a, b) => b[2] - a[2]);
+  const top = most.length ? most[0][2] : 0;
+  const short = id => esc(id.length > 4 ? id.slice(0, 3) : id);
+  const cell = n => `<td class="t3-gc" style="--a:${top ? n / top : 0};">${n || '<span class="t3-zero">·</span>'}</td>`;
+  return `<div class="ig-tabs" style="margin-top:0;"><div class="ig-tab ${threesStatsScope === 'day' ? 'on' : ''}" data-t3scope="day">This matchday</div><div class="ig-tab ${threesStatsScope === 'all' ? 'on' : ''}" data-t3scope="all">All Future Fit 3v3</div></div>
+    <div class="config-note" style="margin-bottom:6px;">${threesStatsScope === 'day' ? 'Every game here, as planned.' : 'Games played in earlier Future Fit 3v3s, plus this one as planned.'} "Other sizes" are games that weren't a straight 3v3 (like 3v2, 2v2 or 2v1): Co-Coach shares these out, and you can see who's had most.</div>
+    <div class="tw"><table class="t3-stats"><tr><th>Player</th><th>Games</th><th>3v3</th><th>Other sizes</th><th>Sat out</th></tr>
+      ${ids.map(id => { const x = st[id] || {games: 0, full: 0, odd: 0, sat: 0}; return `<tr><td>${esc(id)}</td><td>${x.games}</td><td>${x.full}</td><td class="${maxOdd > minOdd && x.odd === maxOdd ? 't3-hi' : ''}">${x.odd}</td><td>${x.sat}</td></tr>`; }).join('')}</table></div>
+    <h3 style="margin:12px 0 4px; font-size:14px;">Times played together</h3>
+    <div class="tw"><table class="t3-grid"><tr><th></th>${ids.map(id => `<th title="${esc(id)}">${short(id)}</th>`).join('')}</tr>
+      ${ids.map(a => `<tr><th>${esc(a)}</th>${ids.map(b => a === b ? '<td class="t3-self"></td>' : cell(mate(a, b))).join('')}</tr>`).join('')}</table></div>
+    <div class="config-note" style="margin-top:8px;">${never.length ? `<b>Not played together yet${threesStatsScope === 'day' ? ' today' : ''}:</b> ${never.slice(0, 10).map(x => esc(x[0]) + ' & ' + esc(x[1])).join(', ')}${never.length > 10 ? ` and ${never.length - 10} more pairs` : ''}.` : '<b>Everyone has played with everyone.</b>'}
+      ${most.length && top > 1 ? `<br><b>Most often together:</b> ${most.filter(x => x[2] === top).slice(0, 6).map(x => esc(x[0]) + ' & ' + esc(x[1])).join(', ')} (${top} times).` : ''}</div>`;
 }
 function threesSummary(md) {
   const ids = new Set(md.rounds.flatMap(r => r.games.flatMap(g => g.sides.flat()).concat(r.sat || [], r.coachSat || [], r.pool || [])));
@@ -9462,6 +9638,7 @@ function renderThreesDay() {
         ${editable && (r.sat || []).length === 1 && (md.oneSpare || 'sit') === 'sit' && r.games.some(g => g.kind === 'opp') ? `<div class="config-note" style="margin-top:6px;">One spare player. <span class="decision-link" data-four="1">Make it 4 v 3 instead</span></div>` : ''}
         ${now && running ? `<button class="btn btn-primary" id="t3Next" style="margin-top:8px;">${ri + 1 < md.roundsCount ? 'Next game' : 'Finish'}</button>` : ''}</div>`; }).join('')}
     ${cur >= md.roundsCount ? '<div class="form-card"><b>All games played.</b></div>' : ''}
+    <details class="form-card t3-ww" id="t3WW" ${threesStatsOpen ? 'open' : ''}><summary><h2 style="display:inline; margin:0;">Who's played with whom</h2></summary><div style="margin-top:10px;">${threesWithWhomHtml(md)}</div></details>
     <div class="form-card"><div class="config-note">${threesSel ? '' : 'Tap a name to swap two players or sit someone out of a game. '}${toPlace ? `${toPlace} place${toPlace === 1 ? '' : 's'} still to fill in the games to come.` : fewer.length ? `${fewer.map(p => `${esc(p.id)} plays ${p.games}`).join(', ')} of ${md.roundsCount} games; everyone else plays them all.` : `Everyone plays every game, ${md.roundsCount * md.gameLength} minutes each.`} Each player has ${minMates === maxMates ? minMates : minMates + '–' + maxMates} different teammates over the day.</div>
       <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-ghost" id="t3Shuffle" style="flex:1;">Shuffle games to come</button><button class="btn btn-ghost" id="t3Copy" style="flex:1;">Copy for WhatsApp</button></div></div>
     <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="t3Delete" style="color:var(--coral);">Delete this Future Fit 3v3</span></div>`;
@@ -9469,6 +9646,8 @@ function renderThreesDay() {
   const replan = (m, from, to) => { planThrees(m, from, to); putThrees(m); threesSel = null; renderThreesDay(); };
   q('#t3Back').addEventListener('click', () => { clearInterval(threesTicker); renderMatchesScreen(); showScreen('matches'); });
   q('#t3Edit').addEventListener('click', () => openThreesSetup(md.id));
+  q('#t3WW').addEventListener('toggle', e => { threesStatsOpen = e.target.open; });
+  host.querySelectorAll('[data-t3scope]').forEach(el => el.addEventListener('click', () => { threesStatsScope = el.dataset.t3scope; renderThreesDay(); }));
   host.querySelectorAll('[data-t3p]').forEach(ch => ch.addEventListener('click', () => {
     const m = getThrees(md.id); const id = ch.dataset.t3p; const from = threesEditableFrom(m);
     if (!m.players.includes(id)) { m.players.push(id); if (m.absent) delete m.absent[id]; }
