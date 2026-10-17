@@ -4,7 +4,7 @@
 // configured team and a completed tour; every pre-set setting shows its
 // reason; skipping the questions gives the Balanced preset.
 const path = require('path');
-const { launch, ok, summary } = require('./_harness');
+const { launch, ok, summary, pasteNames, setGoal } = require('./_harness');
 const APP = 'file://' + path.resolve(__dirname, '..', 'index.html');
 
 async function freshCoach(browser, errors) {
@@ -46,8 +46,8 @@ async function answerAll(page, answers) {
   await page.click('#wzAddFormat'); await page.selectOption('#ofP', '9'); await page.selectOption('#ofD', '60'); await page.click('#ofSave');
   ok(await page.locator('[data-wzfmt-del]').count() === 1, 'more than one format can be added (7v7, and 9v9 for cups)');
   await page.click('#wizNext');
-  await page.fill('#wzNames', 'Alex\nBen\nCal\nDan\nEli\nFinn\nGus\nHal\nIvo\nJay'); await page.click('#wzAdd');
-  await page.check('[data-gk="0"]'); await page.check('[data-gk="1"]'); await page.click('#wizNext');
+  await pasteNames(page, 'Alex\nBen\nCal\nDan\nEli\nFinn\nGus\nHal\nIvo\nJay');
+  await setGoal(page, 0, 2); await setGoal(page, 1, 2); await page.click('#wizNext');
   ok(/How you run your team/.test(await page.textContent('.wiz-hero')), 'then the questionnaire');
 
   console.log('The questionnaire');
@@ -116,7 +116,7 @@ async function answerAll(page, answers) {
   console.log('Skipping the questions');
   let p2 = await freshCoach(browser, errors);
   await p2.fill('#wzTeam', 'Skippers'); await p2.check('#wzConsent'); await p2.click('#wizNext'); await p2.click('#wizNext');
-  await p2.fill('#wzNames', 'A1\nA2\nA3\nA4\nA5\nA6\nA7\nA8'); await p2.click('#wzAdd'); await p2.check('[data-gk="0"]'); await p2.click('#wizNext');
+  await pasteNames(p2, 'A1\nA2\nA3\nA4\nA5\nA6\nA7\nA8'); await setGoal(p2, 0, 2); await p2.click('#wizNext');
   await p2.click('#qSkip'); await p2.waitForTimeout(60);
   s = await p2.evaluate(() => ({preset: teamEthos.preset, setFor: Object.keys(teamEthos.setFor).length, sliders: Object.keys(teamEthos.sliders).length, text: document.getElementById('wizBody').textContent}));
   ok(s.preset === 'balanced' && s.setFor === 0 && s.sliders === 0 && /skipped the questions/.test(s.text), 'a coach who skips gets the Balanced preset, said plainly', s.preset);
@@ -124,7 +124,7 @@ async function answerAll(page, answers) {
   console.log('A second team under the same coach');
   await page.click('#teamTitle'); await page.click('#tmAdd'); await page.waitForTimeout(400);
   await page.fill('#wzTeam', 'Oakfield U11s'); await page.check('#wzConsent'); await page.click('#wizNext'); await page.click('#wizNext');
-  await page.fill('#wzNames', 'Z1\nZ2\nZ3\nZ4\nZ5\nZ6\nZ7\nZ8'); await page.click('#wzAdd'); await page.check('[data-gk="0"]'); await page.click('#wizNext');
+  await pasteNames(page, 'Z1\nZ2\nZ3\nZ4\nZ5\nZ6\nZ7\nZ8'); await setGoal(page, 0, 2); await page.click('#wizNext');
   ok(await page.locator('#qSame').count() === 1 && /Oakfield U9s/.test(await page.textContent('#wizBody')), 'the questionnaire offers "Same approach as Oakfield U9s?"');
   await page.click('#qSame'); await page.waitForTimeout(60);
   s = await page.evaluate(() => ({hero: document.querySelector('.wiz-hero').textContent, preset: teamEthos.preset, help: teamEthos.live.replan, reason: teamEthos.setFor.preset}));

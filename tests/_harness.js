@@ -39,4 +39,14 @@ function summary(name, errors) {
   console.log(`${name}: ${passes} passed, ${failures} failed`);
   process.exitCode = failures ? 1 : 0;
 }
-module.exports = { launch, openPage, newMatch, ok, summary };
+// Adds players in the set-up squad step by pasting a list into the empty row, as a coach would.
+async function pasteNames(page, text) {
+  await page.evaluate(t => {
+    const el = document.querySelector('.sq-new [data-f="name"]');
+    const dt = new DataTransfer(); dt.setData('text', t);
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, text);
+}
+// Sets a squad row's goalkeeping ("0" no, "1" if needed, "2" yes, "3" main).
+const setGoal = (page, row, v) => page.selectOption(`.sq-row[data-row="${row}"] [data-f="goal"]`, String(v));
+module.exports = { launch, openPage, newMatch, ok, summary, pasteNames, setGoal };

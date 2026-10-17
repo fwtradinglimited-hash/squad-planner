@@ -330,6 +330,15 @@
   .wiz-row select { padding: 6px; border-radius: 8px; border: 1px solid var(--card-line); background: var(--card); color: var(--ink); font-size: 13px; }
   .wiz-row label { font-size: 12px; color: var(--ink-soft); display: flex; align-items: center; gap: 3px; }
   .wiz-rm { color: var(--coral); cursor: pointer; padding: 4px 6px; font-size: 15px; }
+  .sq-table { display: grid; grid-template-columns: minmax(84px, 1fr) 40px 62px 70px 20px; gap: 6px 5px; align-items: center; }
+  .sq-table .sq-h { font-size: 11px; color: var(--ink-soft); font-weight: 600; padding: 0 2px; }
+  .sq-table input, .sq-table select { width: 100%; min-width: 0; padding: 9px 6px; border-radius: 8px; border: 1px solid var(--card-line); background: var(--card); color: var(--ink); font: inherit; font-size: 14px; box-sizing: border-box; }
+  .sq-table input[data-f="num"] { text-align: center; }
+  .sq-table select { font-size: 13px; padding: 9px 1px 9px 4px; }
+  .sq-table .sq-new input[data-f="name"] { border-style: dashed; }
+  .sq-table .sq-rm { color: var(--coral); cursor: pointer; text-align: center; font-size: 15px; background: none; border: 0; padding: 4px 0; }
+  .sq-table .sq-warn { grid-column: 1 / -1; font-size: 11.5px; color: var(--amber-ink); background: #FCEFD9; border-radius: 6px; padding: 4px 8px; margin-top: -2px; }
+  .sq-row { display: contents; }
   .wiz-card { text-align: left; padding: 11px 12px; border: 1px solid var(--card-line); border-radius: 10px; margin-bottom: 8px; cursor: pointer; background: var(--card); }
   .wiz-card.selected { border-color: var(--turf-1); box-shadow: inset 0 0 0 1px var(--turf-1); }
   .wiz-card b { display: block; font-size: 14px; }
@@ -425,7 +434,7 @@
     <section>
       <h2>Squad</h2>
       <div id="squadList"></div>
-      <button class="btn btn-ghost" id="addPlayerBtn">+ Add player</button>
+      <div style="display:flex; gap:8px;"><button class="btn btn-ghost" id="addPlayerBtn" style="flex:1;">+ Add player</button><button class="btn btn-ghost" id="editSquadBtn" style="flex:1;">Edit squad as a list</button></div>
     </section>
     <section id="secApproach">
       <h2>Team approach</h2>
@@ -590,8 +599,8 @@
           <div class="radio-opt" data-mode="single">Same keeper all game</div>
           <div class="radio-opt selected" data-mode="rotate">Rotate by period</div>
         </div>
-        <div class="check-row" id="gkAutoRow" style="margin-bottom:10px;"><input type="checkbox" id="gkAutoCheckbox"><label for="gkAutoCheckbox" id="gkAutoLabel"></label></div>
         <div id="gkPickers"></div>
+        <div class="check-row" id="gkAutoRow" style="margin:8px 0 10px;"><input type="checkbox" id="gkAutoCheckbox"><label for="gkAutoCheckbox" id="gkAutoLabel">I'll choose the keepers myself</label></div>
       </section>
 
       <section id="secApproachLine" style="display:none;">
@@ -757,7 +766,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.15';
+const APP_VERSION = 'beta 0.16';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -1060,6 +1069,7 @@ document.getElementById('pf-levelChips').addEventListener('click', e => {
 });
 document.getElementById('pf-level').addEventListener('input', e => setFormLevel(parseFloat(e.target.value)));
 document.getElementById('addPlayerBtn').addEventListener('click', () => openPlayerForm(null));
+document.getElementById('editSquadBtn').addEventListener('click', () => openSquadListEditor());
 document.getElementById('pf-cancel').addEventListener('click', () => showScreen('squad'));
 document.getElementById('pf-save').addEventListener('click', () => {
   const name = document.getElementById('pf-name').value.trim();
@@ -1276,7 +1286,7 @@ document.getElementById('confirmFormatBtn').addEventListener('click', () => {
   applyMatchFormat(players, hasGk, duration, periods, shape);
   gkKeepers = new Array(PERIODS).fill(null);
   gkMode = PERIODS > 1 && matchDefaults.gkMode !== 'single' ? 'rotate' : 'single';
-  gkAuto = false;
+  gkAuto = true; // the planner picks the keepers unless the coach chooses them
 
   setupBaseShape = {...shape}; selectedPresetId = null;
   updateFormatSummaryLine();
@@ -1302,7 +1312,7 @@ updatePeriodPreview();
 /* ================= SETUP SCREEN — STEP 2: TEAM & GK PLANNING ================= */
 let availableIds = new Set();
 let gkMode = 'rotate';
-let gkAuto = false; // planner chooses the keeper(s) instead of the coach picking (works with either mode)
+let gkAuto = true; // planner chooses the keeper(s) instead of the coach picking (works with either mode)
 let gkKeepers = []; // one chosen keeper id per period (rotate mode uses all; single mode uses only index 0)
 
 function renderSetupScreen() {
@@ -1358,13 +1368,12 @@ function renderGkSection() {
     return;
   }
   modeRow.style.display = 'flex';
-  if (eligible.length === 1) { gkMode = 'single'; gkAuto = false; }
+  if (eligible.length === 1) { gkMode = 'single'; gkAuto = true; }
   else if (PERIODS === 1 && gkMode === 'rotate') gkMode = 'single';
   const autoRow = document.getElementById('gkAutoRow');
   autoRow.style.display = eligible.length >= 2 ? 'flex' : 'none';
-  document.getElementById('gkAutoCheckbox').checked = gkAuto;
-  document.getElementById('gkAutoLabel').textContent = gkMode === 'single'
-    ? 'Let the planner choose the keeper' : 'Let the planner choose a different keeper each period';
+  document.getElementById('gkAutoCheckbox').checked = !gkAuto;
+  document.getElementById('gkAutoLabel').textContent = gkMode === 'single' ? "I'll choose the keeper myself" : "I'll choose the keepers myself";
 
   if (!gkKeepers.length || gkKeepers.length !== PERIODS) gkKeepers = new Array(PERIODS).fill(null);
   for (let i = 0; i < PERIODS; i++) {
@@ -1380,7 +1389,9 @@ function renderGkSection() {
     return eligible.map(p => `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.id}</option>`).join('');
   }
 
-  if (gkAuto) {
+  if (eligible.length === 1) {
+    pickersEl.innerHTML = `<div class="config-note">${esc(eligible[0].id)} is your only available keeper, so stays in goal all match.</div>`;
+  } else if (gkAuto) {
     pickersEl.innerHTML = gkMode === 'single'
       ? `<div class="config-note">The planner picks whichever of your ${eligible.length} keeper-capable players leaves the best set of outfield players, and they stay in goal all match.</div>`
       : `<div class="config-note">The planner picks a different keeper for each period${eligible.length < PERIODS ? ` (you only have ${eligible.length} keeper-capable players for ${PERIODS} periods, so everyone gets a turn before anyone goes twice)` : ''}. It prefers whoever leaves the best set of players on the pitch - e.g. when one of your two preferred defenders is in goal, the other stays on the pitch rather than the bench. You'll see who's in goal each period in the plan.</div>`;
@@ -1397,7 +1408,7 @@ function renderGkSection() {
   }
 }
 
-document.getElementById('gkAutoCheckbox').addEventListener('change', e => { gkAuto = e.target.checked; renderGkSection(); validateSetup(); });
+document.getElementById('gkAutoCheckbox').addEventListener('change', e => { gkAuto = !e.target.checked; renderGkSection(); validateSetup(); });
 document.getElementById('gkModeRow').addEventListener('click', e => {
   const opt = e.target.closest('.radio-opt');
   if (!opt || opt.classList.contains('disabled')) return;
@@ -6566,6 +6577,10 @@ function aggregateStats() {
   }
   return {matches: fin, team, players: pl};
 }
+// Minutes played and available for fairness: time in goal is left out of both
+// unless the team approach counts it as playing time (as the planner does).
+function gkTimeCounts() { return !!(typeof teamEthos !== 'undefined' && teamEthos && teamEthos.keepers && teamEthos.keepers.timeCounts); }
+function fairMinutes(a) { return gkTimeCounts() ? {m: a.mins, av: a.availMins} : {m: a.mins - (a.gk || 0), av: a.availMins - (a.gk || 0)}; }
 function statsLineFor(a) {
   if (!a || !a.avail) return '';
   return `${a.apps} app${a.apps === 1 ? '' : 's'} · ${a.mins}'${a.goals ? ` · ${a.goals} goal${a.goals === 1 ? '' : 's'}` : ''}${a.assists ? ` · ${a.assists} assist${a.assists === 1 ? '' : 's'}` : ''}${a.awards && a.awards.length ? ` · 🏆 ${a.awards.length}` : ''}`;
@@ -6606,7 +6621,7 @@ function renderPlayerProfile() {
   const body = document.getElementById('psBody');
   if (!p) { showScreen('squad'); return; }
   const agg = aggregateStats(); const a = agg.players[p.id];
-  const squadAvgMins = (() => { const arr = Object.values(agg.players).filter(x => x.avail); return arr.length ? arr.reduce((t, x) => t + x.mins, 0) / arr.length : 0; })();
+  const squadAvgMins = (() => { const arr = Object.values(agg.players).filter(x => x.avail); return arr.length ? arr.reduce((t, x) => t + fairMinutes(x).m, 0) / arr.length : 0; })();
   const tile = (v, l) => `<div style="background:var(--bench-card); border-radius:10px; padding:10px 6px; text-align:center;"><div style="font-family:Oswald,sans-serif; font-size:22px; font-weight:600;">${v}</div><div style="font-size:11px; color:var(--ink-soft);">${l}</div></div>`;
   let html = `<div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
       <div style="flex:1;"><div style="font-family:Oswald,sans-serif; font-size:24px; font-weight:600;">${esc(p.id)}${p.gk ? '<span class="gk-pill">GK</span>' : ''}</div>
@@ -6615,13 +6630,14 @@ function renderPlayerProfile() {
   if (!a || !a.avail) {
     html += `<div class="form-card" style="margin-top:10px;"><div class="config-note">No finished matches yet. Once you play a match and finish it, ${esc(p.id)}'s appearances, minutes, positions and goals appear here.</div></div>`;
   } else {
-    const pct = a.availMins ? Math.round(a.mins / a.availMins * 100) : 0;
-    const diff = Math.round(a.mins - squadAvgMins);
+    const fm = fairMinutes(a), noGk = !gkTimeCounts() && a.gk > 0;
+    const pct = fm.av ? Math.round(fm.m / fm.av * 100) : 0;
+    const diff = Math.round(fm.m - squadAvgMins);
     html += `<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:10px 0;">
-      ${tile(a.apps + '<span style="font-size:13px; color:var(--ink-soft);"> / ' + a.avail + '</span>', 'Matches played')}${tile(a.starts, 'Starts')}${tile(a.mins + "'", 'Minutes')}
-      ${tile(a.apps ? Math.round(a.mins / a.apps) + "'" : '-', 'Avg per match')}${tile(pct + '%', 'Of match time')}${tile(a.goals, 'Goals')}${tile(a.assists, 'Assists')}${tile(a.awards.length, 'Awards')}</div>
+      ${tile(a.apps + '<span style="font-size:13px; color:var(--ink-soft);"> / ' + a.avail + '</span>', 'Matches played')}${tile(a.starts, 'Starts')}${tile(fm.m + "'", noGk ? 'Outfield minutes' : 'Minutes')}
+      ${tile(a.apps ? Math.round(a.mins / a.apps) + "'" : '-', 'Avg per match')}${tile(pct + '%', noGk ? 'Of outfield time' : 'Of match time')}${tile(a.goals, 'Goals')}${tile(a.assists, 'Assists')}${tile(a.awards.length, 'Awards')}</div>
       ${a.awards.length ? `<div class="form-card" style="margin-bottom:12px;"><h2 style="margin-top:0;">Awards</h2>${a.awards.slice().reverse().map(w => `<div style="font-size:13.5px; padding:4px 0;">🏆 <b>${esc(w.name)}</b>${w.opp ? ' <span style="color:var(--ink-soft);">vs ' + esc(w.opp) + '</span>' : ''}</div>`).join('')}</div>` : ''}
-      <div class="config-note" style="margin-bottom:12px;">${diff === 0 ? 'Exactly the squad average for minutes.' : `${Math.abs(diff)}' ${diff > 0 ? 'above' : 'below'} the squad average for minutes played.`}</div>`;
+      <div class="config-note" style="margin-bottom:12px;">${diff === 0 ? 'Exactly the squad average for minutes.' : `${Math.abs(diff)}' ${diff > 0 ? 'above' : 'below'} the squad average for minutes played.`}${noGk ? ` Plus ${a.gk}' in goal, which isn't counted as playing time (your team approach).` : ''}</div>`;
     const posTotal = POS_KEYS.reduce((t, k) => t + a[k], 0);
     html += `<div class="form-card"><h2 style="margin-top:0;">Minutes by position</h2>
       <div style="display:flex; align-items:center; gap:14px;"><div style="flex:0 0 auto;">${donutSvg(POS_KEYS.map(k => ({label: k, value: a[k], color: POS_COLORS[k.toUpperCase()]})), 140)}</div>
@@ -6714,28 +6730,34 @@ function renderHome() {
     }
     // minutes
     const squadIds = new Set(squad.map(p => p.id));
-    const rows = Object.values(agg.players).filter(a => squadIds.has(a.id) || a.apps > 0).sort((a, b) => b.mins - a.mins);
+    // Fair minutes follow the team approach: unless time in goal counts as
+    // playing time, it's left out of both the minutes played and the minutes
+    // available (the same rule the planner uses).
+    const gkCounts = gkTimeCounts(), fair = fairMinutes;
+    const anyGk = Object.values(agg.players).some(a => a.gk > 0);
+    const gkNote = anyGk ? (gkCounts ? ' Time in goal counts, as your team approach says.' : " Time in goal isn't counted, as your team approach says.") : '';
+    const rows = Object.values(agg.players).filter(a => squadIds.has(a.id) || a.apps > 0).sort((a, b) => fair(b).m - fair(a).m);
     const played = rows.filter(a => a.avail > 0);
-    const mn = played.length ? played[played.length - 1].mins : 0, mxm = played.length ? played[0].mins : 0;
+    const mn = played.length ? fair(played[played.length - 1]).m : 0, mxm = played.length ? fair(played[0]).m : 0;
     const totals = {gk: 0, def: 0, mid: 0, att: 0}; rows.forEach(a => POS_KEYS.forEach(k => { totals[k] += a[k]; }));
     const tt = POS_KEYS.reduce((t, k) => t + totals[k], 0);
     html += homeCard(`<h2 style="margin-top:0;">Minutes played</h2>
-      <div class="config-note" style="margin-bottom:8px;">Gap between most and least: <b>${mxm - mn}'</b> over ${T.played} match${T.played === 1 ? '' : 'es'}. Tap a player for their profile.</div>
+      <div class="config-note" style="margin-bottom:8px;">Gap between most and least: <b>${mxm - mn}'</b> over ${T.played} match${T.played === 1 ? '' : 'es'}.${gkNote} Tap a player for their profile.</div>
       <div style="display:flex; gap:10px; font-size:11px; color:var(--ink-soft); margin-bottom:4px;">${POS_KEYS.map(k => `<span><span style="display:inline-block; width:9px; height:9px; border-radius:2px; background:${POS_COLORS[k.toUpperCase()]};"></span> ${k.toUpperCase()}</span>`).join('')}</div>
-      ${rows.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="padding:6px 0; border-bottom:1px solid var(--card-line); cursor:pointer;"><div style="display:flex; gap:8px; font-size:13.5px;"><b style="flex:1;">${esc(a.id)}</b><span style="color:var(--ink-soft);">${a.apps}/${a.avail} games</span><b style="width:44px; text-align:right;">${a.mins}'</b></div><div style="margin-top:4px;">${posBar(a)}</div></div>`).join('')}`, 'id="homeMinutes"');
+      ${rows.map(a => `<div class="home-row" data-pid="${esc(a.id)}" style="padding:6px 0; border-bottom:1px solid var(--card-line); cursor:pointer;"><div style="display:flex; gap:8px; font-size:13.5px;"><b style="flex:1;">${esc(a.id)}</b><span style="color:var(--ink-soft);">${a.apps}/${a.avail} games</span>${!gkCounts && a.gk > 0 ? `<span style="color:var(--ink-soft); font-size:12px;">+${a.gk}' in goal</span>` : ''}<b style="width:44px; text-align:right;">${fair(a).m}'</b></div><div style="margin-top:4px;">${posBar(a)}</div></div>`).join('')}`, 'id="homeMinutes"');
     // fair-minutes nudge: who is getting a smaller share of the minutes they were available for
-    const nudgeRows = rows.filter(a => squadIds.has(a.id) && a.availMins > 0);
-    const totAvail = nudgeRows.reduce((t, a) => t + a.availMins, 0), totMins = nudgeRows.reduce((t, a) => t + a.mins, 0);
+    const nudgeRows = rows.filter(a => squadIds.has(a.id) && fair(a).av > 0);
+    const totAvail = nudgeRows.reduce((t, a) => t + fair(a).av, 0), totMins = nudgeRows.reduce((t, a) => t + fair(a).m, 0);
     if (nudgeRows.length >= 3 && T.played >= 2 && totAvail) {
       const avgShare = totMins / totAvail;
-      const low = nudgeRows.map(a => ({a, share: a.mins / a.availMins})).filter(x => x.share < avgShare - 0.10)
+      const low = nudgeRows.map(a => ({a, share: fair(a).m / fair(a).av})).filter(x => x.share < avgShare - 0.10)
         .sort((x, y) => x.share - y.share).slice(0, 4);
       if (low.length) {
         html += homeCard(`<h2 style="margin-top:0;">⚖️ Fair-minutes check</h2>
-          <div class="config-note" style="margin-bottom:6px;">These players have had a smaller share of the minutes they were available for (squad average ${Math.round(avgShare * 100)}%). Worth giving them extra time soon.</div>
-          ${low.map(x => { const gap = Math.max(1, Math.round((avgShare - x.share) * x.a.availMins)); return `<div class="home-row" data-pid="${esc(x.a.id)}" style="display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--card-line); cursor:pointer;"><b style="flex:1;">${esc(x.a.id)}</b><span style="font-size:12.5px; color:var(--ink-soft);">${Math.round(x.share * 100)}% of available</span><b style="color:#B8741A;">~${gap}' behind</b></div>`; }).join('')}`, 'id="homeFairNudge"');
+          <div class="config-note" style="margin-bottom:6px;">These players have had a smaller share of the minutes they were available for (squad average ${Math.round(avgShare * 100)}%). Worth giving them extra time soon.${gkNote}</div>
+          ${low.map(x => { const gap = Math.max(1, Math.round((avgShare - x.share) * fair(x.a).av)); return `<div class="home-row" data-pid="${esc(x.a.id)}" style="display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--card-line); cursor:pointer;"><b style="flex:1;">${esc(x.a.id)}</b><span style="font-size:12.5px; color:var(--ink-soft);">${Math.round(x.share * 100)}% of available</span><b style="color:#B8741A;">~${gap}' behind</b></div>`; }).join('')}`, 'id="homeFairNudge"');
       } else {
-        html += homeCard(`<h2 style="margin-top:0;">⚖️ Fair-minutes check</h2><div class="config-note">Minutes are well balanced. Everyone is within 10 points of the squad average (${Math.round(avgShare * 100)}% of available time).</div>`, 'id="homeFairNudge"');
+        html += homeCard(`<h2 style="margin-top:0;">⚖️ Fair-minutes check</h2><div class="config-note">Minutes are well balanced. Everyone is within 10 points of the squad average (${Math.round(avgShare * 100)}% of available time).${gkNote}</div>`, 'id="homeFairNudge"');
       }
     }
   }
@@ -7147,6 +7169,123 @@ let wizStep = 0;
 let wzNamesOk = false;
 function posKind(p) { const t = p.positions || {}; return t.DEF === 3 ? 'DEF' : t.MID === 3 ? 'MID' : t.ATT === 3 ? 'ATT' : 'ALL'; }
 const KIND_TIERS = {DEF: {DEF: 3, MID: 2, ATT: 1}, MID: {DEF: 2, MID: 3, ATT: 2}, ATT: {DEF: 1, MID: 2, ATT: 3}, ALL: {DEF: 2, MID: 2, ATT: 2}};
+
+/* ---------- Squad as a list: one row per player ----------
+ * Name, shirt number, where they play best and goalkeeping, edited in place.
+ * The empty row at the bottom adds the next player; pasting a list of names
+ * (one per line, optionally "7 Oliver") into it adds them all.
+ */
+const GOAL_OPTS = [[0, 'No'], [1, 'Backup'], [2, 'Yes'], [3, 'Main']];
+const POS_OPTS = [['ALL', 'Any'], ['DEF', 'Def'], ['MID', 'Mid'], ['ATT', 'Att']];
+function squadRowHtml(p, i) {
+  const goal = p ? (p.goal ?? (p.gk ? 2 : 0)) : 0, kind = p ? posKind(p) : 'ALL';
+  const warn = p && looksLikeFullName(p.id) ? '<div class="sq-warn">Looks like a full name. First names or nicknames only, please (add an initial if two share a name).</div>' : '';
+  return `<div class="sq-row ${p ? '' : 'sq-new'}" data-row="${p ? i : 'new'}">
+    <input data-f="name" value="${p ? esc(p.id) : ''}" placeholder="${p ? '' : (i === 0 ? 'First name' : 'Add player')}" aria-label="Name" maxlength="24" autocomplete="off" autocapitalize="words" enterkeyhint="next">
+    <input data-f="num" value="${p && p.number ? p.number : ''}" placeholder="No." aria-label="Shirt number" inputmode="numeric" maxlength="2">
+    <select data-f="pos" aria-label="Plays best">${POS_OPTS.map(([v, l]) => `<option value="${v}" ${v === kind ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <select data-f="goal" aria-label="Can play in goal">${GOAL_OPTS.map(([v, l]) => `<option value="${v}" ${v === goal ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    ${p ? `<button class="sq-rm" data-rm="${i}" aria-label="Remove ${esc(p.id)}">✕</button>` : '<span></span>'}
+  </div>${warn}`;
+}
+function renderSquadTable(host, opts = {}) {
+  host.innerHTML = `<div class="sq-table"><span class="sq-h">Name</span><span class="sq-h">No.</span><span class="sq-h">Best at</span><span class="sq-h">In goal</span><span></span>
+    ${squad.map((p, i) => squadRowHtml(p, i)).join('')}${squadRowHtml(null, squad.length)}</div>
+    <div class="config-note" style="margin-top:6px;"><b>Best at</b>: any position, defence, midfield or attack. <b>In goal</b>: Main or Yes can be planned in goal; Backup only if keepers run short. Tip: paste a list of names (one per line) into the empty box to add them all at once.</div>`;
+  const saved = () => { saveSquad(); renderSquadList(); if (opts.onChange) opts.onChange(); };
+  // Redraw, putting the cursor back where the coach was heading.
+  const redraw = focus => {
+    saved(); renderSquadTable(host, opts);
+    if (!focus) return;
+    const row = focus.row === 'new' ? host.querySelector('.sq-new') : host.querySelector(`.sq-row[data-row="${focus.row}"]`);
+    const el = row && row.querySelector(`[data-f="${focus.f || 'name'}"]`); if (el) el.focus();
+  };
+  const where = el => { const r = el && el.closest && el.closest('.sq-row'); return r && host.contains(r) ? {row: r.dataset.row, f: el.dataset.f} : null; };
+  const read = row => ({
+    name: row.querySelector('[data-f="name"]').value.trim(),
+    num: parseInt(row.querySelector('[data-f="num"]').value, 10) || null,
+    kind: row.querySelector('[data-f="pos"]').value,
+    goal: parseInt(row.querySelector('[data-f="goal"]').value, 10) || 0,
+  });
+  const note = (row, msg) => {
+    let w = row.nextElementSibling;
+    if (!msg) { if (w && w.classList.contains('sq-warn')) w.remove(); return; }
+    if (!w || !w.classList.contains('sq-warn')) { w = document.createElement('div'); w.className = 'sq-warn'; row.after(w); }
+    w.textContent = msg;
+  };
+  const fullNameMsg = 'Looks like a full name. First names or nicknames only, please (add an initial if two share a name).';
+  const commitNew = focus => {
+    const row = host.querySelector('.sq-new'); const v = read(row);
+    if (!v.name) return false;
+    if (squad.some(q => q.id.toLowerCase() === v.name.toLowerCase())) { note(row, `There's already a ${v.name} in the squad. Add an initial to tell them apart.`); return false; }
+    squad.push(normalisePlayer({id: v.name, number: v.num, positions: {...KIND_TIERS[v.kind]}, goal: v.goal, gk: v.goal >= 2}));
+    redraw(focus); return true;
+  };
+  host.querySelectorAll('.sq-row').forEach(row => {
+    const isNew = row.classList.contains('sq-new'), i = isNew ? -1 : +row.dataset.row;
+    if (isNew) {
+      // Added once the coach leaves the row (or presses Enter), so they can fill in number, position and goal first.
+      row.addEventListener('focusout', e => { if (!row.contains(e.relatedTarget)) { const f = where(e.relatedTarget); commitNew(f && f.row === 'new' ? {row: 'new'} : f); } });
+    } else {
+      row.querySelectorAll('input, select').forEach(el => el.addEventListener('change', () => {
+        const p = squad[i], v = read(row);
+        if (el.dataset.f === 'name') {
+          if (!v.name) { el.value = p.id; return; }
+          if (v.name !== p.id) {
+            if (squad.some((q, j) => j !== i && q.id.toLowerCase() === v.name.toLowerCase())) { el.value = p.id; note(row, `There's already a ${v.name} in the squad.`); return; }
+            const old = p.id; p.id = v.name; if (typeof renamePlayerInEthos === 'function') renamePlayerInEthos(old, v.name);
+          }
+          note(row, looksLikeFullName(v.name) ? fullNameMsg : '');
+        }
+        p.number = v.num; p.positions = {...KIND_TIERS[v.kind]}; p.goal = v.goal; p.gk = v.goal >= 2;
+        squad[i] = normalisePlayer(p);
+        saved();
+      }));
+    }
+    const nm = row.querySelector('[data-f="name"]');
+    nm.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (isNew) commitNew({row: 'new'}); else nm.blur();
+    });
+    if (isNew) nm.addEventListener('paste', e => {
+      const txt = (e.clipboardData || window.clipboardData).getData('text');
+      if (!/[\n,]/.test(txt)) return;
+      e.preventDefault();
+      addPlayersFromLines(txt.split(/[\n,]+/));
+      redraw({row: 'new'});
+    });
+  });
+  host.querySelectorAll('[data-rm]').forEach(x => x.addEventListener('click', () => {
+    const p = squad[+x.dataset.rm];
+    const go = () => { squad.splice(squad.indexOf(p), 1); if (typeof renamePlayerInEthos === 'function') renamePlayerInEthos(p.id, null); redraw(null); };
+    if (opts.confirmRemove) showConfirm(`Remove ${p.id} from the squad?`, go, 'Remove'); else go();
+  }));
+  host.commitPending = () => commitNew(null);
+}
+// "7 Oliver", "Oliver 7", "Oliver" -> players (skipping blanks and duplicates). Returns how many were added.
+function addPlayersFromLines(lines) {
+  let n = 0;
+  for (const raw of lines) {
+    const ln = String(raw).trim(); if (!ln) continue;
+    let num = null, name = ln, m = ln.match(/^#?(\d{1,2})[\s.\-:)]+(.+)$/) || null;
+    if (m) { num = parseInt(m[1], 10); name = m[2].trim(); }
+    else if ((m = ln.match(/^(.+?)[\s\-]+#?(\d{1,2})$/))) { name = m[1].trim(); num = parseInt(m[2], 10); }
+    if (!name || squad.some(q => q.id.toLowerCase() === name.toLowerCase())) continue;
+    squad.push(normalisePlayer({id: name, number: num, positions: {...KIND_TIERS.ALL}, goal: 0, gk: false}));
+    n++;
+  }
+  return n;
+}
+function openSquadListEditor() {
+  const overlay = openModal(`<div class="picker-title">Edit squad</div>
+    <div class="config-note" style="margin-bottom:10px;">Change anyone in place, or add players in the empty row. Use first names or nicknames only. Tap a player on the Squad tab for more detail, like playing levels.</div>
+    <div id="sqEditHost"></div>
+    <div class="modal-btn-row"><button class="btn btn-primary" id="sqEditDone">Done</button></div>`, {wide: true});
+  const host = overlay.querySelector('#sqEditHost');
+  renderSquadTable(host, {confirmRemove: true});
+  overlay.querySelector('#sqEditDone').addEventListener('click', () => { host.commitPending(); overlay.remove(); renderSquadList(); });
+}
 function openWizard(step) {
   wizStep = step != null ? step : (activeTeam().wizStep || 0);
   showScreen('onboard'); renderWizard();
@@ -7230,38 +7369,21 @@ function renderWizard() {
   } else if (step === 'squad') {
     body.innerHTML = `${dots}<div class="form-card">
       <div class="wiz-hero">Your squad</div>
-      <div class="config-note" style="margin-bottom:10px;">Add your players, tell us where each plays best and who can go in goal. The planner uses this to build the team and rotations. You can fine-tune everyone later in the Squad tab.</div>
-      <div id="wzList">${squad.length ? squad.map((p, i) => `<div class="wiz-row"><span class="nm">${esc(p.id)}${p.number ? ' <small style="color:var(--ink-soft);">#' + p.number + '</small>' : ''}</span>
-        <select data-pos="${i}"><option value="ALL" ${posKind(p) === 'ALL' ? 'selected' : ''}>All-rounder</option><option value="DEF" ${posKind(p) === 'DEF' ? 'selected' : ''}>Defender</option><option value="MID" ${posKind(p) === 'MID' ? 'selected' : ''}>Midfielder</option><option value="ATT" ${posKind(p) === 'ATT' ? 'selected' : ''}>Attacker</option></select>
-        <label><input type="checkbox" data-gk="${i}" ${p.gk ? 'checked' : ''}>GK</label><span class="wiz-rm" data-rm="${i}">✕</span></div>`).join('') : '<div class="config-note">No players yet.</div>'}</div>
-      <div class="field" style="margin-top:12px;"><label>Add players - first names or nicknames only, one per line (optionally start with a shirt number, e.g. "7 Oliver")</label><textarea class="wiz-ta" id="wzNames" placeholder="Oliver&#10;7 Harry&#10;Noah"></textarea></div>
-      <button class="btn btn-ghost" id="wzAdd">Add these players</button>
-      <div class="config-note" style="margin-top:8px;">${squad.length} added · you need at least ${matchDefaults.players}${matchDefaults.hasGk ? ' including a goalkeeper' : ''} for ${wizFormatSummary()}.</div>
+      <div class="config-note" style="margin-bottom:10px;">Add each player: first name or nickname, shirt number if they have one, where they play best and whether they can go in goal. The planner uses this to build the team and rotations. You can fine-tune everyone later in the Squad tab.</div>
+      <div id="wzSquad"></div>
+      <div class="config-note" id="wzCount" style="margin-top:10px;"></div>
       ${err}${nav(1, 'Next')}</div>`;
-    body.querySelector('#wzAdd').addEventListener('click', () => {
-      const lines = body.querySelector('#wzNames').value.split(/[\n,]+/).map(x => x.trim()).filter(Boolean);
-      const flagged = lines.map(ln => ln.replace(/^\d{1,2}[\s.\-:]+/, '')).filter(looksLikeFullName);
-      if (flagged.length && !wzNamesOk) {
-        showConfirm(`${flagged.slice(0, 3).map(n => '"' + n + '"').join(', ')}${flagged.length > 3 ? ' and ' + (flagged.length - 3) + ' more' : ''} ${flagged.length === 1 ? FULLNAME_MSG : 'look like full names. To protect players\' privacy we recommend first names or nicknames only.'} Add them as entered?`, () => { wzNamesOk = true; body.querySelector('#wzAdd').click(); }, 'Add as entered');
-        return;
-      }
-      wzNamesOk = false;
-      for (const ln of lines) {
-        let num = null, name = ln; const m = ln.match(/^(\d{1,2})[\s.\-:]+(.+)$/); if (m) { num = parseInt(m[1], 10); name = m[2].trim(); }
-        if (!name || squad.some(q => q.id.toLowerCase() === name.toLowerCase())) continue;
-        squad.push({id: name, number: num, positions: {DEF: 2, MID: 2, ATT: 2}, gk: false});
-      }
-      saveSquad(); renderSquadList(); renderWizard();
-    });
-    body.querySelectorAll('[data-pos]').forEach(sel => sel.addEventListener('change', () => { squad[+sel.dataset.pos].positions = {...KIND_TIERS[sel.value]}; saveSquad(); renderSquadList(); }));
-    body.querySelectorAll('[data-gk]').forEach(cb => cb.addEventListener('change', () => { squad[+cb.dataset.gk].gk = cb.checked; saveSquad(); renderSquadList(); }));
-    body.querySelectorAll('[data-rm]').forEach(x => x.addEventListener('click', () => { squad.splice(+x.dataset.rm, 1); saveSquad(); renderSquadList(); renderWizard(); }));
+    const host = body.querySelector('#wzSquad');
+    const count = () => { body.querySelector('#wzCount').textContent = `${squad.length} added · you need at least ${matchDefaults.players}${matchDefaults.hasGk ? ' including a goalkeeper' : ''} for ${wizFormatSummary()}.`; };
+    renderSquadTable(host, {onChange: count}); count();
+    if (!squad.length) { const n = host.querySelector('.sq-new [data-f="name"]'); if (n) setTimeout(() => n.focus(), 50); }
     body.querySelector('#wizBack').addEventListener('click', () => wizGo(1));
     body.querySelector('#wizNext').addEventListener('click', () => {
-      const pending = body.querySelector('#wzNames').value.trim();
-      if (pending) return fail('You have names typed in the box - tap "Add these players" first.');
+      host.commitPending();
       if (squad.length < matchDefaults.players) return fail(`Add at least ${matchDefaults.players} players for ${wizFormatSummary()} (you have ${squad.length}).`);
-      if (matchDefaults.hasGk && !squad.some(q => q.gk)) return fail('Tick GK for at least one player who can go in goal.');
+      if (matchDefaults.hasGk && !squad.some(q => q.gk)) return fail('Set "In goal" to Yes or Main for at least one player who can go in goal.');
+      const full = squad.filter(q => looksLikeFullName(q.id));
+      if (full.length && !wzNamesOk) return showConfirm(`${full.slice(0, 3).map(q => '"' + q.id + '"').join(', ')}${full.length > 3 ? ' and ' + (full.length - 3) + ' more' : ''} ${full.length === 1 ? FULLNAME_MSG : 'look like full names. To protect players\' privacy we recommend first names or nicknames only.'} Continue anyway?`, () => { wzNamesOk = true; body.querySelector('#wizNext').click(); }, 'Continue');
       wizGo(WIZ_STEPS.indexOf('questions'));
     });
   } else if (step === 'questions') {
