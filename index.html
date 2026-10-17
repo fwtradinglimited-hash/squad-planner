@@ -72,7 +72,7 @@
   .form-card { background: var(--card); border: 1px solid var(--card-line); border-radius: 14px; padding: 14px; margin-bottom: 16px; }
   .field { margin-bottom: 12px; }
   .field label { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
-  .field input[type="text"], .field input[type="number"], .field input[type="date"], .field select {
+  .field input[type="text"], .field input:not([type]), .field input[type="number"], .field input[type="date"], .field select {
     width: 100%; padding: 10px; border-radius: 9px; border: 1px solid var(--card-line);
     background: var(--shell-bg); color: var(--ink); font-size: 14px;
   }
@@ -308,6 +308,29 @@
   .match-card .mc-btn { margin-left: auto; width: auto; padding: 8px 18px; margin-top: 0; }
   .match-card .mc-small { width: auto; padding: 8px 12px; margin-top: 0; font-size: 13px; }
   .match-card .mc-del { color: var(--coral); }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row-2 .field input, .row-2 .field select { width: 100%; box-sizing: border-box; }
+  .radio-col { display: flex; flex-direction: column; gap: 8px; }
+  .radio-col .check-row { align-items: flex-start; font-size: 13px; line-height: 1.4; margin: 0; }
+  .radio-col input[type="radio"] { margin-top: 3px; flex: 0 0 auto; }
+  .chip-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mc-kind { font-size: 11px; color: var(--ink-soft); font-weight: 600; letter-spacing: .02em; }
+  .new-row { display: flex; gap: 8px; margin-bottom: 6px; }
+  .new-row .btn { flex: 1; margin-top: 0; padding: 10px 6px; font-size: 13px; }
+  .tp-busy { position: fixed; inset: 0; background: rgba(18,36,26,0.55); display: flex; align-items: center; justify-content: center; z-index: 1100; padding: 24px; }
+  .t3-round.t3-now { border: 2px solid var(--turf-1); }
+  .t3-round.t3-done { opacity: .6; }
+  .t3-game { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--card-line); font-size: 14px; }
+  .t3-pitch { flex: 0 0 56px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+  .t3-who { flex: 1; line-height: 1.7; }
+  .t3-name { display: inline-block; padding: 1px 7px; margin: 1px 0; border-radius: 7px; background: var(--bench-card); cursor: pointer; font-weight: 600; }
+  .t3-name.sel { background: var(--amber); color: var(--amber-ink); }
+  .t3-v { color: var(--ink-soft); font-size: 12.5px; }
+  .t3-clock { font-family: "Oswald", sans-serif; font-size: 22px; font-weight: 600; color: var(--turf-1); font-variant-numeric: tabular-nums; }
+  .t3-clock.up { color: var(--coral); }
+  .t3-who small { white-space: nowrap; }
+  :root[data-theme="dark"] .t3-clock, :root[data-theme="dark"] .decision-link:not(.secondary) { color: #6FD98F; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .t3-clock, :root:not([data-theme="light"]) .decision-link:not(.secondary) { color: #6FD98F; } }
   .ht-subs { text-align: left; margin: 0 0 14px; }
   .ht-subs .action-panel { color: var(--ink); }
   .ht-subs .ht-subs-title { font-size: 12px; color: var(--chalk-dim); margin-bottom: 8px; }
@@ -625,6 +648,9 @@
     </section>
   </div>
 
+  <div class="screen" id="screen-tournament"><div id="tourneyBody"></div></div>
+  <div class="screen" id="screen-threes"><div id="threesBody"></div></div>
+
   <!-- PLAN SCREEN -->
   <div class="screen" id="screen-plan">
     <div class="plan-topbar">
@@ -766,7 +792,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.16';
+const APP_VERSION = 'beta 0.17';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -1129,7 +1155,7 @@ function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  const tabName = (name === 'playerForm' || name === 'playerStats') ? 'squad' : (name === 'setup' ? 'matches' : name);
+  const tabName = (name === 'playerForm' || name === 'playerStats') ? 'squad' : (['setup', 'tournament', 'threes'].includes(name) ? 'matches' : name);
   const tabEl = document.querySelector(`.tab[data-tab="${tabName}"]`);
   if (tabEl) tabEl.classList.add('active');
   // The Plan screen has its own compact back button + Live/Details sub-tabs,
@@ -3180,8 +3206,11 @@ function compileSpec(ctx) {
   spec.keeperShortage = ethos.keepers.shortage;
   spec.replan = ethos.live.replan;
   // Season catch-up: each target moves by up to (season slider x 50%) of the
-  // player's season gap, capped at 20% of an equal share either way.
-  const s = sliders.season / 100;
+  // player's season gap, capped at 20% of an equal share either way. In a
+  // tournament balanced over the day, earlier games today are the "season"
+  // and the catch-up is full (capped at 60% of an equal share).
+  const day = !!ctx.dayBalance;
+  const s = day ? 1 : sliders.season / 100;
   const ids = players.map(p => p.id);
   const outfieldSlots = (ctx.outfieldSlots || 0), allSlots = (ctx.allSlots || 0);
   const pool = (ethos.keepers.timeCounts ? allSlots : outfieldSlots) * ctx.duration;
@@ -3190,7 +3219,7 @@ function compileSpec(ctx) {
   const catchUp = {};
   for (const id of ids) {
     if (equal <= 0 || !gaps[id]) continue;
-    const move = clamp(s * 0.5 * gaps[id], -0.2 * equal, 0.2 * equal);
+    const move = day ? clamp(gaps[id], -0.6 * equal, 0.6 * equal) : clamp(s * 0.5 * gaps[id], -0.2 * equal, 0.2 * equal);
     if (Math.abs(move) < 0.5) continue;
     catchUp[id] = Math.round(move);
     spec.targetAdjust[id] = (spec.targetAdjust[id] || 1) * (1 + move / equal);
@@ -3208,7 +3237,7 @@ function compileSpec(ctx) {
     sliders: from, priority: T.priority ? `Today: ${T.label}` : (ethos.priority ? 'your order' : `${preset.label} preset`),
     unitFloor: ethos.rules.unitFloor ? 'your team rule' : `${preset.label} preset`,
     minSpell: ethos.rules.minSpell ? 'your setting' : `${preset.label} preset`,
-    catchUp: s > 0 ? `Across the season ${sliders.season}` : 'off',
+    catchUp: day ? 'Across the tournament day' : s > 0 ? `Across the season ${sliders.season}` : 'off',
   });
   return spec;
 }
@@ -3222,13 +3251,16 @@ function currentMatchSpec(ledger, now) {
   for (const ev of lockedEvents) if (ev.type === 'sub' && ev.slot === 'GK' && ev.on && playersById[ev.on] && !playersById[ev.on].gk) exceptions[ev.on] = {...(exceptions[ev.on] || {}), keeperToday: true};
   let today = matchFixture && matchFixture.today;
   for (const e of ((matchFixture && matchFixture.todayEras) || [])) if (e.from <= (now || 0)) today = e.today;
+  // A tournament balanced over the day: earlier games today stand in for the season.
+  let dayLedger = null; try { dayLedger = tournamentLedgerFor(matchFixture); } catch (e) { dayLedger = null; }
+  let tourneySubTiming = null; try { tourneySubTiming = tournamentSubTimingFor(matchFixture); } catch (e) { tourneySubTiming = null; }
   return compileSpec({
     ethos: teamEthos, today, duration: DURATION, periodBounds: [...PERIOD_BOUNDS],
     players: PLAYERS, exceptions,
-    ledger: ledger || buildSeasonLedger(loadMatchLibrary()),
+    ledger: ledger || dayLedger || buildSeasonLedger(loadMatchLibrary()), dayBalance: !ledger && !!dayLedger,
     outfieldSlots: SLOTS.filter(s => s.group !== 'GK').length, allSlots: SLOTS.length,
-    subTimingCfg: cfg.engine === 'window' ? {mode: teamEthos.timing.mode, interval: teamEthos.timing.interval, halfway: teamEthos.timing.halfway}
-      : {mode: cfg.subTimingMode, interval: cfg.subIntervalMinutes, halfway: !!cfg.checkpointHalfway},
+    subTimingCfg: tourneySubTiming || (cfg.engine === 'window' ? {mode: teamEthos.timing.mode, interval: teamEthos.timing.interval, halfway: teamEthos.timing.halfway}
+      : {mode: cfg.subTimingMode, interval: cfg.subIntervalMinutes, halfway: !!cfg.checkpointHalfway}),
   });
 }
 // What may leave the device (feedback reports): never a child's level.
@@ -4808,7 +4840,11 @@ document.getElementById('planSubtabs').addEventListener('click', e => {
   const el = e.target.closest('.plan-subtab');
   if (el) setPlanSubTab(el.dataset.subtab);
 });
-document.getElementById('planBackBtn').addEventListener('click', () => showScreen('squad'));
+document.getElementById('planBackBtn').addEventListener('click', () => {
+  const tid = matchFixture && matchFixture.tournamentId;
+  if (tid && getTournament(tid)) { saveLiveMatchState(); openTournamentId = tid; renderTournamentHub(); showScreen('tournament'); return; }
+  showScreen('squad');
+});
 
 /* ---- DETAILS TAB: second-row Substitutions / Forecast / Formation sub-tabs ---- */
 function setDetailsSubTab(tab) {
@@ -4979,6 +5015,7 @@ function saveLiveMatchState() {
     rec.score = {...score};
     if (snap.status === 'finished') { try { rec.stats = computeMatchStats(finishedAtMinute ?? DURATION, goalEvents, score); } catch (e) { console.warn('Could not compute match stats', e); } }
     if (snap.status !== 'finished') delete rec.stats;
+    try { syncTournamentGame(rec); } catch (e) { console.warn('Tournament sync failed', e); }
     rec.minute = snap.status === 'finished' ? finishedAtMinute : (snap.status === 'live' ? (halfTimeActive && pendingHalfTimeBoundaryIdx !== null ? PERIOD_BOUNDS[pendingHalfTimeBoundaryIdx] : liveElapsedMinute()) : 0);
     // Keep the library bounded: drop the oldest finished matches first.
     while (lib.length > MAX_SAVED_MATCHES) {
@@ -5204,14 +5241,17 @@ function renderMatchesScreen() {
   note.textContent = storageProblem ? "This browser isn't letting the app save matches (private browsing or storage full), so they won't survive closing it." : '';
   const list = document.getElementById('matchesList');
   const dateKey = r => (r.fixture && r.fixture.date) || '';
-  const live = lib.filter(r => r.status === 'live').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-  const planned = lib.filter(r => r.status === 'planned').sort((a, b) => {
+  const tourneys = loadTournaments(), threes = loadThrees();
+  const tIds = new Set(tourneys.map(t => t.id));
+  const solo = lib.filter(r => !(r.fixture && r.fixture.tournamentId && tIds.has(r.fixture.tournamentId)));
+  const live = solo.filter(r => r.status === 'live').sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const planned = solo.filter(r => r.status === 'planned').sort((a, b) => {
     const da = dateKey(a), db = dateKey(b);
     if (da && db && da !== db) return da < db ? -1 : 1;
     if (!da !== !db) return da ? -1 : 1;
     return (a.createdAt || 0) - (b.createdAt || 0);
   });
-  const done = lib.filter(r => r.status === 'finished').sort((a, b) => {
+  const done = solo.filter(r => r.status === 'finished').sort((a, b) => {
     const da = dateKey(a), db = dateKey(b);
     if (da !== db) return da < db ? 1 : -1;
     return (b.updatedAt || 0) - (a.updatedAt || 0);
@@ -5233,9 +5273,25 @@ function renderMatchesScreen() {
     </div>`;
   };
   const section = (title, rows) => rows.length ? `<h2 style="margin:16px 0 8px;">${title}</h2>${rows.map(card).join('')}` : '';
-  list.innerHTML = `<button class="btn btn-primary" id="newFixtureBtn" style="margin-bottom:6px;">+ Plan a new fixture</button>`
-    + (lib.length ? section('In progress', live) + section('Upcoming fixtures', planned) + section('Finished', done)
+  const dayCards = [...tourneys.map(t => ({kind: 't', d: t.date || '', t})), ...threes.map(m => ({kind: 'c', d: m.date || '', m}))].sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
+  const dayCard = x => {
+    if (x.kind === 't') { const t = x.t; const st = t.games.map(tourneyGameStatus); const played = st.filter(v => v === 'finished').length;
+      return `<div class="match-card" data-tourney="${t.id}"><div class="mc-kind">TOURNAMENT</div><div class="mc-title">🏆 ${esc(t.name)}</div>
+        <div class="mc-sub">${esc([fmtFixtureDate(t.date), t.venue].filter(Boolean).join(' · '))}</div><div class="mc-sub">${esc(tourneyFormatLabel(t.format))} · ${t.games.length} game${t.games.length === 1 ? '' : 's'} · ${played} played</div>
+        <div class="mc-row">${st.includes('live') ? '<span class="badge live">LIVE</span>' : played === t.games.length && played ? '<span class="badge">FINISHED</span>' : '<span class="badge planned">UPCOMING</span>'}<button class="btn btn-primary mc-btn" data-topen="${t.id}">Open</button></div></div>`; }
+    const m = x.m; const cur = Math.min(m.current || 0, m.roundsCount);
+    return `<div class="match-card" data-threes="${m.id}"><div class="mc-kind">3v3 MATCHDAY</div><div class="mc-title">3v3${m.opponent ? ' v ' + esc(m.opponent) : ''}</div>
+      <div class="mc-sub">${esc(fmtFixtureDate(m.date) || '')}${m.date ? ' · ' : ''}${m.roundsCount} games of ${m.gameLength}' · ${esc(THREES_ETHOS[m.ethos].split(':')[0])}</div>
+      <div class="mc-row">${cur >= m.roundsCount ? '<span class="badge">FINISHED</span>' : cur > 0 ? `<span class="badge live">GAME ${cur + 1}</span>` : '<span class="badge planned">UPCOMING</span>'}<button class="btn btn-primary mc-btn" data-copen="${m.id}">Open</button></div></div>`;
+  };
+  list.innerHTML = `<button class="btn btn-primary" id="newFixtureBtn" style="margin-bottom:6px;">+ Plan a new fixture</button>
+    <div class="new-row"><button class="btn btn-ghost" id="newTourneyBtn">+ Tournament</button><button class="btn btn-ghost" id="newThreesBtn">+ 3v3 matchday</button></div>`
+    + (solo.length || dayCards.length ? section('In progress', live) + (dayCards.length ? `<h2 style="margin:16px 0 8px;">Tournaments and matchdays</h2>${dayCards.map(dayCard).join('')}` : '') + section('Upcoming fixtures', planned) + section('Finished', done)
       : '<div class="config-note">No matches yet - plan a fixture and its line-up will be saved here.</div>');
+  document.getElementById('newTourneyBtn').addEventListener('click', () => openTournamentSetup(null));
+  document.getElementById('newThreesBtn').addEventListener('click', () => openThreesSetup(null));
+  list.querySelectorAll('[data-topen]').forEach(b => b.addEventListener('click', () => openTournament(b.dataset.topen)));
+  list.querySelectorAll('[data-copen]').forEach(b => b.addEventListener('click', () => openThreesDay(b.dataset.copen)));
   document.getElementById('newFixtureBtn').addEventListener('click', requestNewFixture);
   list.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openMatchFromLibrary(b.dataset.open)));
   list.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copyPlannedMatch(b.dataset.copy)));
@@ -8606,6 +8662,605 @@ function setForTourLines(keys) {
 }
 const ETHOS_TOUR_KEYS = ['preset', 'sliders.season', 'rules.leagueMinPct', 'rules.strengthMode', 'rules.unitFloor', 'sliders.positions', 'sliders.changes', 'timing', 'rules.oneChangePerUnit', 'keepers', 'live.replan', 'priority'];
 
+/* ================= TOURNAMENTS =================
+ * A tournament is a day of short games in one format. Each game is an
+ * ordinary match (live mode, subs, stats and exports all work as usual),
+ * tagged with its tournament. When playing time is balanced over the day,
+ * each game is planned knowing the minutes everyone has had (or is planned to
+ * have) in the earlier games: the day works like a mini-season with full
+ * catch-up. Keepers can take turns, one per game.
+ */
+const TOURNAMENTS_KEY = K('rf_tournaments_v1');
+const TOURNEY_LENGTHS = [5, 6, 7, 8, 9, 10, 12, 14, 15, 20, 25, 30];
+function loadTournaments() { try { const r = JSON.parse(localStorage.getItem(TOURNAMENTS_KEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; } }
+function saveTournaments(list) { try { localStorage.setItem(TOURNAMENTS_KEY, JSON.stringify(list)); return true; } catch (e) { storageProblem = true; return false; } }
+function getTournament(id) { return loadTournaments().find(t => t.id === id) || null; }
+function putTournament(t) { const all = loadTournaments(); const i = all.findIndex(x => x.id === t.id); if (i >= 0) all[i] = t; else all.push(t); saveTournaments(all); }
+function tourneyFormatLabel(f) { return `${f.players}v${f.players}${f.hasGk ? '' : ' (no GK)'} · ${f.periods > 1 ? f.periods + ' × ' + Math.round(f.duration / f.periods) + "'" : f.duration + "'"} games`; }
+function tourneyGameRec(g) { return g.matchId ? loadMatchLibrary().find(r => r.id === g.matchId) || null : null; }
+function tourneyGameStatus(g) { const r = tourneyGameRec(g); return r ? r.status : 'unplanned'; }
+
+// Each earlier game's minutes: what actually happened once it's finished,
+// otherwise what its plan says.
+function tourneyGameMinutes(g) {
+  const r = tourneyGameRec(g);
+  if (r && r.status === 'finished' && r.stats && r.stats.players) return {src: 'played', players: r.stats.players, minutes: r.stats.minutes};
+  if (r && g.forecast) return {src: 'planned', players: g.forecast, minutes: g.forecastMinutes || 0};
+  return null;
+}
+// The day so far as a ledger (same shape as the season ledger), for the games before game index gi.
+function tourneyDayLedger(t, gi) {
+  const players = {};
+  t.games.slice(0, gi).forEach(g => {
+    const m = tourneyGameMinutes(g); if (!m) return;
+    for (const [pid, ps] of Object.entries(m.players)) {
+      const avail = typeof ps.avail === 'number' ? ps.avail : m.minutes;
+      if (avail <= 0) continue;
+      const a = players[pid] || (players[pid] = {id: pid, matches: 0, availMins: 0, mins: 0, gkMins: 0, starts: 0, benchStarts: 0, finishes: 0, goals: 0, assists: 0, goalsForOn: 0, goalsAgainstOn: 0});
+      a.matches++; a.availMins += avail; a.mins += ps.mins || 0; a.gkMins += ps.gk || 0;
+      if (ps.started) a.starts++; else a.benchStarts++;
+      if (ps.finished) a.finishes++;
+    }
+  });
+  return {matches: gi, players};
+}
+// Used by the planner for the open match: the day ledger when this game is
+// part of a tournament balanced over the day (null otherwise).
+function tournamentLedgerFor(fx) {
+  if (!fx || !fx.tournamentId) return null;
+  const t = getTournament(fx.tournamentId); if (!t || t.fairness !== 'day') return null;
+  const gi = t.games.findIndex(g => g.id === fx.tournamentGameId); if (gi < 0) return null;
+  return tourneyDayLedger(t, gi);
+}
+// When changes may happen in a tournament game (short games rotate mostly between games).
+const TOURNEY_SUBS = {halfway: 'Once, at halfway', none: 'None: rotate between games', approach: 'As your team approach says'};
+function tournamentSubTimingFor(fx) {
+  if (!fx || !fx.tournamentId) return null;
+  const t = getTournament(fx.tournamentId); if (!t) return null;
+  const subs = t.subs || 'halfway';
+  if (subs === 'approach') return null;
+  if (subs === 'none') return {mode: 'interval', interval: 999, halfway: false, strictness: 'strict'};
+  return t.format.periods > 1 ? {mode: 'checkpoints', interval: 15, halfway: false, strictness: 'strict'} : {mode: 'checkpoints', interval: 15, halfway: true, strictness: 'strict'};
+}
+// Minutes per player across the day: played (finished games) and planned (the rest).
+function tourneyDayTable(t) {
+  const rows = {};
+  const row = pid => rows[pid] || (rows[pid] = {id: pid, played: 0, planned: 0, gk: 0, games: 0});
+  t.players.forEach(row);
+  t.games.forEach(g => {
+    const m = tourneyGameMinutes(g); if (!m) return;
+    for (const [pid, ps] of Object.entries(m.players)) {
+      const r = row(pid); const mins = ps.mins || 0;
+      if (m.src === 'played') r.played += mins; else r.planned += mins;
+      r.gk += ps.gk || 0; if (mins > 0) r.games++;
+    }
+  });
+  return Object.values(rows);
+}
+// Keepers taking turns: whoever has kept goal least today (then the stronger
+// keeper, then squad order).
+function tourneyKeeperFor(t, gi, eligible) {
+  if (!eligible.length) return null;
+  if (t.keepers === 'same' && eligible.some(p => p.id === t.sameKeeper)) return t.sameKeeper;
+  const gkMins = {};
+  t.games.slice(0, gi).forEach(g => { const m = tourneyGameMinutes(g); if (m) for (const [pid, ps] of Object.entries(m.players)) gkMins[pid] = (gkMins[pid] || 0) + (ps.gk || 0); });
+  const order = squad.map(p => p.id);
+  return eligible.slice().sort((a, b) => (gkMins[a.id] || 0) - (gkMins[b.id] || 0) || (b.goal || 0) - (a.goal || 0) || order.indexOf(a.id) - order.indexOf(b.id))[0].id;
+}
+// Keeps a game's planned minutes in step with its plan (called on every save).
+function syncTournamentGame(rec) {
+  const fx = rec && rec.fixture; if (!fx || !fx.tournamentId) return;
+  const t = getTournament(fx.tournamentId); if (!t) return;
+  const g = t.games.find(x => x.id === fx.tournamentGameId); if (!g) return;
+  let changed = false;
+  if (g.matchId !== rec.id) { g.matchId = rec.id; changed = true; }
+  if (rec.status === 'planned' && currentMatchId === rec.id && PLAN) {
+    const st = computeMatchStats(DURATION, [], {us: 0, them: 0});
+    const fc = {}; for (const [pid, ps] of Object.entries(st.players)) fc[pid] = {mins: ps.mins, gk: ps.gk, avail: ps.avail, started: ps.started, finished: ps.finished};
+    const key = JSON.stringify(fc);
+    if (key !== JSON.stringify(g.forecast || null)) { g.forecast = fc; g.forecastMinutes = DURATION; g.plannedAt = Date.now(); changed = true; }
+  }
+  if (rec.status === 'finished' && !g.finishedAt) { g.finishedAt = Date.now(); changed = true; }
+  if (changed) putTournament(t);
+}
+// Games still to play whose plan was made before something earlier changed
+// (an earlier game finished or was re-planned, or the players changed).
+function tourneyStaleGames(t) {
+  const out = [];
+  let latest = t.playersChangedAt || 0;
+  t.games.forEach((g, i) => {
+    const st = tourneyGameStatus(g);
+    if (st === 'planned' && (g.plannedAt || 0) < latest) out.push(i);
+    if (t.fairness === 'day') latest = Math.max(latest, g.finishedAt || 0, st === 'planned' ? (g.plannedAt || 0) : 0);
+  });
+  return out;
+}
+
+// Plans one game with the tournament's format, players and keeper choice,
+// using the normal planner. Returns an error message, or null.
+function planTournamentGame(t, gi) {
+  const g = t.games[gi];
+  const st = tourneyGameStatus(g);
+  if (st === 'live' || st === 'finished') return null;
+  if (currentMatchId) {
+    if (liveMode && !matchFinished) return 'A game is live. Finish it (or leave it) before planning other games.';
+    detachOpenMatch();
+  }
+  const f = t.format;
+  cfg = {...cfg, autoSubs: true, engine: 'window'}; updatePlanModeUI();
+  const durSel = document.getElementById('fmt-duration');
+  if (![...durSel.options].some(o => +o.value === f.duration)) { const o = document.createElement('option'); o.value = f.duration; o.textContent = f.duration; durSel.appendChild(o); }
+  loadFormatIntoSetup({players: f.players, duration: f.duration, periods: f.periods, hasGk: f.hasGk, formation: matchDefaults.formation});
+  document.getElementById('confirmFormatBtn').click();
+  availableIds = new Set(t.players.filter(id => squad.some(p => p.id === id)));
+  if (HAS_GK) {
+    const eligible = availableGkEligible();
+    if (t.keepers === 'auto' || !eligible.length) { gkMode = PERIODS > 1 ? 'rotate' : 'single'; gkAuto = true; }
+    else { gkMode = 'single'; gkAuto = false; gkKeepers = new Array(PERIODS).fill(tourneyKeeperFor(t, gi, eligible)); }
+  }
+  draftFixture = {opponent: g.opponent || '', date: t.date || todayISO(), venue: t.venue || '', competition: `${t.name} · ${g.label}`,
+    today: 'normal', exceptions: {}, tournamentId: t.id, tournamentGameId: g.id};
+  const errEl = document.getElementById('setupError');
+  errEl.style.display = 'none';
+  const before = currentMatchId;
+  document.getElementById('generateBtn').click();
+  document.querySelectorAll('.modal-overlay').forEach(e => e.remove()); // anything planning popped up
+  draftFixture = {opponent: '', date: todayISO(), venue: '', competition: '', today: 'normal', exceptions: {}};
+  if (!currentMatchId || currentMatchId === before || !PLAN) return errEl.textContent || "Couldn't plan this game.";
+  const old = g.matchId, made = currentMatchId;
+  saveLiveMatchState(); // records the plan's minutes on the game
+  detachOpenMatch();
+  if (old && old !== made) { const r = loadMatchLibrary().find(x => x.id === old); if (r && r.status === 'planned') deleteMatchRecord(old); }
+  const t2 = getTournament(t.id); const g2 = t2.games[gi]; g2.matchId = made; putTournament(t2);
+  return null;
+}
+// Plans games in order (each one knowing the minutes before it), a little at a
+// time so the screen stays responsive.
+function planTournamentGames(id, indices, done) {
+  // Its own overlay (not a modal), so pop-ups from planning can't close it.
+  const overlay = document.createElement('div');
+  overlay.id = 'tpBusy'; overlay.className = 'tp-busy';
+  overlay.innerHTML = '<div class="modal-card"><div class="picker-title">Planning games…</div><div class="config-note" id="tpProg">Working out who plays when across the day.</div></div>';
+  document.body.appendChild(overlay);
+  let k = 0;
+  const step = () => {
+    if (k >= indices.length) { overlay.remove(); track('tournament-planned', String(indices.length)); openTournamentId = id; showScreen('tournament'); done && done(null); return; }
+    overlay.querySelector('#tpProg').textContent = `Game ${k + 1} of ${indices.length}…`;
+    setTimeout(() => {
+      let err = null;
+      try { err = planTournamentGame(getTournament(id), indices[k]); } catch (e) { err = e.message; }
+      if (err) { overlay.remove(); openTournamentId = id; showScreen('tournament'); done && done(err); return; }
+      k++; step();
+    }, 30);
+  };
+  step();
+}
+
+function newTourneyGame(label, opponent, stage) { return {id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), label, opponent: opponent || '', stage}; }
+
+function openTournamentSetup(existingId) {
+  const ex = existingId ? getTournament(existingId) : null;
+  const f = ex ? ex.format : {players: matchDefaults.players, duration: 10, periods: 1, hasGk: matchDefaults.hasGk};
+  const groupGames = ex ? ex.games.filter(g => g.stage === 'group') : null;
+  const lengths = TOURNEY_LENGTHS.includes(f.duration) ? TOURNEY_LENGTHS : [...TOURNEY_LENGTHS, f.duration].sort((a, b) => a - b);
+  const overlay = openModal(`<div class="picker-title">${ex ? 'Tournament settings' : 'New tournament'}</div>
+    <div class="field"><label for="tnName">Tournament name</label><input id="tnName" maxlength="40" placeholder="e.g. Spring Cup" value="${ex ? esc(ex.name) : ''}"></div>
+    <div class="row-2"><div class="field"><label for="tnDate">Date</label><input id="tnDate" type="date" value="${ex ? esc(ex.date || '') : todayISO()}"></div>
+      <div class="field"><label for="tnVenue">Venue <span style="font-weight:400; color:var(--ink-soft);">(optional)</span></label><input id="tnVenue" maxlength="40" value="${ex ? esc(ex.venue || '') : ''}"></div></div>
+    <div class="row-2"><div class="field"><label for="tnPlayers">Players a side</label><select id="tnPlayers">${[3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => `<option ${n === f.players ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div class="field"><label for="tnLen">Game length (minutes)</label><select id="tnLen">${lengths.map(n => `<option ${n === f.duration ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
+    <div class="row-2"><div class="field"><label for="tnHalves">Halves</label><select id="tnHalves"><option value="1" ${f.periods === 1 ? 'selected' : ''}>One period</option><option value="2" ${f.periods === 2 ? 'selected' : ''}>Two halves</option></select></div>
+      <div class="field"><label>&nbsp;</label><div class="check-row" style="margin-top:6px;"><input type="checkbox" id="tnGk" ${f.hasGk ? 'checked' : ''}><label for="tnGk">Goalkeepers</label></div></div></div>
+    <div class="field"><label for="tnGames">Group games</label><select id="tnGames" ${ex && ex.games.some(g => g.matchId) ? 'disabled' : ''}>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option ${n === (groupGames ? groupGames.length : 3) ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <div class="config-note">Add semi-finals or a final on the day if you get through.</div></div>
+    <div id="tnOpps"></div>
+    <div class="field"><label>Playing time</label>
+      <div class="radio-col" id="tnFair">
+        <label class="check-row"><input type="radio" name="tnFair" value="day" ${!ex || ex.fairness === 'day' ? 'checked' : ''}><span><b>Even over the whole day</b> (recommended). Someone who sits out more in one game gets more in the next.</span></label>
+        <label class="check-row"><input type="radio" name="tnFair" value="game" ${ex && ex.fairness === 'game' ? 'checked' : ''}><span><b>Even within each game</b>, planned like a normal fixture.</span></label>
+      </div></div>
+    <div class="field"><label for="tnSubs">Subs during a game</label><select id="tnSubs">${Object.entries(TOURNEY_SUBS).map(([k, v]) => `<option value="${k}" ${(ex ? ex.subs || 'halfway' : 'halfway') === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <div class="config-note">Short games work best with few changes: most of the rotation happens between games.</div></div>
+    <div class="field" id="tnKeepRow"><label>Goalkeepers</label>
+      <div class="radio-col">
+        <label class="check-row"><input type="radio" name="tnKeep" value="day" ${!ex || ex.keepers === 'day' ? 'checked' : ''}><span><b>Take turns</b>: one keeper per game, rotating through your keepers.</span></label>
+        <label class="check-row"><input type="radio" name="tnKeep" value="auto" ${ex && ex.keepers === 'auto' ? 'checked' : ''}><span><b>The planner decides</b> each game, as it would for a normal fixture.</span></label>
+        <label class="check-row"><input type="radio" name="tnKeep" value="same" ${ex && ex.keepers === 'same' ? 'checked' : ''}><span><b>Same keeper all day</b>: <select id="tnSameKeeper" style="max-width:150px;">${squad.filter(p => p.gk).map(p => `<option ${ex && ex.sameKeeper === p.id ? 'selected' : ''}>${esc(p.id)}</option>`).join('') || '<option value="">No keepers</option>'}</select></span></label>
+      </div></div>
+    <div class="warn-box" id="tnErr" style="display:none;"></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="tnCancel">Cancel</button><button class="btn btn-primary" id="tnSave">${ex ? 'Save' : 'Create tournament'}</button></div>`, {wide: true});
+  const q = s => overlay.querySelector(s);
+  const drawOpps = () => {
+    const n = +q('#tnGames').value;
+    const prev = [...overlay.querySelectorAll('[data-opp]')].map(i => i.value);
+    q('#tnOpps').innerHTML = `<div class="config-note" style="margin:-4px 0 6px;">Opponents, if you know them (optional):</div>` + Array.from({length: n}, (_, i) =>
+      `<div class="field" style="margin-bottom:6px;"><input data-opp="${i}" maxlength="30" placeholder="Game ${i + 1} opponent" value="${esc(prev[i] ?? (groupGames && groupGames[i] ? groupGames[i].opponent : ''))}"></div>`).join('');
+  };
+  drawOpps();
+  q('#tnGames').addEventListener('change', drawOpps);
+  const keepVis = () => { q('#tnKeepRow').style.display = q('#tnGk').checked ? 'block' : 'none'; };
+  keepVis(); q('#tnGk').addEventListener('change', keepVis);
+  q('#tnCancel').addEventListener('click', () => overlay.remove());
+  q('#tnSave').addEventListener('click', () => {
+    const name = q('#tnName').value.trim();
+    const err = m => { q('#tnErr').style.display = 'block'; q('#tnErr').textContent = m; };
+    if (!name) return err('Give the tournament a name.');
+    const fmt = {players: +q('#tnPlayers').value, duration: +q('#tnLen').value, periods: +q('#tnHalves').value, hasGk: q('#tnGk').checked};
+    if (fmt.periods === 2 && fmt.duration % 2) return err('Two halves need an even game length.');
+    const opps = [...overlay.querySelectorAll('[data-opp]')].map(i => i.value.trim());
+    const t = ex ? JSON.parse(JSON.stringify(ex)) : {id: 't' + Date.now().toString(36), createdAt: Date.now(), players: squad.map(p => p.id), games: []};
+    const fmtChanged = ex && JSON.stringify(ex.format) !== JSON.stringify(fmt);
+    Object.assign(t, {name, date: q('#tnDate').value || todayISO(), venue: q('#tnVenue').value.trim(), format: fmt,
+      fairness: overlay.querySelector('[name="tnFair"]:checked').value, subs: q('#tnSubs').value, keepers: (overlay.querySelector('[name="tnKeep"]:checked') || {}).value || 'day',
+      sameKeeper: q('#tnSameKeeper') ? q('#tnSameKeeper').value : ''});
+    if (!q('#tnGames').disabled) {
+      const groups = t.games.filter(g => g.stage === 'group'), kos = t.games.filter(g => g.stage !== 'group');
+      const n = +q('#tnGames').value;
+      const next = Array.from({length: n}, (_, i) => groups[i] || newTourneyGame(`Game ${i + 1}`, '', 'group'));
+      t.games = [...next, ...kos];
+    }
+    t.games.filter(g => g.stage === 'group').forEach((g, i) => { if (opps[i] !== undefined) g.opponent = opps[i]; });
+    if (ex && (fmtChanged || ex.fairness !== t.fairness || (ex.subs || 'halfway') !== t.subs || ex.keepers !== t.keepers || ex.sameKeeper !== t.sameKeeper)) t.playersChangedAt = Date.now();
+    putTournament(t);
+    if (!ex) track('tournament-created', `${fmt.players}-a-side-${fmt.duration}min`);
+    overlay.remove();
+    openTournament(t.id);
+  });
+}
+
+let openTournamentId = null;
+function openTournament(id) {
+  if (currentMatchId) { if (liveMode && !matchFinished) { /* the live game keeps its clock */ } detachOpenMatch(); }
+  openTournamentId = id;
+  renderTournamentHub();
+  showScreen('tournament');
+}
+function renderTournamentHub() {
+  const t = getTournament(openTournamentId); const host = document.getElementById('tourneyBody');
+  if (!t) { renderMatchesScreen(); showScreen('matches'); return; }
+  const stale = tourneyStaleGames(t);
+  const statuses = t.games.map(tourneyGameStatus);
+  const unplanned = statuses.map((s, i) => s === 'unplanned' ? i : -1).filter(i => i >= 0);
+  const label = s => ({unplanned: '<span class="badge">NOT PLANNED</span>', planned: '<span class="badge planned">PLANNED</span>', live: '<span class="badge live">LIVE</span>', finished: '<span class="badge">PLAYED</span>'})[s];
+  const day = tourneyDayTable(t).filter(r => t.players.includes(r.id) || r.played || r.planned);
+  const gkCounts = gkTimeCounts();
+  const tot = r => r.played + r.planned;
+  day.sort((a, b) => tot(b) - tot(a));
+  const maxM = Math.max(1, ...day.map(tot));
+  const anyMins = day.some(r => tot(r) > 0);
+  // The gap that matters: between players who haven't kept goal (keepers'
+  // time in goal is shown separately, and counts only if the approach says so).
+  const cmp = day.filter(r => t.players.includes(r.id) && (gkCounts || !r.gk));
+  const spread = anyMins && cmp.length ? Math.max(...cmp.map(tot)) - Math.min(...cmp.map(tot)) : 0;
+  host.innerHTML = `<div class="plan-topbar" style="margin-bottom:8px;"><span class="plan-back" id="tnBack">‹ Matches</span></div>
+    <div class="form-card">
+      <div style="display:flex; align-items:flex-start; gap:8px;"><div style="flex:1;"><div style="font-family:Oswald,sans-serif; font-size:24px; font-weight:600; line-height:1.15;">🏆 ${esc(t.name)}</div>
+        <div class="mc-sub">${esc([fmtFixtureDate(t.date), t.venue].filter(Boolean).join(' · '))}</div>
+        <div class="mc-sub">${esc(tourneyFormatLabel(t.format))} · ${t.fairness === 'day' ? 'playing time even over the day' : 'playing time even within each game'} · subs: ${esc(TOURNEY_SUBS[t.subs || 'halfway'].split(':')[0].toLowerCase())}${t.format.hasGk ? ' · ' + ({day: 'keepers take turns', auto: 'planner picks keepers', same: `${esc(t.sameKeeper)} in goal all day`})[t.keepers] : ''}</div></div>
+        <span class="decision-link" id="tnEdit">Settings</span></div>
+    </div>
+    <div class="form-card"><h2 style="margin-top:0;">Who's playing today</h2>
+      <div class="chip-wrap" id="tnPlayers">${squad.map(p => `<span class="preset-chip ${t.players.includes(p.id) ? 'active' : ''}" data-tp="${esc(p.id)}">${esc(p.id)}${p.gk ? ' 🧤' : ''}</span>`).join('')}</div>
+      <div class="config-note" style="margin-top:6px;">${t.players.length} players · need at least ${t.format.players}. Tap to add or remove someone; games still to play are re-planned.</div></div>
+    ${stale.length ? `<div class="warn-box" id="tnStale"><b>${stale.length === 1 ? 'A game still to play was' : stale.length + ' games still to play were'} planned before the latest changes.</b> Re-plan ${stale.length === 1 ? 'it' : 'them'} so minutes stay even over the day.<button class="btn btn-primary" id="tnReplan" style="margin-top:8px;">Re-plan games still to play</button></div>` : ''}
+    <div class="form-card"><h2 style="margin-top:0;">Games</h2>
+      ${t.games.map((g, i) => { const s = statuses[i]; const r = tourneyGameRec(g); const sc = r && s !== 'planned' && r.score ? ` · ${r.score.us}–${r.score.them}` : '';
+        const keeper = r && r.snapshot && r.snapshot.startingLineup && r.snapshot.startingLineup.GK ? ` · 🧤 ${esc(r.snapshot.startingLineup.GK)}` : '';
+        return `<div class="match-card" data-game="${i}"><div class="mc-title">${esc(g.label)}${g.opponent ? ' <span style="font-weight:400;">vs ' + esc(g.opponent) + '</span>' : ''}</div>
+          <div class="mc-sub">${s === 'planned' && r ? `${(r.snapshot && r.snapshot.savedPlan ? r.snapshot.savedPlan.rotations.filter(x => !x.type).length : 0)} subs planned` : ''}${keeper}${sc}</div>
+          <div class="mc-row">${label(s)}
+            ${s === 'unplanned' || s === 'planned' ? `<button class="btn btn-ghost mc-small" data-gedit="${i}">Edit</button>` : ''}
+            ${s === 'unplanned' ? `<button class="btn btn-primary mc-btn" data-gplan="${i}">Plan</button>` : `<button class="btn btn-primary mc-btn" data-gopen="${i}">${s === 'live' ? 'Resume' : s === 'planned' ? 'Open' : 'View'}</button>`}</div></div>`; }).join('')}
+      ${unplanned.length > 1 ? `<button class="btn btn-primary" id="tnPlanAll">Plan all ${unplanned.length} games</button>` : ''}
+      <button class="btn btn-ghost" id="tnAddKo">+ Add a knockout game</button></div>
+    ${anyMins ? `<div class="form-card" id="tnMinutes"><h2 style="margin-top:0;">Minutes today</h2>
+      <div class="config-note" style="margin-bottom:6px;">Played so far, plus what the plans for the games still to play give each player. Gap between most and least${t.format.hasGk && !gkCounts ? ' (outfield players)' : ''}: <b>${spread}'</b>.${t.format.hasGk ? (gkCounts ? ' Time in goal counts, as your team approach says.' : " Time in goal isn't counted as playing time (your team approach), so keepers also get their share outfield.") : ''}</div>
+      ${day.map(r => `<div style="display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13.5px; ${t.players.includes(r.id) ? '' : 'opacity:.55;'}"><b style="width:76px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(r.id)}</b>
+        <div style="flex:1; height:10px; border-radius:6px; background:var(--card-line); position:relative; overflow:hidden;"><div style="position:absolute; left:0; top:0; bottom:0; width:${r.played / maxM * 100}%; background:var(--good);"></div><div style="position:absolute; top:0; bottom:0; left:${r.played / maxM * 100}%; width:${r.planned / maxM * 100}%; background:var(--good); opacity:.4;"></div></div>
+        <span style="width:64px; text-align:right;"><b>${tot(r)}'</b>${r.gk ? `<br><small style="color:var(--ink-soft);">${r.gk}' in goal</small>` : ''}</span></div>`).join('')}
+      <div class="config-note" style="margin-top:6px;">Dark: played. Light: planned.</div></div>` : ''}
+    <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="tnDelete" style="color:var(--coral);">Delete tournament</span></div>`;
+  const q = s => host.querySelector(s);
+  q('#tnBack').addEventListener('click', () => { renderMatchesScreen(); showScreen('matches'); });
+  q('#tnEdit').addEventListener('click', () => openTournamentSetup(t.id));
+  host.querySelectorAll('[data-tp]').forEach(ch => ch.addEventListener('click', () => {
+    const tt = getTournament(t.id); const pid = ch.dataset.tp;
+    tt.players = tt.players.includes(pid) ? tt.players.filter(x => x !== pid) : [...tt.players, pid];
+    tt.playersChangedAt = Date.now(); putTournament(tt); renderTournamentHub();
+  }));
+  const after = err => { if (err) showAlert(err); renderTournamentHub(); };
+  if (q('#tnReplan')) q('#tnReplan').addEventListener('click', () => planTournamentGames(t.id, stale, after));
+  if (q('#tnPlanAll')) q('#tnPlanAll').addEventListener('click', () => planTournamentGames(t.id, unplanned, after));
+  host.querySelectorAll('[data-gplan]').forEach(b => b.addEventListener('click', () => {
+    const i = +b.dataset.gplan;
+    // Earlier games without a plan are planned first, so this one knows their minutes.
+    const before = t.fairness === 'day' ? unplanned.filter(k => k < i) : [];
+    planTournamentGames(t.id, [...before, i], after);
+  }));
+  host.querySelectorAll('[data-gopen]').forEach(b => b.addEventListener('click', () => { const g = getTournament(t.id).games[+b.dataset.gopen]; openMatchFromLibrary(g.matchId); }));
+  host.querySelectorAll('[data-gedit]').forEach(b => b.addEventListener('click', () => openTourneyGameEdit(t.id, +b.dataset.gedit)));
+  q('#tnAddKo').addEventListener('click', () => openTourneyGameEdit(t.id, null));
+  q('#tnDelete').addEventListener('click', () => showConfirm(`Delete ${t.name}? Games not played yet are deleted too. Games already played stay in your match history and season stats.`, () => {
+    for (const g of t.games) { const r = tourneyGameRec(g); if (r && r.status === 'planned') deleteMatchRecord(r.id); }
+    saveTournaments(loadTournaments().filter(x => x.id !== t.id));
+    renderMatchesScreen(); showScreen('matches');
+  }, 'Delete'));
+}
+// Name a game and its opponent, or add a knockout game (gi null).
+function openTourneyGameEdit(id, gi) {
+  const t = getTournament(id); const g = gi === null ? null : t.games[gi];
+  const stages = ['Quarter-final', 'Semi-final', 'Final', 'Play-off', 'Plate semi-final', 'Plate final'];
+  const overlay = openModal(`<div class="picker-title">${g ? 'Edit game' : 'Add a knockout game'}</div>
+    <div class="field"><label for="tgLabel">Game</label>${g ? `<input id="tgLabel" maxlength="30" value="${esc(g.label)}">` : `<select id="tgLabel">${stages.map(s => `<option>${s}</option>`).join('')}</select>`}</div>
+    <div class="field"><label for="tgOpp">Opponent <span style="font-weight:400; color:var(--ink-soft);">(optional)</span></label><input id="tgOpp" maxlength="30" value="${g ? esc(g.opponent || '') : ''}"></div>
+    ${g ? '' : `<div class="config-note">It's planned straight away, using the minutes everyone has had so far today.</div>`}
+    <div class="modal-btn-row">${g && tourneyGameStatus(g) !== 'live' && tourneyGameStatus(g) !== 'finished' ? '<button class="btn btn-ghost" id="tgDel" style="color:var(--coral);">Remove</button>' : ''}<button class="btn btn-ghost" id="tgCancel">Cancel</button><button class="btn btn-primary" id="tgSave">${g ? 'Save' : 'Add and plan'}</button></div>`);
+  const q = s => overlay.querySelector(s);
+  q('#tgCancel').addEventListener('click', () => overlay.remove());
+  if (q('#tgDel')) q('#tgDel').addEventListener('click', () => {
+    const tt = getTournament(id); const gg = tt.games[gi]; const r = tourneyGameRec(gg); if (r && r.status === 'planned') deleteMatchRecord(r.id);
+    tt.games.splice(gi, 1); tt.playersChangedAt = Date.now(); putTournament(tt); overlay.remove(); renderTournamentHub();
+  });
+  q('#tgSave').addEventListener('click', () => {
+    const tt = getTournament(id); const label = q('#tgLabel').value.trim() || 'Game', opp = q('#tgOpp').value.trim();
+    if (g) {
+      Object.assign(tt.games[gi], {label, opponent: opp}); putTournament(tt);
+      const r = tourneyGameRec(tt.games[gi]);
+      if (r) { const lib = loadMatchLibrary(); const rr = lib.find(x => x.id === r.id); rr.fixture = {...rr.fixture, opponent: opp, competition: `${tt.name} · ${label}`}; if (rr.snapshot) rr.snapshot.fixture = {...rr.fixture}; saveMatchLibrary(lib); }
+      overlay.remove(); renderTournamentHub();
+    } else {
+      tt.games.push(newTourneyGame(label, opp, 'knockout')); putTournament(tt); overlay.remove();
+      const i = tt.games.length - 1;
+      const before = tt.fairness === 'day' ? tt.games.map((x, k) => k < i && tourneyGameStatus(x) === 'unplanned' ? k : -1).filter(k => k >= 0) : [];
+      planTournamentGames(id, [...before, i], err => { if (err) showAlert(err); renderTournamentHub(); });
+    }
+  });
+}
+
+/* ================= 3v3 MATCHDAYS (FA Future Fits) =================
+ * Short games (6-10 minutes) on several small pitches at once, with no subs
+ * and no keepers: everyone plays every game. The coach decides who plays with
+ * whom each round. Our trios play the other club's trios; anyone left over
+ * plays each other (1v1, 2v2, 3v3), or makes a team of four if it's one spare.
+ * Grouping, chosen by the coach:
+ *   mixed    - new teammates each round, so everyone plays with as many others as possible
+ *   balanced - mixed, but each trio roughly as strong as the others (private levels)
+ *   fixed    - the same trios all day
+ */
+const THREES_KEY = K('rf_threes_v1');
+function loadThrees() { try { const r = JSON.parse(localStorage.getItem(THREES_KEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; } }
+function saveThrees(list) { try { localStorage.setItem(THREES_KEY, JSON.stringify(list)); return true; } catch (e) { storageProblem = true; return false; } }
+function getThrees(id) { return loadThrees().find(m => m.id === id) || null; }
+function putThrees(m) { const all = loadThrees(); const i = all.findIndex(x => x.id === m.id); if (i >= 0) all[i] = m; else all.push(m); saveThrees(all); }
+const THREES_ETHOS = {mixed: 'Mixed: new teammates each game', balanced: 'Balanced: mixed, with even trios', fixed: 'Fixed: the same trios all day'};
+
+// The shape of one round: our teams against the other club, and games among
+// our spare players. n = our players here, m = theirs (null: same as ours).
+function threesLayout(n, m) {
+  const theirs = m == null ? n : m;
+  let vsTeams = Math.min(Math.floor(n / 3), Math.floor(theirs / 3));
+  let spare = n - vsTeams * 3;
+  const sides = []; // {kind: 'opp', size} or {kind: 'int', game, size}
+  for (let i = 0; i < vsTeams; i++) sides.push({kind: 'opp', size: 3});
+  if (vsTeams > 0 && spare % 2 === 1) { sides[0].size = 4; spare--; } // one spare joins a team: 4 v 3
+  let game = 0;
+  const internal = (a, b) => { sides.push({kind: 'int', game, size: a}); sides.push({kind: 'int', game, size: b}); game++; };
+  if (spare % 2 === 1) { if (spare >= 5) { internal(3, 2); spare -= 5; } else if (spare === 3) { internal(2, 1); spare -= 3; } else { sides.push({kind: 'free', size: 1}); spare -= 1; } }
+  while (spare >= 6) { internal(3, 3); spare -= 6; }
+  if (spare === 4) internal(2, 2); else if (spare === 2) internal(1, 1);
+  return sides;
+}
+function threesRng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 100000) / 100000; }; }
+const pairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
+// History from earlier rounds: how often each pair were teammates or
+// opponents, and how often each player was in a small game or a team of four.
+function threesHistory(rounds) {
+  const mates = {}, opps = {}, small = {}, big = {};
+  for (const r of rounds) for (const gm of r.games) {
+    gm.sides.forEach(side => { for (let i = 0; i < side.length; i++) for (let j = i + 1; j < side.length; j++) mates[pairKey(side[i], side[j])] = (mates[pairKey(side[i], side[j])] || 0) + 1; });
+    if (gm.kind === 'int') { for (const a of gm.sides[0]) for (const b of gm.sides[1]) opps[pairKey(a, b)] = (opps[pairKey(a, b)] || 0) + 1; }
+    if (gm.kind === 'int' && Math.max(gm.sides[0].length, gm.sides[1].length) < 3) gm.sides.flat().forEach(p => { small[p] = (small[p] || 0) + 1; });
+    if (gm.kind === 'free') gm.sides.flat().forEach(p => { small[p] = (small[p] || 0) + 2; });
+    if (gm.kind === 'opp' && gm.sides[0].length > 3) gm.sides[0].forEach(p => { big[p] = (big[p] || 0) + 1; });
+  }
+  return {mates, opps, small, big};
+}
+// Builds one round: places players in the layout's sides, searching for the
+// arrangement that best fits the coach's grouping choice.
+function threesRound(players, layout, ethos, hist, rnd) {
+  const lv = id => { const p = squad.find(x => x.id === id); return p ? playerLevel(p, 'MID') : LEVEL_DEFAULT; };
+  const useLv = ethos === 'balanced' && squadHasLevels(squad.filter(p => players.includes(p.id)));
+  const sizes = layout.map(s => s.size);
+  const cut = arr => { const out = []; let k = 0; for (const n of sizes) { out.push(arr.slice(k, k + n)); k += n; } return out; };
+  // Internal games as pairs of side indexes; which sides are small games (1v1, 2v2, free play).
+  const intPairs = [];
+  layout.forEach((s, si) => { if (s.kind === 'int' && !(si > 0 && layout[si - 1].kind === 'int' && layout[si - 1].game === s.game)) intPairs.push([si, si + 1]); });
+  const smallSide = layout.map(s => s.kind === 'free' || (s.kind === 'int' && layout.filter(x => x.kind === 'int' && x.game === s.game).every(x => x.size < 3)));
+  const sideLv = side => side.reduce((t, p) => t + lv(p), 0) / side.length;
+  const cost = arr => {
+    const sides = cut(arr); let c = 0;
+    sides.forEach((side, si) => {
+      for (let i = 0; i < side.length; i++) for (let j = i + 1; j < side.length; j++) { const n = hist.mates[pairKey(side[i], side[j])] || 0; c += n * n * 10; }
+      if (smallSide[si]) side.forEach(p => { const n = (hist.small[p] || 0) + 1; c += n * n * 8; });
+      if (layout[si].kind === 'opp' && side.length > 3) side.forEach(p => { const n = (hist.big[p] || 0) + 1; c += n * n * 3; });
+    });
+    for (const [ia, ib] of intPairs) {
+      const a = sides[ia], b = sides[ib];
+      for (const x of a) for (const y of b) c += (hist.opps[pairKey(x, y)] || 0) * 4;
+      if (useLv) c += Math.abs(sideLv(a) - sideLv(b)) * 6;
+    }
+    if (useLv) { const teams = sides.filter((_, si) => layout[si].kind === 'opp'); if (teams.length > 1) { const avg = teams.map(sideLv); const mean = avg.reduce((t, x) => t + x, 0) / avg.length; c += avg.reduce((t, x) => t + (x - mean) ** 2, 0) * 12; } }
+    return c;
+  };
+  let best = null, bestC = Infinity;
+  for (let tries = 0; tries < 60; tries++) {
+    const arr = players.slice();
+    for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+    let c = cost(arr);
+    for (let pass = 0; pass < 3; pass++) {
+      let improved = false;
+      for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
+        [arr[i], arr[j]] = [arr[j], arr[i]]; const c2 = cost(arr);
+        if (c2 + 1e-9 < c) { c = c2; improved = true; } else [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      if (!improved) break;
+    }
+    if (c < bestC) { bestC = c; best = arr.slice(); }
+  }
+  const sides = cut(best || players);
+  const games = []; let pitch = 1;
+  layout.forEach((s, si) => {
+    if (s.kind === 'opp') games.push({kind: 'opp', pitch: pitch++, sides: [sides[si]]});
+    else if (s.kind === 'free') games.push({kind: 'free', pitch: null, sides: [sides[si]]});
+    else if (!games.some(g => g.kind === 'int' && g.game === s.game)) games.push({kind: 'int', game: s.game, pitch: pitch++, sides: [sides[si], sides[si + 1]]});
+  });
+  games.forEach(g => delete g.game);
+  return {games};
+}
+// (Re)plans rounds from `from` onward, keeping earlier rounds as they were.
+function planThrees(md, from) {
+  from = from || 0;
+  const kept = (md.rounds || []).slice(0, from);
+  const rounds = kept.slice();
+  for (let r = from; r < md.roundsCount; r++) {
+    const here = md.players.filter(id => squad.some(p => p.id === id) && !(md.absent && md.absent[id] !== undefined && md.absent[id] <= r));
+    const layout = threesLayout(here.length, md.theirs);
+    let round;
+    const prev = rounds[r - 1];
+    const prevIds = prev ? prev.games.flatMap(g => g.sides.flat()).sort().join(',') : '';
+    if (md.ethos === 'fixed' && prev && prevIds === here.slice().sort().join(',')) {
+      // Same groups; teams move round the pitches (carousel).
+      const opp = prev.games.filter(g => g.kind === 'opp');
+      round = {games: prev.games.map(g => ({...g, sides: g.sides.map(s => s.slice())}))};
+      const n = opp.length; if (n > 1) round.games.filter(g => g.kind === 'opp').forEach((g, i) => { g.pitch = ((i + 1) % n) + 1; });
+    } else {
+      round = threesRound(here, layout, md.ethos === 'fixed' ? (squadHasLevels(squad) ? 'balanced' : 'mixed') : md.ethos, threesHistory(rounds), threesRng((md.seed || 1) * 7919 + r * 104729 + (md.shuffles || 0) * 31));
+    }
+    rounds.push(round);
+  }
+  md.rounds = rounds;
+  return md;
+}
+function threesSummary(md) {
+  const ids = new Set(md.rounds.flatMap(r => r.games.flatMap(g => g.sides.flat())));
+  const h = threesHistory(md.rounds);
+  const per = [...ids].map(id => ({id, mates: Object.keys(h.mates).filter(k => k.split('|').includes(id) && h.mates[k] > 0).length,
+    games: md.rounds.filter(r => r.games.some(g => g.sides.flat().includes(id))).length}));
+  return per;
+}
+function threesGameText(g, md) {
+  const nm = s => s.map(esc).join(', ');
+  if (g.kind === 'opp') return `${nm(g.sides[0])} <span class="t3-v">v ${esc(md.opponent || 'them')}</span>${g.sides[0].length > 3 ? ' <small>(4 v 3)</small>' : ''}`;
+  if (g.kind === 'free') return `${nm(g.sides[0])} <span class="t3-v">free play</span>`;
+  return `${nm(g.sides[0])} <span class="t3-v">v</span> ${nm(g.sides[1])} <small>(${g.sides[0].length} v ${g.sides[1].length})</small>`;
+}
+
+function openThreesSetup(existingId) {
+  const ex = existingId ? getThrees(existingId) : null;
+  const len = ex ? ex.gameLength : 8, rounds = ex ? ex.roundsCount : 4;
+  const overlay = openModal(`<div class="picker-title">${ex ? '3v3 matchday settings' : 'New 3v3 matchday'}</div>
+    <div class="config-note" style="margin-bottom:8px;">FA Future Fits 3v3: short games on small pitches, no subs and no keepers, so everyone plays every game. Co-Coach picks who plays with whom each round.</div>
+    <div class="row-2"><div class="field"><label for="t3Opp">Playing against</label><input id="t3Opp" maxlength="30" placeholder="e.g. Hawks" value="${ex ? esc(ex.opponent || '') : ''}"></div>
+      <div class="field"><label for="t3Date">Date</label><input id="t3Date" type="date" value="${ex ? esc(ex.date || '') : todayISO()}"></div></div>
+    <div class="row-2"><div class="field"><label for="t3Len">Game length</label><select id="t3Len">${[5, 6, 7, 8, 9, 10, 12].map(n => `<option value="${n}" ${n === len ? 'selected' : ''}>${n} minutes</option>`).join('')}</select></div>
+      <div class="field"><label for="t3Rounds">Games each</label><select id="t3Rounds">${[2, 3, 4, 5, 6, 7, 8].map(n => `<option ${n === rounds ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
+    <div class="config-note" id="t3Total" style="margin:-4px 0 10px;"></div>
+    <div class="field"><label for="t3Theirs">How many players they bring <span style="font-weight:400; color:var(--ink-soft);">(optional)</span></label>
+      <select id="t3Theirs"><option value="">Not sure (same as us)</option>${Array.from({length: 16}, (_, i) => i + 1).map(n => `<option ${ex && ex.theirs === n ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <div class="config-note">Our trios play theirs. Anyone left over plays each other (1v1 or 2v2), or joins a team if it's just one.</div></div>
+    <div class="field"><label>Who plays with whom</label><div class="radio-col">
+      ${Object.entries(THREES_ETHOS).map(([k, v]) => `<label class="check-row"><input type="radio" name="t3Ethos" value="${k}" ${(ex ? ex.ethos : 'mixed') === k ? 'checked' : ''}><span>${esc(v)}${k === 'balanced' && !squadHasLevels(squad) ? ' <small style="color:var(--ink-soft);">(set private levels on players for this)</small>' : ''}</span></label>`).join('')}
+    </div></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="t3Cancel">Cancel</button><button class="btn btn-primary" id="t3Save">${ex ? 'Save and re-plan' : 'Create matchday'}</button></div>`, {wide: true});
+  const q = s => overlay.querySelector(s);
+  const total = () => { const m = +q('#t3Len').value * +q('#t3Rounds').value; q('#t3Total').textContent = `${m} minutes of football each.${m < 30 ? ' The FA suggests 30–40.' : m > 40 ? ' The FA suggests 30–40.' : ''}`; };
+  total(); q('#t3Len').addEventListener('change', total); q('#t3Rounds').addEventListener('change', total);
+  q('#t3Cancel').addEventListener('click', () => overlay.remove());
+  q('#t3Save').addEventListener('click', () => {
+    const md = ex ? JSON.parse(JSON.stringify(ex)) : {id: 'c' + Date.now().toString(36), createdAt: Date.now(), players: squad.map(p => p.id), absent: {}, seed: Math.floor(Math.random() * 1e6) + 1, current: 0};
+    Object.assign(md, {opponent: q('#t3Opp').value.trim(), date: q('#t3Date').value || todayISO(), gameLength: +q('#t3Len').value, roundsCount: +q('#t3Rounds').value,
+      theirs: q('#t3Theirs').value ? +q('#t3Theirs').value : null, ethos: overlay.querySelector('[name="t3Ethos"]:checked').value});
+    planThrees(md, ex ? Math.min(md.current || 0, md.roundsCount) : 0);
+    putThrees(md);
+    if (!ex) track('threes-created', md.ethos);
+    overlay.remove(); openThreesDay(md.id);
+  });
+}
+
+let openThreesId = null, threesTicker = null, threesSel = null;
+function openThreesDay(id) {
+  if (currentMatchId) detachOpenMatch();
+  openThreesId = id; threesSel = null;
+  renderThreesDay(); showScreen('threes');
+}
+function renderThreesDay() {
+  const md = getThrees(openThreesId); const host = document.getElementById('threesBody');
+  clearInterval(threesTicker);
+  if (!md) { renderMatchesScreen(); showScreen('matches'); return; }
+  const cur = Math.min(md.current || 0, md.roundsCount);
+  const here = md.players.filter(id => !(md.absent && md.absent[id] !== undefined && md.absent[id] <= cur));
+  const per = threesSummary(md);
+  const minMates = per.length ? Math.min(...per.map(p => p.mates)) : 0, maxMates = per.length ? Math.max(...per.map(p => p.mates)) : 0;
+  const running = md.roundStartTs && cur < md.roundsCount;
+  host.innerHTML = `<div class="plan-topbar" style="margin-bottom:8px;"><span class="plan-back" id="t3Back">‹ Matches</span></div>
+    <div class="form-card"><div style="display:flex; gap:8px; align-items:flex-start;"><div style="flex:1;">
+      <div style="font-family:Oswald,sans-serif; font-size:24px; font-weight:600; line-height:1.15;">3v3${md.opponent ? ' v ' + esc(md.opponent) : ' matchday'}</div>
+      <div class="mc-sub">${esc(fmtFixtureDate(md.date) || '')}${md.date ? ' · ' : ''}${md.roundsCount} games of ${md.gameLength}' · ${md.roundsCount * md.gameLength} minutes each</div>
+      <div class="mc-sub">${esc(THREES_ETHOS[md.ethos])}</div></div><span class="decision-link" id="t3Edit">Settings</span></div></div>
+    <div class="form-card"><h2 style="margin-top:0;">Who's here</h2>
+      <div class="chip-wrap">${md.players.concat(squad.map(p => p.id).filter(id => !md.players.includes(id))).map(id => { const on = here.includes(id) && md.players.includes(id); return `<span class="preset-chip ${on ? 'active' : ''}" data-t3p="${esc(id)}">${esc(id)}</span>`; }).join('')}</div>
+      <div class="config-note" style="margin-top:6px;">${here.length} here. Tap someone who arrives late or has to stop: the games from now on are re-planned, earlier ones stay as they were.</div></div>
+    ${md.rounds.map((r, ri) => { const done = ri < cur, now = ri === cur;
+      return `<div class="form-card t3-round ${now ? 't3-now' : ''} ${done ? 't3-done' : ''}" data-round="${ri}">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><h2 style="margin:0; flex:1;">Game ${ri + 1} <span style="font-weight:400; font-size:14px; color:var(--ink-soft);">${ri * md.gameLength}–${(ri + 1) * md.gameLength}'</span></h2>
+          ${now ? (running ? `<span class="t3-clock" id="t3Clock"></span>` : `<button class="btn btn-primary mc-btn" id="t3Start" style="margin:0;">Start</button>`) : done ? '<span class="badge">PLAYED</span>' : ''}</div>
+        ${r.games.map((g, gi) => `<div class="t3-game"><span class="t3-pitch">${g.pitch ? 'Pitch ' + g.pitch : 'Spare'}</span><span class="t3-who">${(g.kind === 'opp' ? [g.sides[0]] : g.sides).map((s, si) => s.map(id => `<span class="t3-name ${threesSel && threesSel.r === ri && threesSel.id === id ? 'sel' : ''}" data-r="${ri}" data-id="${esc(id)}">${esc(id)}</span>`).join(' ')).join(' <span class="t3-v">v</span> ')}${g.kind === 'opp' ? ` <span class="t3-v">v ${esc(md.opponent || 'them')}</span>` : ''}${g.kind === 'free' ? ' <span class="t3-v">free play</span>' : ''}${g.kind === 'int' ? ` <small>(${g.sides[0].length} v ${g.sides[1].length})</small>` : g.sides[0].length > 3 ? ' <small>(4 v 3)</small>' : ''}</span></div>`).join('')}
+        ${now && running ? `<button class="btn btn-primary" id="t3Next" style="margin-top:8px;">${ri + 1 < md.roundsCount ? 'Next game' : 'Finish'}</button>` : ''}</div>`; }).join('')}
+    ${cur >= md.roundsCount ? '<div class="form-card"><b>All games played.</b> Everyone played every game.</div>' : ''}
+    <div class="form-card"><div class="config-note">${threesSel ? `<b>${esc(threesSel.id)}</b> selected: tap another player in game ${threesSel.r + 1} to swap them.` : 'Tap a name, then another name in the same game, to swap two players.'} Everyone plays every game, ${md.roundsCount * md.gameLength} minutes each. Each player has ${minMates === maxMates ? minMates : minMates + '–' + maxMates} different teammates over the day.</div>
+      <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-ghost" id="t3Shuffle" style="flex:1;">Shuffle games to come</button><button class="btn btn-ghost" id="t3Copy" style="flex:1;">Copy for WhatsApp</button></div></div>
+    <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="t3Delete" style="color:var(--coral);">Delete matchday</span></div>`;
+  const q = s => host.querySelector(s);
+  q('#t3Back').addEventListener('click', () => { clearInterval(threesTicker); renderMatchesScreen(); showScreen('matches'); });
+  q('#t3Edit').addEventListener('click', () => openThreesSetup(md.id));
+  host.querySelectorAll('[data-t3p]').forEach(ch => ch.addEventListener('click', () => {
+    const m = getThrees(md.id); const id = ch.dataset.t3p; const from = Math.min(m.current || 0, m.roundsCount);
+    if (!m.players.includes(id)) { m.players.push(id); if (m.absent) delete m.absent[id]; }
+    else if (m.absent && m.absent[id] !== undefined && m.absent[id] <= from) delete m.absent[id];
+    else { m.absent = m.absent || {}; m.absent[id] = from; }
+    planThrees(m, from); putThrees(m); renderThreesDay();
+  }));
+  host.querySelectorAll('.t3-name').forEach(el => el.addEventListener('click', () => {
+    const r = +el.dataset.r, id = el.dataset.id;
+    if (r < cur) return; // games already played stay as they were
+    if (!threesSel || threesSel.r !== r) { threesSel = {r, id}; renderThreesDay(); return; }
+    if (threesSel.id === id) { threesSel = null; renderThreesDay(); return; }
+    const m = getThrees(md.id); const round = m.rounds[r];
+    for (const g of round.games) for (const s of g.sides) for (let k = 0; k < s.length; k++) { if (s[k] === id) s[k] = threesSel.id; else if (s[k] === threesSel.id) s[k] = id; }
+    threesSel = null; putThrees(m); renderThreesDay();
+  }));
+  if (q('#t3Start')) q('#t3Start').addEventListener('click', () => { const m = getThrees(md.id); m.roundStartTs = Date.now(); putThrees(m); renderThreesDay(); });
+  if (q('#t3Next')) q('#t3Next').addEventListener('click', () => { const m = getThrees(md.id); m.current = (m.current || 0) + 1; m.roundStartTs = null; putThrees(m); renderThreesDay(); });
+  if (running && q('#t3Clock')) {
+    const tick = () => {
+      const el = document.getElementById('t3Clock'); if (!el) { clearInterval(threesTicker); return; }
+      const left = md.gameLength * 60 - Math.floor((Date.now() - md.roundStartTs) / 1000);
+      el.textContent = left > 0 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : "Time's up";
+      el.classList.toggle('up', left <= 0);
+    };
+    tick(); threesTicker = setInterval(tick, 1000);
+  }
+  q('#t3Shuffle').addEventListener('click', () => { const m = getThrees(md.id); m.shuffles = (m.shuffles || 0) + 1; planThrees(m, Math.min(m.current || 0, m.roundsCount) + (m.roundStartTs ? 1 : 0)); putThrees(m); threesSel = null; renderThreesDay(); });
+  q('#t3Copy').addEventListener('click', e => {
+    const m = getThrees(md.id);
+    const txt = [`3v3${m.opponent ? ' v ' + m.opponent : ''}${m.date ? ' · ' + fmtFixtureDate(m.date) : ''}`, ...m.rounds.map((r, ri) => `\nGame ${ri + 1} (${ri * m.gameLength}–${(ri + 1) * m.gameLength}')\n` + r.games.map(g => `${g.pitch ? 'Pitch ' + g.pitch : 'Spare'}: ` + (g.kind === 'opp' ? `${g.sides[0].join(', ')} v ${m.opponent || 'them'}` : g.kind === 'free' ? `${g.sides[0].join(', ')} free play` : `${g.sides[0].join(', ')} v ${g.sides[1].join(', ')}`)).join('\n'))].join('\n');
+    const b = e.target;
+    try { navigator.clipboard.writeText(txt).then(() => { b.textContent = 'Copied'; }, () => { b.textContent = 'Copy failed'; }); } catch (er) { b.textContent = 'Copy failed'; }
+    window.__threesText = txt;
+  });
+  q('#t3Delete').addEventListener('click', () => showConfirm('Delete this 3v3 matchday?', () => { saveThrees(loadThrees().filter(x => x.id !== md.id)); renderMatchesScreen(); showScreen('matches'); }, 'Delete'));
+}
+
 /* ================= USAGE STATS (opt-in) =================
  * Off unless the coach turns it on. When on, the app counts which features get
  * used (e.g. "Match kicked off", "Why? explanation opened") through GoatCounter,
@@ -8649,6 +9304,9 @@ function statEvents() {
     'tour-skipped': {title: 'Tour skipped'},
     'install-guide-opened': {title: 'Home-screen guide opened'},
     'app-installed': {title: 'Added to home screen'},
+    'tournament-created': {title: 'Tournament set up'},
+    'tournament-planned': {title: 'Tournament games planned'},
+    'threes-created': {title: '3v3 matchday set up'},
   };
 }
 function statsOn() { try { return !!(profile && profile.stats && profile.stats.on); } catch (e) { return false; } }
