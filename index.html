@@ -796,7 +796,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.19';
+const APP_VERSION = 'beta 0.20';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -9063,16 +9063,28 @@ function threesLayout(n, m, opts) {
     return sides;
   }
   const nGames = Math.ceil(pool / 6), base = Math.floor(pool / nGames), extra = pool % nGames;
-  let theirsLeft = theirSpare;
-  for (let g = 0; g < nGames; g++) {
-    const k = base + (g < extra ? 1 : 0), a = Math.ceil(k / 2), b = Math.floor(k / 2);
-    // Their players go on the smaller side first, so neither side is all one club unless it has to be.
-    const tb = Math.min(theirsLeft, b); theirsLeft -= tb;
-    const ta = Math.min(theirsLeft, a); theirsLeft -= ta;
+  const games = Array.from({length: nGames}, (_, g) => { const k = base + (g < extra ? 1 : 0); return [Math.ceil(k / 2), Math.floor(k / 2)]; });
+  // Players stay with their own club wherever the numbers allow: choose how
+  // many of theirs go on each side so that as few sides as possible mix the
+  // two clubs (7 v 8: our 1 v their 2; 8 v 7: our 2 v their 1).
+  let best = null, bestCost = Infinity;
+  const pick = (g, left, acc) => {
+    if (g === games.length) {
+      if (left) return;
+      const cost = acc.reduce((c, [ta, tb], i) => c + (ta > 0 && ta < games[i][0] ? 1 : 0) + (tb > 0 && tb < games[i][1] ? 1 : 0), 0);
+      if (cost < bestCost) { bestCost = cost; best = acc.map(x => x.slice()); }
+      return;
+    }
+    const [a, b] = games[g];
+    for (let ta = 0; ta <= Math.min(a, left); ta++) for (let tb = 0; tb <= Math.min(b, left - ta); tb++) pick(g + 1, left - ta - tb, [...acc, [ta, tb]]);
+  };
+  pick(0, theirSpare, []);
+  games.forEach(([a, b], g) => {
+    const [ta, tb] = best ? best[g] : [0, 0];
     const kind = ta + tb > 0 ? 'mix' : 'int';
     sides.push({kind, game: g, size: a - ta, theirs: ta});
     sides.push({kind, game: g, size: b - tb, theirs: tb});
-  }
+  });
   return sides;
 }
 function threesRng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 100000) / 100000; }; }
