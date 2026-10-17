@@ -79,7 +79,7 @@ const { launch, openPage, newMatch, ok, summary } = require('./_harness');
   ok(sumOn === sumOff && sumOn > 0, `subs on and off balance (${sumOn} each)`);
   s = await page.evaluate(() => buildSummaryTable(DURATION));
   ok(!/Target|Diff/.test(s) && /Periods<br>started/.test(s), 'the full-time table drops target and diff too');
-  ok(await page.evaluate(() => { try { renderLineupCanvas(); return true; } catch (e) { return e.message; } }) === true, 'the exported line-up image draws');
+  ok(await page.evaluate(() => { try { return renderPages(matchPlanExportSpec(['lineup', 'subs', 'forecast', 'moments']), 'phone').length > 0; } catch (e) { return e.message; } }) === true, 'the exported line-up image draws');
 
   console.log('Position moves');
   s = await page.evaluate(() => {

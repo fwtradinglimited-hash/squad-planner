@@ -288,6 +288,10 @@
   .modal-overlay { position: fixed; inset: 0; background: rgba(18,36,26,0.55); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
   .modal-card { background: var(--card); border-radius: 14px; padding: 18px; max-width: 320px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.35); max-height: 80vh; overflow-y: auto; }
   .modal-card.modal-wide { max-width: 420px; }
+  .ex-pages { display:flex; gap:10px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:4px; }
+  .ex-page { flex:0 0 auto; margin:0 auto; scroll-snap-align:center; max-width:88%; }
+  .ex-page img { height:34vh; width:auto; max-width:100%; object-fit:contain; display:block; border-radius:8px; border:1px solid var(--card-line); }
+  .ex-page figcaption { font-size:12px; color:var(--muted, #56675B); text-align:center; margin-top:3px; }
   .modal-msg { font-size: 14px; margin-bottom: 16px; line-height: 1.45; white-space: pre-line; }
   .modal-btn-row { display: flex; gap: 8px; }
   .modal-btn-row .btn { margin-top: 0; }
@@ -783,7 +787,7 @@
       <div style="display:flex; gap:14px; margin-bottom:8px;">
         <span class="decision-link" id="editFixtureLink">Edit fixture details</span>
         <span class="decision-link" id="presetsLink">Line-up presets</span>
-        <span class="decision-link" id="exportImageLink">Export as image</span>
+        <span class="decision-link" id="exportImageLink">Export as images</span>
       </div>
       <div class="half-marks" id="detailHalfMarks" style="margin-top:0;"></div>
       <div class="plan-subtabs" id="detailsSubtabs" style="margin-top:12px;">
@@ -851,7 +855,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.23';
+const APP_VERSION = 'beta 0.24';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -6191,404 +6195,443 @@ function openNotesModal() {
 }
 document.getElementById('addNoteBtn').addEventListener('click', openNotesModal);
 
-/* ================= EXPORT: line-up sheet as an image ================= */
-// Draws the whole match sheet straight onto a canvas (no libraries, works
-// offline): fixture header, kick-off and full-time pitch views, every change
-// minute by minute, keepers per period and the forecast playing-time table.
-function renderLineupCanvas() {
-  const W = 1080, PAD = 40, FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-  const C = {bg: '#F7F5EC', ink: '#12241A', soft: '#56675B', line: '#DAD6C6', turf: '#1F4A33', turf2: '#215A3B', amber: '#E3A23C', coral: '#C1503F', green: '#2E7D4F', chalk: '#F4F1E6'};
-  const grouped = {}, groupedAll = {};
-  PLAN.rotations.forEach(r => {
-    (groupedAll[r.time] = groupedAll[r.time] || []).push(r);
-    if (isInfoRotation(r)) return;
-    (grouped[r.time] = grouped[r.time] || []).push(r);
+/* ================= EXPORT AS IMAGES (pages) =================
+ * Every export (match plan, full-time summary, Future Fit 3v3, tournament)
+ * is a set of pages shaped for a phone screen, rather than one very long
+ * image that messaging apps shrink until it's unreadable. Content is laid out
+ * as blocks that flow from page to page; a heading always stays with what
+ * follows it. The coach picks the shape and which sections to include, and
+ * can share every page at once.
+ */
+const EXPORT_C = {bg: '#F7F5EC', ink: '#12241A', soft: '#56675B', line: '#DAD6C6', turf: '#1F4A33', turf2: '#215A3B', amber: '#E3A23C', coral: '#C1503F', green: '#2E7D4F', chalk: '#F4F1E6', card: '#FFFFFF', bar: '#E8E4D4'};
+const EXPORT_FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+const EXPORT_SIZES = {
+  phone: {label: 'Fits your screen', note: 'Pages shaped like your phone'},
+  portrait: {label: 'Portrait 4:5', note: 'Shows large in WhatsApp and social posts'},
+  square: {label: 'Square', note: 'One size for every app'},
+  long: {label: 'One long image', note: 'Everything in one picture, as before'},
+};
+let exportSizeChoice = 'phone';
+function exportPageSize(choice) {
+  const W = 1080;
+  if (choice === 'portrait') return {W, H: 1350};
+  if (choice === 'square') return {W, H: 1080};
+  let ratio = 19.5 / 9;
+  try { const a = Math.max(screen.width, screen.height), b = Math.min(screen.width, screen.height); if (a && b) ratio = a / b; } catch (e) { /* default */ }
+  return {W, H: Math.round(W * Math.min(2.2, Math.max(1.25, ratio)))};
+}
+// Drawing helpers bound to one canvas context.
+function exportPainter(g) {
+  const C = EXPORT_C, font = (size, weight) => `${weight || 400} ${size}px ${EXPORT_FONT}`;
+  const P = {
+    g, C, font,
+    txt(str, x, y, o) { o = o || {}; g.font = font(o.size || 24, o.weight); g.fillStyle = o.color || C.ink; g.textAlign = o.align || 'left'; g.textBaseline = 'alphabetic'; g.fillText(String(str), x, y); return g.measureText(String(str)).width; },
+    lines(str, maxW, o) { o = o || {}; g.font = font(o.size || 22, o.weight); const out = []; let line = ''; for (const w of String(str).split(/\s+/)) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; } if (line) out.push(line); return out; },
+    wrap(str, x, y, maxW, lineH, o) { for (const l of P.lines(str, maxW, o)) { P.txt(l, x, y, o); y += lineH; } return y; },
+    fit(str, maxW, size, weight) { g.font = font(size, weight); let t = String(str); if (g.measureText(t).width <= maxW) return t; while (g.measureText(t + '…').width > maxW && t.length > 1) t = t.slice(0, -1); return t.trim() + '…'; },
+    rule(x, y, w) { g.fillStyle = C.line; g.fillRect(x, y, w, 2); },
+    heading(label, x, y, w) { P.txt(label, x, y + 34, {size: 34, weight: 800, color: C.turf}); g.fillStyle = C.line; g.fillRect(x, y + 50, w, 2); },
+    pill(x, y, w, h, fill) { g.fillStyle = fill; g.beginPath(); g.roundRect(x, y, w, h, Math.min(h / 2, 14)); g.fill(); },
+    // A pitch with players by name; highlighted players get an ON tag.
+    pitch(x, y, w, state, hl) {
+      const h = w * 4 / 3, k = w / 300;
+      for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? C.turf : C.turf2; g.fillRect(x, y + i * h / 8, w, h / 8); }
+      g.strokeStyle = 'rgba(244,241,230,0.6)'; g.lineWidth = 2;
+      g.strokeRect(x + 10 * k, y + 10 * k, 280 * k, 380 * k);
+      g.beginPath(); g.moveTo(x + 10 * k, y + 205 * k); g.lineTo(x + 290 * k, y + 205 * k); g.stroke();
+      g.beginPath(); g.arc(x + 150 * k, y + 205 * k, 30 * k, 0, Math.PI * 2); g.stroke();
+      g.strokeRect(x + 75 * k, y + 10 * k, 150 * k, 40 * k); g.strokeRect(x + 75 * k, y + 350 * k, 150 * k, 40 * k);
+      for (const sl of state.activeSlots) {
+        const pid = state.onPitch[sl.id]; if (!pid) continue;
+        const cx = x + sl.x * k, cy = y + sl.y * k, r = Math.max(16, 22 * k);
+        g.fillStyle = C.chalk; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+        const isOn = hl && hl.has(pid);
+        g.strokeStyle = isOn ? '#3FD17A' : C.amber; g.lineWidth = isOn ? 6 : 3; g.stroke();
+        if (isOn) { P.pill(cx + r * 0.4, cy - r - 6, 40, 22, C.green); P.txt('ON', cx + r * 0.4 + 20, cy - r + 10, {size: 14, weight: 800, color: '#fff', align: 'center'}); }
+        P.txt(initials(pid), cx, cy + 7, {size: Math.round(Math.max(15, 19 * k)), weight: 700, color: C.turf, align: 'center'});
+        P.txt(sl.label, cx, cy - r - 8, {size: Math.round(Math.max(13, 15 * k)), color: 'rgba(244,241,230,0.85)', align: 'center'});
+        const ns = Math.round(Math.max(16, 19 * k)); g.font = font(ns, 700); const nm = P.fit(pid, 150 * k, ns, 700); const tw = g.measureText(nm).width + 14;
+        g.fillStyle = 'rgba(10,25,17,0.75)'; g.beginPath(); g.roundRect(cx - tw / 2, cy + r + 5, tw, ns + 9, 7); g.fill();
+        P.txt(nm, cx, cy + r + ns + 6, {size: ns, weight: 700, color: '#fff', align: 'center'});
+      }
+      return y + h;
+    },
+  };
+  return P;
+}
+// A block: {h, draw(P, x, y, w), keep (stay with the next block), gap}.
+const exBlock = (h, draw, o) => ({h, draw, ...(o || {})});
+const exHeading = label => exBlock(86, (P, x, y, w) => P.heading(label, x, y + 16, w), {keep: true, gap: 18, head: label});
+// A paragraph of wrapped text.
+function exText(str, o) {
+  o = o || {}; const size = o.size || 24, lh = o.lh || Math.round(size * 1.35);
+  const probe = exportPainter(document.createElement('canvas').getContext('2d'));
+  return {measure: w => probe.lines(str, w, {size, weight: o.weight}).length * lh + 6, draw: (P, x, y, w) => P.wrap(str, x, y + size, w, lh, {size, weight: o.weight, color: o.color})};
+}
+// Lays blocks out over pages (or one long page) and draws them.
+function renderPages(spec, sizeChoice) {
+  const {W, H} = sizeChoice === 'long' ? {W: 1080, H: 0} : exportPageSize(sizeChoice);
+  const PAD = 48, HEAD = 176, FOOT = 64, bodyW = W - 2 * PAD;
+  const blocks = spec.blocks.map(b => b.measure ? {...b, h: b.measure(bodyW)} : b);
+  // Place blocks on pages.
+  const pages = [[]]; let y = 0;
+  const room = H ? H - HEAD - FOOT : Infinity;
+  // A section (heading and what follows, up to the next heading) starts a new
+  // page if it would fit there whole but not in what's left of this one. When
+  // a long section does run over, the next page repeats its heading.
+  const secH = i => { let h = 0; for (let j = i; j < blocks.length && (j === i || !blocks[j].head); j++) h += blocks[j].h + (blocks[j].gap ?? 14); return h; };
+  let cur = null;
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i], gap = b.gap ?? 14;
+    if (b.head) cur = b.head;
+    let need = b.h; if (b.keep && blocks[i + 1]) need += gap + Math.min(blocks[i + 1].h, room * 0.5);
+    if (b.head && y > 0 && y + secH(i) > room && secH(i) <= room) need = Infinity;
+    if (y > 0 && y + need > room) {
+      pages.push([]); y = 0;
+      if (cur && !b.head) { const hb = exHeading(cur + ' (continued)'); pages[pages.length - 1].push({b: hb, y}); y += hb.h + hb.gap; }
+    }
+    pages[pages.length - 1].push({b, y}); y += b.h + gap;
+  }
+  const total = pages.length;
+  return pages.map((items, pi) => {
+    const bodyH = items.length ? items[items.length - 1].y + items[items.length - 1].b.h : 0;
+    const c = document.createElement('canvas'); c.width = W; c.height = H || HEAD + bodyH + FOOT + 20;
+    const g = c.getContext('2d'), P = exportPainter(g);
+    g.fillStyle = EXPORT_C.bg; g.fillRect(0, 0, W, c.height);
+    // Header: team, title, subtitle, page number.
+    P.txt(P.fit(spec.kicker || teamDisplayName(activeTeam()), bodyW - 140, 24, 700), PAD, 54, {size: 24, weight: 700, color: EXPORT_C.soft});
+    if (total > 1) P.txt(`${pi + 1} of ${total}`, W - PAD, 54, {size: 24, weight: 700, color: EXPORT_C.soft, align: 'right'});
+    P.txt(P.fit(spec.title, bodyW, 54, 800), PAD, 116, {size: 54, weight: 800});
+    if (spec.subtitle) P.txt(P.fit(spec.subtitle, bodyW, 24, 400), PAD, 152, {size: 24, color: EXPORT_C.soft});
+    for (const {b, y: by} of items) b.draw(P, PAD, HEAD + by, bodyW);
+    const fy = c.height - 26;
+    P.rule(PAD, fy - 34, bodyW);
+    P.txt(`Made with Co-Coach · co-coach.uk · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, fy, {size: 19, color: EXPORT_C.soft});
+    return c;
   });
-  const times = Object.keys(grouped).map(Number).sort((a, b) => a - b);
-  const allTimes = Object.keys(groupedAll).map(Number).sort((a, b) => a - b);
-  const moments = times.map(t => ({time: t, rows: grouped[t]}));
-  const c = document.createElement('canvas'); c.width = W;
-  c.height = 3600 + Math.ceil(moments.length / 2) * 1000 + allTimes.length * 180 + PLAYERS.length * 52;
-  const g = c.getContext('2d');
-  g.fillStyle = C.bg; g.fillRect(0, 0, W, c.height);
-  const font = (size, weight) => `${weight || 400} ${size}px ${FONT}`;
-  function txt(str, x, y, o) {
-    o = o || {}; g.font = font(o.size || 24, o.weight); g.fillStyle = o.color || C.ink; g.textAlign = o.align || 'left'; g.textBaseline = 'alphabetic';
-    g.fillText(str, x, y);
-    return g.measureText(str).width;
-  }
-  function wrap(str, x, y, maxW, lineH, o) {
-    o = o || {}; g.font = font(o.size || 22, o.weight);
-    const words = str.split(' '); let line = '';
-    for (const w of words) {
-      const t = line ? line + ' ' + w : w;
-      if (g.measureText(t).width > maxW && line) { txt(line, x, y, o); y += lineH; line = w; } else line = t;
-    }
-    if (line) { txt(line, x, y, o); y += lineH; }
-    return y;
-  }
-  function rule(y) { g.fillStyle = C.line; g.fillRect(PAD, y, W - 2 * PAD, 2); }
-  function pitch(x, y, w, state, caption, hl, sub) {
-    const h = w * 4 / 3, k = w / 300;
-    const cw = txt(caption, x, y + 30, {size: 32, weight: 800, color: C.turf});
-    if (sub) txt(sub, x + cw + 14, y + 30, {size: 19, color: C.soft});
-    y += 48;
-    for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#1F4A33' : '#215A3B'; g.fillRect(x, y + i * h / 8, w, h / 8); }
-    g.strokeStyle = 'rgba(244,241,230,0.6)'; g.lineWidth = 2;
-    g.strokeRect(x + 10 * k, y + 10 * k, 280 * k, 380 * k);
-    g.beginPath(); g.moveTo(x + 10 * k, y + 205 * k); g.lineTo(x + 290 * k, y + 205 * k); g.stroke();
-    g.beginPath(); g.arc(x + 150 * k, y + 205 * k, 30 * k, 0, Math.PI * 2); g.stroke();
-    g.strokeRect(x + 75 * k, y + 10 * k, 150 * k, 40 * k); g.strokeRect(x + 75 * k, y + 350 * k, 150 * k, 40 * k);
-    for (const sl of state.activeSlots) {
-      const pid = state.onPitch[sl.id], cx = x + sl.x * k, cy = y + sl.y * k, r = 25 * k;
-      g.fillStyle = C.chalk; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
-      const isOn = hl && hl.has(pid);
-      g.strokeStyle = isOn ? '#3FD17A' : C.amber; g.lineWidth = isOn ? 6 : 3; g.stroke();
-      if (isOn) { g.fillStyle = '#2E7D4F'; g.beginPath(); g.roundRect(cx + r * 0.35, cy - r - 4, 38, 22, 6); g.fill(); txt('ON', cx + r * 0.35 + 19, cy - r + 12, {size: 14, weight: 800, color: '#fff', align: 'center'}); }
-      txt(initials(pid), cx, cy + 7, {size: 20, weight: 700, color: C.turf, align: 'center'});
-      txt(sl.label, cx, cy - r - 8, {size: 15, color: 'rgba(244,241,230,0.85)', align: 'center'});
-      g.font = font(19, 700); const tw = g.measureText(pid).width + 16;
-      g.fillStyle = 'rgba(10,25,17,0.72)'; g.beginPath(); g.roundRect(cx - tw / 2, cy + r + 6, tw, 28, 8); g.fill();
-      txt(pid, cx, cy + r + 26, {size: 19, weight: 700, color: '#fff', align: 'center'});
-    }
-    return y + h;
-  }
-
-  let y = PAD;
-  // ---- header
-  txt((document.querySelector('.scoreboard h1') || {}).textContent || 'Match sheet', PAD, y + 22, {size: 22, color: C.soft, weight: 600});
-  y += 70;
-  y = wrap(matchFixture.opponent ? `vs ${matchFixture.opponent}` : 'Match line-up', PAD, y, W - 2 * PAD, 64, {size: 58, weight: 800}) - 20;
-  const fl = fixtureLine(matchFixture);
-  if (fl) { txt(fl, PAD, y, {size: 26, color: C.soft}); y += 38; }
-  const stat = matchFinished ? 'Final' : (liveMode ? 'Live' : 'Planned');
-  const scoreStr = (liveMode || matchFinished) ? `   ·   ${score.us} – ${score.them}` : '';
-  txt(`${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}${HAS_GK ? '' : ' (no GK)'} · ${DURATION} min · ${PERIODS} period${PERIODS > 1 ? 's' : ''}   ·   ${stat}${scoreStr}`, PAD, y, {size: 24, color: C.soft});
-  y += 30;
-  rule(y); y += 28;
-
-  // ---- starting line-up (pitch + bench)
-  const pw = (W - 2 * PAD - 40) / 2;
-  txt('Starting line-up', PAD, y, {size: 32, weight: 800}); y += 30;
-  {
-    const s0 = computeStateAt(0);
-    const shapeTxt = ['DEF', 'MID', 'ATT'].map(gp => s0.activeSlots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-');
-    const bottom = pitch(PAD, y, pw, s0, 'Kick-off', null, shapeTxt);
-    const onIds = new Set(Object.values(s0.onPitch));
-    const bench = PLAYERS.filter(q => !onIds.has(q.id));
-    const bx = PAD + pw + 40;
-    txt('Bench', bx, y + 30, {size: 32, weight: 800, color: C.turf});
-    let by = y + 48 + 40;
-    if (!bench.length) txt('Nobody - everyone starts', bx, by, {size: 24, color: C.soft});
-    bench.forEach(q => { txt(q.id, bx, by, {size: 28, weight: 600}); by += 46; });
-    y = bottom + 20;
-  }
-  rule(y); y += 38;
-
-  // ---- goalkeeper by period
-  if (HAS_GK) {
-    const segs = activeGkSegments();
-    if (segs.length) {
-      txt('In goal', PAD, y, {size: 32, weight: 800}); y += 8;
-      segs.forEach((sg, i) => {
-        y += 44;
-        const lab = PERIODS > 1 ? `Period ${i + 1}  (${PERIOD_BOUNDS[i]}'-${PERIOD_BOUNDS[i + 1]}')` : `Whole match  (0'-${DURATION}')`;
-        txt(lab, PAD, y, {size: 24, color: C.soft});
-        txt(sg.player || '-', PAD + 330, y, {size: 28, weight: 700});
-      });
-      y += 30;
-      rule(y); y += 38;
-    }
-  }
-
-  // ---- forecast
-  txt('Forecast playing time', PAD, y, {size: 32, weight: 800}); y += 14;
-  const fin = computeStateAt(DURATION);
-  const longest = computeLongestBenchSpell(DURATION);
-  const list = PLAYERS.slice().sort((a, b) => PLAN.projectedMinutes[b.id] - PLAN.projectedMinutes[a.id]);
-  const cnt = playerMatchCounts(DURATION);
-  const colName = PAD, colBar = PAD + 165, barW = 270, colTot = colBar + barW + 80;
-  const cols = [colTot + 95, colTot + 185, colTot + 265, colTot + 345, W - PAD];
-  y += 36;
-  txt('Player', colName, y, {size: 18, color: C.soft, weight: 700});
-  txt('Minutes (outfield + GK)', colBar, y, {size: 18, color: C.soft, weight: 700});
-  txt('Total', colTot, y, {size: 18, color: C.soft, weight: 700, align: 'right'});
-  [['Periods', 'started'], ['Periods', 'finished'], ['Subbed', 'on'], ['Subbed', 'off'], ['Longest', 'off']].forEach(([a1, a2], i) => {
-    txt(a1, cols[i], y - 20, {size: 16, color: C.soft, weight: 700, align: 'right'});
-    txt(a2, cols[i], y, {size: 16, color: C.soft, weight: 700, align: 'right'});
+}
+const exportSlug = s => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// The export screen: shape, sections, page previews, share or save every page.
+function openImageExport(cfg) {
+  const on = {}; cfg.sections.forEach(s => { on[s.key] = s.on !== false; });
+  const overlay = openModal(`<div class="picker-title">${esc(cfg.heading)}</div>
+    <div class="config-note" style="margin-bottom:6px;">Images shaped for phones, so they stay sharp in WhatsApp and texts. They show players' first names: share them only with your team's parents or club.</div>
+    <div class="field" style="margin-bottom:8px;"><label>Shape</label><div class="chip-wrap" id="exSize">${Object.entries(EXPORT_SIZES).map(([k, v]) => `<span class="preset-chip ${k === exportSizeChoice ? 'active' : ''}" data-size="${k}" title="${esc(v.note)}">${esc(v.label)}</span>`).join('')}</div><div class="config-note" id="exSizeNote" style="margin-top:4px;"></div></div>
+    ${cfg.sections.length > 1 ? `<div class="field" style="margin-bottom:8px;"><label>Include</label><div class="chip-wrap" id="exSecs">${cfg.sections.map(s => `<span class="preset-chip ${on[s.key] ? 'active' : ''}" data-sec="${s.key}">${esc(s.label)}</span>`).join('')}</div></div>` : ''}
+    <div class="ex-pages" id="exPages"></div>
+    <div class="config-note" id="exCount" style="margin:6px 0;"></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="exClose">Close</button><button class="btn btn-ghost" id="exSave">Save</button><button class="btn btn-primary" id="exShare">Share</button></div>`, {wide: true});
+  let canvases = [];
+  const q = s => overlay.querySelector(s);
+  const build = () => {
+    q('#exSizeNote').textContent = EXPORT_SIZES[exportSizeChoice].note + '.';
+    const keys = cfg.sections.filter(s => on[s.key]).map(s => s.key);
+    try { canvases = keys.length ? renderPages(cfg.build(keys), exportSizeChoice) : []; }
+    catch (e) { console.error(e); canvases = []; showAlert(`Couldn't build the images (${e.message}).`); }
+    window.__exportPages = canvases;
+    q('#exPages').innerHTML = canvases.map((c, i) => `<figure class="ex-page"><img alt="Page ${i + 1}" src="${c.toDataURL('image/png')}"><figcaption>${canvases.length > 1 ? `${i + 1} of ${canvases.length}` : ''}</figcaption></figure>`).join('') || '<div class="config-note">Pick at least one thing to include.</div>';
+    q('#exCount').textContent = canvases.length ? `${canvases.length} image${canvases.length === 1 ? '' : 's'}, ${canvases[0].width} × ${canvases[0].height}${exportSizeChoice === 'long' ? '' : ' each'}. Swipe to see them all.` : '';
+    q('#exShare').textContent = canvases.length > 1 ? `Share all ${canvases.length}` : 'Share';
+  };
+  overlay.querySelectorAll('[data-size]').forEach(el => el.addEventListener('click', () => { exportSizeChoice = el.dataset.size; overlay.querySelectorAll('[data-size]').forEach(x => x.classList.toggle('active', x === el)); build(); }));
+  overlay.querySelectorAll('[data-sec]').forEach(el => el.addEventListener('click', () => { on[el.dataset.sec] = !on[el.dataset.sec]; el.classList.toggle('active', on[el.dataset.sec]); build(); }));
+  const name = i => `${cfg.fileBase}${canvases.length > 1 ? '-' + (i + 1) : ''}.png`;
+  const files = () => Promise.all(canvases.map((c, i) => new Promise(res => c.toBlob(b => res(b ? new File([b], name(i), {type: 'image/png'}) : null), 'image/png'))));
+  const saveAll = () => canvases.forEach((c, i) => setTimeout(() => { const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = name(i); document.body.appendChild(a); a.click(); a.remove(); }, i * 300));
+  q('#exClose').addEventListener('click', () => overlay.remove());
+  q('#exSave').addEventListener('click', saveAll);
+  q('#exShare').addEventListener('click', async () => {
+    if (!canvases.length) return;
+    try {
+      const fs = (await files()).filter(Boolean);
+      if (fs.length && navigator.canShare && navigator.canShare({files: fs})) { await navigator.share({files: fs, title: cfg.shareTitle}); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    saveAll();
   });
-  y += 10;
-  for (const p of list) {
-    y += 44;
-    const total = PLAN.projectedMinutes[p.id], gk = Math.min(fin.gkMinutes[p.id] || 0, total), out = total - gk;
-    const k = cnt[p.id];
-    txt(p.id, colName, y, {size: 24, weight: 600});
-    g.fillStyle = '#E8E4D4'; g.fillRect(colBar, y - 20, barW, 22);
-    g.fillStyle = C.turf2; g.fillRect(colBar, y - 20, barW * out / DURATION, 22);
-    g.fillStyle = C.amber; g.fillRect(colBar + barW * out / DURATION, y - 20, barW * gk / DURATION, 22);
-    txt(`${Math.round(total)}'`, colTot, y, {size: 24, weight: 700, align: 'right'});
-    [k.started, k.finished, k.on, k.off].forEach((v, i) => txt(String(v), cols[i], y, {size: 22, color: C.ink, align: 'right'}));
-    txt(`${longest[p.id]}'`, cols[4], y, {size: 22, color: C.soft, align: 'right'});
-  }
-  y += 34;
-  txt('Green = outfield minutes, amber = in goal. A change at a period break counts as a sub on or off.', PAD, y, {size: 17, color: C.soft});
-  y += 40;
-  y += 10; rule(y); y += 38;
-
-  // ---- substitutions, as in the Subs tab
-  txt('Substitutions', PAD, y, {size: 32, weight: 800}); y += 20;
-  if (!allTimes.length) { y += 34; txt('No changes planned - the starting line-up plays the whole match.', PAD, y, {size: 24, color: C.soft}); y += 20; }
-  for (const time of allTimes) {
-    y += 14;
-    const rows = groupedAll[time];
-    const periodIdx = PERIOD_BOUNDS.indexOf(time);
-    const lineH = 36, rowTop = y;
-    let ry = y + 28;
-    txt(`${time}'`, PAD, ry, {size: 30, weight: 800, color: C.turf});
-    if (periodIdx > 0 && periodIdx < PERIOD_BOUNDS.length - 1) txt(`start of period ${periodIdx + 1}`, PAD, ry + 26, {size: 16, color: C.soft});
-    const X0 = PAD + 150;
-    let movesDone = false;
-    for (const r of rows) {
-      if (r.type === 'formation') {
-        const shape = ['DEF', 'MID', 'ATT'].map(gp => r.slots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-');
-        txt(`Formation changed (${shape}${HAS_GK ? ' + GK' : ''})`, X0, ry, {size: 23, color: C.soft}); ry += lineH; continue;
-      }
-      if (r.type === 'skip') {
-        txt(r.deleted ? `Planned sub removed (${r.on} for ${r.off}, ${r.slot})` : `Sub at ${r.slot} skipped`, X0, ry, {size: 23, color: C.soft}); ry += lineH; continue;
-      }
-      if (r.type === 'unavailable') { txt(`${r.player} marked unavailable`, X0, ry, {size: 23, color: C.coral}); ry += lineH; continue; }
-      if (r.type === 'available') { txt(`${r.player} available again`, X0, ry, {size: 23, color: C.green}); ry += lineH; continue; }
-      if (r.type === 'reshuffle') {
-        if (!movesDone) { movesDone = true; const mv = reshuffleMovesAt(time); if (mv.length) ry = wrap('Positions: ' + mv.join(' · '), X0, ry, W - PAD - X0, 28, {size: 21, color: C.soft}) + 4; }
-        continue;
-      }
-      let x = X0;
-      x += txt('\u2191 ', x, ry, {size: 26, weight: 800, color: C.green});
-      x += txt(r.on, x, ry, {size: 27, weight: 700}) + 18;
-      x += txt('\u2193 ', x, ry, {size: 26, weight: 800, color: C.coral});
-      x += txt(r.off, x, ry, {size: 27, weight: 700}) + 18;
-      txt(`(${r.on} plays ${subPlaceLabel(r)})`, x, ry, {size: 22, color: C.soft});
-      ry += lineH;
-    }
-    y = Math.max(ry, rowTop + 60) - 6;
-    g.fillStyle = C.line; g.fillRect(X0, y + 6, W - 2 * PAD - 150, 1);
-  }
-  y += 34;
-  rule(y); y += 38;
-
-  // ---- one pitch per moment: kick-off, then the line-up after every change
-  txt('Line-up at each change', PAD, y, {size: 32, weight: 800}); y += 14;
-  if (!moments.length) { y += 34; txt('No changes planned - the starting line-up plays the whole match.', PAD, y, {size: 24, color: C.soft}); y += 20; }
-  function changeLines(x, ly, w, time, rows) {
-    for (const r of rows) {
-      if (r.type === 'formation') {
-        const shape = ['DEF', 'MID', 'ATT'].map(gp => r.slots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-');
-        txt(`Formation changes to ${shape}`, x, ly, {size: 21, color: C.soft}); ly += 32; continue;
-      }
-      if (r.type === 'reshuffle') continue;
-      let cx = x;
-      cx += txt('ON ', cx, ly, {size: 19, weight: 700, color: C.green}) + 2;
-      cx += txt(r.on, cx, ly, {size: 23, weight: 700}) + 14;
-      cx += txt('OFF ', cx, ly, {size: 19, weight: 700, color: C.coral}) + 2;
-      cx += txt(r.off, cx, ly, {size: 23, weight: 700}) + 12;
-      txt(`(${slotLabelAt(time, r.slot)})`, cx, ly, {size: 19, color: C.soft});
-      ly += 32;
-    }
-    const moves = reshuffleMovesAt(time);
-    if (moves.length) ly = wrap('Positions: ' + moves.join(' · '), x, ly, w, 26, {size: 19, color: C.soft});
-    return ly;
-  }
-  function momentCard(x, top, m) {
-    const periodIdx = PERIOD_BOUNDS.indexOf(m.time);
-    const sub = m.time === 0 ? 'starting line-up' : (periodIdx > 0 && periodIdx < PERIOD_BOUNDS.length - 1 ? `start of period ${periodIdx + 1}` : '');
-    const hl = new Set(m.rows.filter(r => r.type !== 'formation' && r.type !== 'reshuffle' && r.on).map(r => r.on));
-    let by = pitch(x, top, pw, computeStateAt(m.time), `${m.time}'`, hl, sub);
-    by += 34;
-    by = changeLines(x, by, pw, m.time, m.rows);
-    return by;
-  }
-  for (let i = 0; i < moments.length; i += 2) {
-    y += 16;
-    const b1 = momentCard(PAD, y, moments[i]);
-    const b2 = moments[i + 1] ? momentCard(PAD + pw + 40, y, moments[i + 1]) : 0;
-    y = Math.max(b1, b2) + 18;
-  }
-  y += 10;
-  rule(y); y += 38;
-
-  txt(`Made with Co-Coach · co-coach.uk · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, y, {size: 17, color: C.soft});
-  y += PAD;
-
-  const out = document.createElement('canvas'); out.width = W; out.height = y;
-  out.getContext('2d').drawImage(c, 0, 0, W, y, 0, 0, W, y);
-  return out;
+  build();
+  return overlay;
 }
 
-function exportFileName() {
-  const slug = s => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return `lineup-${slug(matchFixture.opponent) || 'match'}${matchFixture.date ? '-' + matchFixture.date : ''}.png`;
+/* ---- Match plan ---- */
+function matchPlanExportSpec(keys) {
+  const blocks = [];
+  const s0 = computeStateAt(0);
+  if (keys.includes('lineup')) {
+    blocks.push(exHeading('Starting line-up'));
+    const onIds = new Set(Object.values(s0.onPitch)), bench = PLAYERS.filter(q => !onIds.has(q.id));
+    const shape = ['DEF', 'MID', 'ATT'].map(gp => s0.activeSlots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-');
+    const pw = 600, ph = pw * 4 / 3;
+    blocks.push(exBlock(ph + 10, (P, x, y, w) => {
+      P.pitch(x, y, pw, s0, null);
+      const bx = x + pw + 36, bw = w - pw - 36;
+      P.txt('Formation', bx, y + 30, {size: 22, weight: 700, color: P.C.soft}); P.txt(shape + (HAS_GK ? ' + GK' : ''), bx, y + 66, {size: 32, weight: 800});
+      P.txt('Bench', bx, y + 130, {size: 22, weight: 700, color: P.C.soft});
+      let by = y + 170; if (!bench.length) P.txt('Everyone starts', bx, by, {size: 26, color: P.C.soft});
+      bench.forEach(q => { P.txt(P.fit(q.id, bw, 30, 700), bx, by, {size: 30, weight: 700}); by += 46; });
+      if (HAS_GK) {
+        const segs = activeGkSegments();
+        by += 30; P.txt('In goal', bx, by, {size: 22, weight: 700, color: P.C.soft}); by += 40;
+        segs.forEach((sg, i) => { P.txt(P.fit(`${PERIODS > 1 ? `P${i + 1}  ` : ''}${sg.player || '-'}`, bw, 28, 700), bx, by, {size: 28, weight: 700}); by += 42; });
+      }
+    }));
+  }
+  if (keys.includes('subs')) {
+    const groupedAll = {};
+    PLAN.rotations.forEach(r => { (groupedAll[r.time] = groupedAll[r.time] || []).push(r); });
+    const times = Object.keys(groupedAll).map(Number).sort((a, b) => a - b);
+    blocks.push(exHeading('Substitutions'));
+    if (!times.length) blocks.push(exBlock(44, (P, x, y) => P.txt('No changes planned: the starting line-up plays the whole match.', x, y + 30, {size: 26, color: P.C.soft})));
+    for (const time of times) {
+      const rows = groupedAll[time].filter(r => r.type !== 'reshuffle' || true);
+      const lines = [];
+      let movesDone = false;
+      for (const r of rows) {
+        if (r.type === 'formation') { lines.push({t: `Formation changes (${['DEF', 'MID', 'ATT'].map(gp => r.slots.filter(sl => sl.group === gp).length).filter(n => n > 0).join('-')})`, soft: true}); continue; }
+        if (r.type === 'skip') { lines.push({t: r.deleted ? `Planned sub removed (${r.on} for ${r.off})` : `Sub at ${r.slot} skipped`, soft: true}); continue; }
+        if (r.type === 'unavailable') { lines.push({t: `${r.player} unavailable`, color: EXPORT_C.coral}); continue; }
+        if (r.type === 'available') { lines.push({t: `${r.player} available again`, color: EXPORT_C.green}); continue; }
+        if (r.type === 'reshuffle') { if (!movesDone) { movesDone = true; const mv = reshuffleMovesAt(time); if (mv.length) lines.push({t: 'Positions: ' + mv.join(' · '), soft: true, wrap: true}); } continue; }
+        lines.push({on: r.on, off: r.off, where: subPlaceLabel(r)});
+      }
+      const pIdx = PERIOD_BOUNDS.indexOf(time);
+      const label = pIdx > 0 && pIdx < PERIOD_BOUNDS.length - 1 ? `start of period ${pIdx + 1}` : '';
+      blocks.push(exBlock(Math.max(70, lines.length * 46 + 24), (P, x, y, w) => {
+        P.txt(`${time}'`, x, y + 36, {size: 36, weight: 800, color: P.C.turf});
+        if (label) P.txt(label, x, y + 64, {size: 18, color: P.C.soft});
+        let ly = y + 36; const X = x + 150;
+        for (const l of lines) {
+          if (l.on) {
+            let cx = X; cx += P.txt('ON ', cx, ly, {size: 22, weight: 800, color: P.C.green});
+            cx += P.txt(P.fit(l.on, 230, 30, 700), cx, ly, {size: 30, weight: 700}) + 20;
+            cx += P.txt('OFF ', cx, ly, {size: 22, weight: 800, color: P.C.coral});
+            cx += P.txt(P.fit(l.off, 230, 30, 700), cx, ly, {size: 30, weight: 700}) + 16;
+            P.txt(P.fit(l.where, x + w - cx, 22, 400), cx, ly, {size: 22, color: P.C.soft});
+          } else P.txt(P.fit(l.t, w - 150, 24, 400), X, ly, {size: 24, color: l.color || P.C.soft});
+          ly += 46;
+        }
+        P.rule(X, y + Math.max(70, lines.length * 46 + 24) - 6, w - 150);
+      }, {gap: 8}));
+    }
+  }
+  if (keys.includes('forecast')) {
+    const fin = computeStateAt(DURATION), cnt = playerMatchCounts(DURATION);
+    const list = PLAYERS.slice().sort((a, b) => PLAN.projectedMinutes[b.id] - PLAN.projectedMinutes[a.id]);
+    blocks.push(exHeading('Playing time'));
+    const cols = (x, w) => ({name: x, bar: x + 200, barW: w - 200 - 330, tot: x + w - 250, st: x + w - 170, fi: x + w - 90, on: x + w});
+    blocks.push(exBlock(54, (P, x, y, w) => { const c = cols(x, w);
+      P.txt('Player', c.name, y + 34, {size: 19, weight: 700, color: P.C.soft}); P.txt('Minutes', c.bar, y + 34, {size: 19, weight: 700, color: P.C.soft});
+      P.txt('Total', c.tot, y + 34, {size: 19, weight: 700, color: P.C.soft, align: 'right'});
+      P.txt('Started', c.st, y + 34, {size: 17, weight: 700, color: P.C.soft, align: 'right'}); P.txt('Finished', c.fi, y + 34, {size: 17, weight: 700, color: P.C.soft, align: 'right'}); P.txt('Subs', c.on, y + 34, {size: 17, weight: 700, color: P.C.soft, align: 'right'});
+    }, {keep: true, gap: 4}));
+    list.forEach(p => blocks.push(exBlock(48, (P, x, y, w) => {
+      const c = cols(x, w), total = PLAN.projectedMinutes[p.id], gk = Math.min(fin.gkMinutes[p.id] || 0, total), out = total - gk, k = cnt[p.id];
+      P.txt(P.fit(p.id, 190, 28, 600), c.name, y + 34, {size: 28, weight: 600});
+      P.g.fillStyle = P.C.bar; P.g.fillRect(c.bar, y + 12, c.barW, 26);
+      P.g.fillStyle = P.C.turf2; P.g.fillRect(c.bar, y + 12, c.barW * out / DURATION, 26);
+      P.g.fillStyle = P.C.amber; P.g.fillRect(c.bar + c.barW * out / DURATION, y + 12, c.barW * gk / DURATION, 26);
+      P.txt(`${Math.round(total)}'`, c.tot, y + 34, {size: 28, weight: 800, align: 'right'});
+      P.txt(String(k.started), c.st, y + 34, {size: 26, align: 'right'}); P.txt(String(k.finished), c.fi, y + 34, {size: 26, align: 'right'}); P.txt(`${k.on}/${k.off}`, c.on, y + 34, {size: 26, align: 'right'});
+    }, {gap: 2})));
+    const note = exText('Green: outfield minutes. Amber: in goal. Started and finished count periods. Subs: times on / off.', {size: 20, color: EXPORT_C.soft});
+    blocks.push({...note, gap: 14});
+  }
+  if (keys.includes('moments')) {
+    const grouped = {};
+    PLAN.rotations.forEach(r => { if (!isInfoRotation(r)) (grouped[r.time] = grouped[r.time] || []).push(r); });
+    const moments = Object.keys(grouped).map(Number).sort((a, b) => a - b).map(t => ({time: t, rows: grouped[t]}));
+    blocks.push(exHeading('Line-up at each change'));
+    const pw = 470, ph = pw * 4 / 3;
+    for (let i = 0; i < moments.length; i += 2) {
+      const pair = moments.slice(i, i + 2);
+      const linesFor = m => m.rows.filter(r => r.type !== 'formation' && r.type !== 'reshuffle' && r.on);
+      const extra = Math.max(...pair.map(m => linesFor(m).length)) * 36;
+      blocks.push(exBlock(56 + ph + 20 + extra, (P, x, y, w) => {
+        pair.forEach((m, j) => {
+          const px = x + j * (pw + (w - 2 * pw));
+          P.txt(`${m.time}'`, px, y + 40, {size: 36, weight: 800, color: P.C.turf});
+          const hl = new Set(linesFor(m).map(r => r.on));
+          const bottom = P.pitch(px, y + 56, pw, computeStateAt(m.time), hl);
+          let ly = bottom + 34;
+          linesFor(m).forEach(r => { let cx = px; cx += P.txt('ON ', cx, ly, {size: 18, weight: 800, color: P.C.green}); cx += P.txt(P.fit(r.on, 160, 24, 700), cx, ly, {size: 24, weight: 700}) + 12; cx += P.txt('OFF ', cx, ly, {size: 18, weight: 800, color: P.C.coral}); P.txt(P.fit(r.off, px + pw - cx, 24, 700), cx, ly, {size: 24, weight: 700}); ly += 36; });
+        });
+      }, {gap: 24}));
+    }
+    if (!moments.length) blocks.push(exBlock(44, (P, x, y) => P.txt('No changes planned.', x, y + 30, {size: 26, color: P.C.soft})));
+  }
+  const stat = matchFinished ? 'Final' : (liveMode ? 'Live' : 'Plan');
+  return {title: matchFixture.opponent ? `vs ${matchFixture.opponent}` : 'Match plan',
+    subtitle: [fixtureLine(matchFixture), `${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH} · ${DURATION}' · ${PERIODS} period${PERIODS > 1 ? 's' : ''}`, stat + ((liveMode || matchFinished) ? ` ${score.us}–${score.them}` : '')].filter(Boolean).join(' · '),
+    blocks};
 }
+
+/* ---- Full-time summary ---- */
+function summaryExportSpec(keys) {
+  const C = EXPORT_C, at = finishedAtMinute ?? DURATION;
+  const st = computeMatchStats(at, goalEvents, score), teamName = teamDisplayName(activeTeam());
+  const blocks = [];
+  if (keys.includes('result')) {
+    const res = st.result, resCol = res === 'W' ? C.green : res === 'L' ? C.coral : C.amber, resWord = res === 'W' ? 'WIN' : res === 'L' ? 'DEFEAT' : 'DRAW';
+    blocks.push(exBlock(280, (P, x, y, w) => {
+      P.g.fillStyle = C.turf; P.g.beginPath(); P.g.roundRect(x, y, w, 270, 26); P.g.fill();
+      P.txt(at < DURATION ? `Full time · ended at ${at}'` : `Full time · ${at}'`, x + w / 2, y + 44, {size: 22, weight: 600, color: 'rgba(244,241,230,0.8)', align: 'center'});
+      P.txt(P.fit(teamName, w / 2 - 170, 28, 700), x + 36, y + 150, {size: 28, weight: 700, color: C.chalk});
+      P.txt(P.fit(matchFixture.opponent || 'Opposition', w / 2 - 170, 28, 700), x + w - 36, y + 150, {size: 28, weight: 700, color: C.chalk, align: 'right'});
+      P.txt(`${score.us} – ${score.them}`, x + w / 2, y + 168, {size: 120, weight: 800, color: C.chalk, align: 'center'});
+      P.pill(x + w / 2 - 75, y + 200, 150, 46, resCol); P.txt(resWord, x + w / 2, y + 233, {size: 24, weight: 800, color: '#fff', align: 'center'});
+    }, {gap: 26}));
+    if (goalEvents.length) {
+      blocks.push(exHeading('Goals'));
+      goalEvents.map((e, i) => ({e, i})).sort((a, b) => a.e.time - b.e.time || a.i - b.i).forEach(({e}) => blocks.push(exBlock(52, (P, x, y) => {
+        P.g.fillStyle = e.forUs ? C.amber : C.coral; P.g.beginPath(); P.g.arc(x + 14, y + 26, 10, 0, Math.PI * 2); P.g.fill();
+        P.txt(`${e.time}'`, x + 44, y + 36, {size: 28, weight: 800, color: C.soft});
+        const nm = e.scorer === 'OPP' ? 'Opposition goal' : e.scorer === 'OG' ? 'Own goal (opposition)' : e.scorer === 'UNKNOWN' ? 'Goal' : e.scorer;
+        const tw = P.txt(P.fit(nm, 520, 30, 700), x + 130, y + 36, {size: 30, weight: 700, color: e.forUs ? C.ink : C.soft});
+        if (e.assist) P.txt(`assist ${P.fit(e.assist, 300, 24, 400)}`, x + 130 + tw + 18, y + 36, {size: 24, color: C.soft});
+      }, {gap: 2})));
+    }
+    if (matchAwards.length) {
+      blocks.push(exHeading('Awards'));
+      matchAwards.forEach(a => blocks.push(exBlock(90, (P, x, y, w) => {
+        P.g.fillStyle = C.card; P.g.strokeStyle = C.line; P.g.lineWidth = 2; P.g.beginPath(); P.g.roundRect(x, y, w, 84, 16); P.g.fill(); P.g.stroke();
+        P.txt('★', x + 24, y + 58, {size: 44, weight: 800, color: C.amber});
+        P.txt(P.fit(a.name, w - 120, 22, 600), x + 84, y + 34, {size: 22, weight: 600, color: C.soft});
+        P.txt(P.fit(a.pid, w - 120, 32, 800), x + 84, y + 70, {size: 32, weight: 800});
+      }, {gap: 10})));
+    }
+  }
+  if (keys.includes('minutes')) {
+    const rows = PLAYERS.map(p => ({id: p.id, ...st.players[p.id]})).sort((a, b) => b.mins - a.mins || a.id.localeCompare(b.id));
+    const mx = Math.max(1, ...rows.map(r => r.mins));
+    blocks.push(exHeading('Minutes & positions'));
+    blocks.push(exBlock(36, (P, x, y) => { let lx = x; POS_KEYS.forEach(k => { const G = k.toUpperCase(); P.g.fillStyle = POS_COLORS[G]; P.g.beginPath(); P.g.roundRect(lx, y + 8, 20, 20, 5); P.g.fill(); lx += 30 + P.txt(POS_NAMES[G], lx + 30, y + 26, {size: 20, color: C.soft}) + 26; }); }, {keep: true, gap: 10}));
+    rows.forEach(r => blocks.push(exBlock(64, (P, x, y, w) => {
+      const bx = x + 290, bw = w - 290 - 100;
+      P.txt(P.fit(r.id, 270, 28, 700), x, y + 30, {size: 28, weight: 700});
+      const extra = [r.goals ? `${r.goals} goal${r.goals === 1 ? '' : 's'}` : '', r.assists ? `${r.assists} assist${r.assists === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+      if (extra) P.txt(extra, x, y + 54, {size: 18, color: C.soft});
+      P.g.fillStyle = C.line; P.g.beginPath(); P.g.roundRect(bx, y + 8, bw, 26, 8); P.g.fill();
+      if (r.mins > 0) { let cx = bx; const tot = bw * r.mins / mx; P.g.save(); P.g.beginPath(); P.g.roundRect(bx, y + 8, bw, 26, 8); P.g.clip(); POS_KEYS.forEach(k => { if (!r[k]) return; const ww = tot * r[k] / r.mins; P.g.fillStyle = POS_COLORS[k.toUpperCase()]; P.g.fillRect(cx, y + 8, ww, 26); cx += ww; }); P.g.restore(); }
+      P.txt(`${r.mins}'`, x + w, y + 30, {size: 28, weight: 800, align: 'right', color: r.mins ? C.ink : C.soft});
+    }, {gap: 4})));
+  }
+  if (keys.includes('notes') && matchNotes.length) {
+    blocks.push(exHeading('Coach notes'));
+    matchNotes.slice().sort((a, b) => a.ts - b.ts).forEach(n => blocks.push({...exText((n.minute != null ? `${n.minute}'  ` : '') + n.text, {size: 26}), gap: 12}));
+  }
+  return {title: matchFixture.opponent ? `vs ${matchFixture.opponent}` : 'Match summary', subtitle: [fixtureLine(matchFixture), 'Full-time summary'].filter(Boolean).join(' · '), blocks};
+}
+
+/* ---- Future Fit 3v3 ---- */
+function threesExportSpec(md, keys) {
+  const C = EXPORT_C, them = md.opponent || 'them';
+  const blocks = [];
+  if (keys.includes('games')) {
+    md.rounds.forEach((r, ri) => {
+      const out = [...(r.sat || []), ...(r.coachSat || []), ...(r.pool || [])];
+      const rowH = 104;
+      blocks.push(exBlock(70 + r.games.length * rowH + (out.length ? 54 : 0), (P, x, y, w) => {
+        P.g.fillStyle = C.card; P.g.strokeStyle = C.line; P.g.lineWidth = 2; P.g.beginPath(); P.g.roundRect(x, y, w, 60 + r.games.length * rowH + (out.length ? 54 : 0), 18); P.g.fill(); P.g.stroke();
+        P.txt(`Game ${ri + 1}`, x + 24, y + 46, {size: 34, weight: 800, color: C.turf});
+        P.txt(`${ri * md.gameLength}–${(ri + 1) * md.gameLength}'`, x + 200, y + 46, {size: 24, color: C.soft});
+        r.games.forEach((g, gi) => {
+          const gy = y + 70 + gi * rowH;
+          P.pill(x + 24, gy + 4, 110, 40, C.turf); P.txt(`Pitch ${g.pitch}`, x + 79, gy + 32, {size: 20, weight: 700, color: C.chalk, align: 'center'});
+          const th = Array.isArray(g.theirs) ? g.theirs : [0, 0];
+          const side = i => [g.sides[i].join(', '), th[i] ? `${th[i]} of ${them}` : ''].filter(Boolean).join(' + ');
+          const line = g.kind === 'opp' ? `${g.sides[0].join(', ')}  v ${them}` : `${side(0)}  v  ${side(1)}`;
+          const res = threesResult(g), sc = g.score && g.score[0] != null && g.score[1] != null ? `${g.score[0]}–${g.score[1]}` : '';
+          const tag = [sc, res ? {W: 'Won', D: 'Drew', L: 'Lost'}[res] : ''].filter(Boolean).join(' · ');
+          const tot = threesGameTotals(g);
+          P.wrap(line, x + 156, gy + 32, w - 180 - (tag ? 150 : 0), 34, {size: 28, weight: 700});
+          P.txt(`${tot[0]} v ${tot[1]}`, x + 79, gy + 72, {size: 20, weight: 600, color: C.soft, align: 'center'});
+          if (tag) P.txt(tag, x + w - 24, gy + 32, {size: 24, weight: 800, color: res === 'W' ? C.green : res === 'L' ? C.coral : C.soft, align: 'right'});
+        });
+        if (out.length) P.txt(P.fit(`Sitting out: ${out.join(', ')}`, w - 48, 24, 600), x + 24, y + 70 + r.games.length * rowH + 30, {size: 24, weight: 600, color: C.soft});
+      }, {gap: 18}));
+    });
+  }
+  if (keys.includes('players')) {
+    const st = threesPlayerStats(md.rounds), ids = md.players.filter(id => st[id]);
+    blocks.push(exHeading('Games per player'));
+    blocks.push(exBlock(44, (P, x, y, w) => { ['Games', '3v3', 'Other sizes', 'Sat out'].forEach((h, i) => P.txt(h, x + w - (3 - i) * 170, y + 30, {size: 20, weight: 700, color: C.soft, align: 'right'})); }, {keep: true, gap: 4}));
+    ids.forEach(id => blocks.push(exBlock(46, (P, x, y, w) => { const s = st[id]; P.txt(P.fit(id, 300, 28, 700), x, y + 32, {size: 28, weight: 700}); [s.games, s.full, s.odd, s.sat].forEach((v, i) => P.txt(String(v), x + w - (3 - i) * 170, y + 32, {size: 28, align: 'right'})); }, {gap: 2})));
+  }
+  if (keys.includes('results') && (md.scoring || 'off') !== 'off') {
+    const t = threesTotals(md);
+    blocks.push(exHeading('Results'));
+    blocks.push(exBlock(70, (P, x, y) => P.txt(`Won ${t.W} · Drew ${t.D} · Lost ${t.L}${t.scored ? ` · Goals ${t.gf}–${t.ga}` : ''}`, x, y + 44, {size: 36, weight: 800})));
+  }
+  return {title: `Future Fit 3v3${md.opponent ? ' v ' + md.opponent : ''}`, subtitle: [fmtFixtureDate(md.date), `${md.roundsCount} games of ${md.gameLength}'`, THREES_ETHOS[md.ethos].split(':')[0]].filter(Boolean).join(' · '), blocks};
+}
+
+/* ---- Tournament day ---- */
+function tournamentExportSpec(t, keys) {
+  const C = EXPORT_C, blocks = [];
+  if (keys.includes('games')) {
+    blocks.push(exHeading('Games'));
+    t.games.forEach(g => {
+      const r = tourneyGameRec(g), st = tourneyGameStatus(g);
+      const keeper = r && r.snapshot && r.snapshot.startingLineup && r.snapshot.startingLineup.GK;
+      const sc = r && st !== 'planned' && r.score ? `${r.score.us}–${r.score.them}` : '';
+      blocks.push(exBlock(76, (P, x, y, w) => {
+        P.txt(P.fit(`${g.label}${g.opponent ? ' vs ' + g.opponent : ''}`, w - 200, 30, 700), x, y + 34, {size: 30, weight: 700});
+        P.txt([{unplanned: 'Not planned', planned: 'Planned', live: 'Live', finished: 'Played'}[st], keeper ? `GK ${keeper}` : ''].filter(Boolean).join(' · '), x, y + 64, {size: 20, color: C.soft});
+        if (sc) P.txt(sc, x + w, y + 40, {size: 36, weight: 800, align: 'right'});
+        P.rule(x, y + 74, w);
+      }, {gap: 6}));
+    });
+  }
+  if (keys.includes('minutes')) {
+    const day = tourneyDayTable(t).filter(r => t.players.includes(r.id) || r.played || r.planned).sort((a, b) => (b.played + b.planned) - (a.played + a.planned));
+    const mx = Math.max(1, ...day.map(r => r.played + r.planned));
+    blocks.push(exHeading('Minutes today'));
+    day.forEach(r => blocks.push(exBlock(48, (P, x, y, w) => {
+      const bx = x + 230, bw = w - 230 - 180;
+      P.txt(P.fit(r.id, 210, 28, 700), x, y + 32, {size: 28, weight: 700});
+      P.g.fillStyle = C.bar; P.g.fillRect(bx, y + 12, bw, 24);
+      P.g.fillStyle = C.turf2; P.g.fillRect(bx, y + 12, bw * r.played / mx, 24);
+      P.g.globalAlpha = 0.4; P.g.fillRect(bx + bw * r.played / mx, y + 12, bw * r.planned / mx, 24); P.g.globalAlpha = 1;
+      P.txt(`${r.played + r.planned}'`, x + w - 90, y + 32, {size: 28, weight: 800, align: 'right'});
+      if (r.gk) P.txt(`${r.gk}' GK`, x + w, y + 32, {size: 20, color: C.soft, align: 'right'});
+    }, {gap: 2})));
+    blocks.push({...exText('Dark: played. Light: planned.', {size: 20, color: EXPORT_C.soft}), gap: 10});
+  }
+  return {title: t.name, subtitle: [fmtFixtureDate(t.date), t.venue, tourneyFormatLabel(t.format)].filter(Boolean).join(' · '), blocks};
+}
+
+/* ---- Opening each export ---- */
 function openExportModal() {
   track('lineup-image-opened');
   if (!PLAN) return;
-  let canvas;
-  try { canvas = renderLineupCanvas(); }
-  catch (e) { console.error(e); showAlert(`Couldn't build the image (${e.message}).`); return; }
-  const url = canvas.toDataURL('image/png');
-  const overlay = openModal(`
-    <div class="picker-title">Line-up image</div>
-    <div class="config-note" style="margin-bottom:8px;">Tap and hold the image to save it, or use the buttons. It shows players' first names - share it only with your team's parents or club.</div>
-    <img id="exportImg" alt="Line-up sheet" style="width:100%; border-radius:8px; border:1px solid var(--card-line);" src="${url}">
-    <div class="modal-btn-row" style="margin-top:12px;"><button class="btn btn-ghost" id="expClose">Close</button><button class="btn btn-ghost" id="expDownload">Download</button><button class="btn btn-primary" id="expShare">Share / save</button></div>`, {wide: true});
-  const name = exportFileName();
-  const getFile = () => new Promise(res => canvas.toBlob(b => res(b ? new File([b], name, {type: 'image/png'}) : null), 'image/png'));
-  overlay.querySelector('#expClose').addEventListener('click', () => overlay.remove());
-  overlay.querySelector('#expDownload').addEventListener('click', () => { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); });
-  overlay.querySelector('#expShare').addEventListener('click', async () => {
-    try {
-      const f = await getFile();
-      if (f && navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f], title: fixtureTitle(matchFixture, 'Line-up')}); return; }
-    } catch (e) { if (e && e.name === 'AbortError') return; }
-    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-  });
+  return openImageExport({heading: 'Export match plan', shareTitle: fixtureTitle(matchFixture, 'Line-up'),
+    fileBase: `lineup-${exportSlug(matchFixture.opponent) || 'match'}${matchFixture.date ? '-' + matchFixture.date : ''}`,
+    sections: [{key: 'lineup', label: 'Starting line-up'}, {key: 'subs', label: 'Substitutions'}, {key: 'forecast', label: 'Playing time'}, {key: 'moments', label: 'Line-up at each change', on: false}],
+    build: matchPlanExportSpec});
 }
 document.getElementById('exportImageLink').addEventListener('click', openExportModal);
-
-/* ================= EXPORT: post-game summary as an image ================= */
-function renderSummaryCanvas(opts) {
-  opts = opts || {};
-  const W = 1080, PAD = 40, FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-  const C = {bg: '#F7F5EC', ink: '#12241A', soft: '#56675B', line: '#DAD6C6', turf: '#1F4A33', amber: '#E3A23C', coral: '#C1503F', green: '#2E7D4F', chalk: '#F4F1E6', card: '#FFFFFF'};
-  const at = finishedAtMinute ?? DURATION;
-  const st = computeMatchStats(at, goalEvents, score);
-  const rows = PLAYERS.map(p => ({id: p.id, ...st.players[p.id]})).sort((a, b) => b.mins - a.mins || a.id.localeCompare(b.id));
-  const notes = opts.notes ? matchNotes.slice().sort((a, b) => a.ts - b.ts) : [];
-  const c = document.createElement('canvas'); c.width = W;
-  c.height = 1500 + goalEvents.length * 56 + matchAwards.length * 100 + (opts.minutes ? rows.length * 72 + 160 : 0) + notes.length * 140;
-  const g = c.getContext('2d');
-  g.fillStyle = C.bg; g.fillRect(0, 0, W, c.height);
-  const font = (size, weight) => `${weight || 400} ${size}px ${FONT}`;
-  function txt(str, x, y, o) { o = o || {}; g.font = font(o.size || 24, o.weight); g.fillStyle = o.color || C.ink; g.textAlign = o.align || 'left'; g.textBaseline = 'alphabetic'; g.fillText(str, x, y); return g.measureText(str).width; }
-  function wrap(str, x, y, maxW, lineH, o) {
-    o = o || {}; g.font = font(o.size || 22, o.weight); const words = String(str).split(/\s+/); let line = '';
-    for (const w of words) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line) { txt(line, x, y, o); y += lineH; line = w; } else line = t; }
-    if (line) { txt(line, x, y, o); y += lineH; }
-    return y;
-  }
-  const fit = (str, maxW, size, weight) => { g.font = font(size, weight); let t = String(str); while (g.measureText(t).width > maxW && t.length > 3) t = t.slice(0, -2); return t === String(str) ? t : t.trim() + '…'; };
-  function heading(label, y) { txt(label.toUpperCase(), PAD, y, {size: 22, weight: 800, color: C.soft}); g.fillStyle = C.line; g.fillRect(PAD, y + 14, W - 2 * PAD, 2); return y + 50; }
-
-  const teamName = teamDisplayName(activeTeam());
-  let y = PAD + 24;
-  txt(teamName, PAD, y, {size: 24, weight: 700, color: C.soft});
-  txt('POST-GAME SUMMARY', W - PAD, y, {size: 20, weight: 800, color: C.soft, align: 'right'});
-  y += 62;
-  y = wrap(matchFixture.opponent ? `vs ${matchFixture.opponent}` : 'Match summary', PAD, y, W - 2 * PAD, 64, {size: 58, weight: 800}) - 18;
-  const fl = fixtureLine(matchFixture); if (fl) { txt(fl, PAD, y, {size: 26, color: C.soft}); y += 40; }
-  y += 18;
-  // score panel
-  const res = st.result, resCol = res === 'W' ? C.green : res === 'L' ? C.coral : C.amber, resWord = res === 'W' ? 'WIN' : res === 'L' ? 'DEFEAT' : 'DRAW';
-  g.fillStyle = C.turf; g.beginPath(); g.roundRect(PAD, y, W - 2 * PAD, 260, 24); g.fill();
-  txt(fit(teamName, 300, 28, 700), PAD + 40, y + 140, {size: 28, weight: 700, color: C.chalk});
-  txt(fit(matchFixture.opponent || 'Opposition', 300, 28, 700), W - PAD - 40, y + 140, {size: 28, weight: 700, color: C.chalk, align: 'right'});
-  txt(`${score.us} – ${score.them}`, W / 2, y + 160, {size: 118, weight: 800, color: C.chalk, align: 'center'});
-  txt(at < DURATION ? `Full time · ended at ${at}'` : `Full time · ${at}'`, W / 2, y + 40, {size: 22, weight: 600, color: 'rgba(244,241,230,0.8)', align: 'center'});
-  g.fillStyle = resCol; g.beginPath(); g.roundRect(W / 2 - 70, y + 190, 140, 44, 22); g.fill();
-  txt(resWord, W / 2, y + 222, {size: 24, weight: 800, color: '#fff', align: 'center'});
-  y += 260 + 50;
-
-  // goals
-  if (goalEvents.length) {
-    y = heading('Goals', y);
-    goalEvents.map((e, i) => ({e, i})).sort((a, b) => a.e.time - b.e.time || a.i - b.i).forEach(({e}) => {
-      g.fillStyle = e.forUs ? C.amber : C.coral; g.beginPath(); g.arc(PAD + 14, y - 9, 10, 0, Math.PI * 2); g.fill();
-      txt(`${e.time}'`, PAD + 44, y, {size: 28, weight: 800, color: C.soft});
-      const nm = e.scorer === 'OPP' ? 'Opposition goal' : e.scorer === 'OG' ? 'Own goal (opposition)' : e.scorer === 'UNKNOWN' ? 'Goal' : e.scorer;
-      const w = txt(fit(nm, 560, 30, 700), PAD + 130, y, {size: 30, weight: 700, color: e.forUs ? C.ink : C.soft});
-      if (e.assist) txt(`assist ${fit(e.assist, 300, 24, 400)}`, PAD + 130 + w + 18, y, {size: 24, color: C.soft});
-      y += 56;
-    });
-    y += 14;
-  }
-  // awards
-  if (matchAwards.length) {
-    y = heading('Awards', y) + 14;
-    matchAwards.forEach(a => {
-      g.fillStyle = C.card; g.strokeStyle = C.line; g.lineWidth = 2; g.beginPath(); g.roundRect(PAD, y - 34, W - 2 * PAD, 84, 16); g.fill(); g.stroke();
-      txt('★', PAD + 24, y + 22, {size: 44, weight: 800, color: C.amber});
-      txt(fit(a.name, 560, 22, 600), PAD + 84, y - 2, {size: 22, weight: 600, color: C.soft});
-      txt(fit(a.pid, 700, 32, 800), PAD + 84, y + 34, {size: 32, weight: 800});
-      y += 100;
-    });
-    y += 14;
-  }
-  // minutes
-  if (opts.minutes) {
-    y = heading('Minutes & positions', y);
-    let lx = PAD; POS_KEYS.forEach(k => { const G = k.toUpperCase(); g.fillStyle = POS_COLORS[G]; g.beginPath(); g.roundRect(lx, y - 18, 20, 20, 5); g.fill(); lx += 30 + txt(POS_NAMES[G], lx + 30, y, {size: 20, color: C.soft}) + 26; });
-    y += 44;
-    const mx = Math.max(1, ...rows.map(r => r.mins)), bx = 330, bw = W - PAD - 120 - bx;
-    rows.forEach(r => {
-      txt(fit(r.id, 270, 28, 700), PAD, y, {size: 28, weight: 700});
-      const extra = [r.goals ? `${r.goals} goal${r.goals === 1 ? '' : 's'}` : '', r.assists ? `${r.assists} assist${r.assists === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
-      if (extra) txt(extra, PAD, y + 24, {size: 17, color: C.soft});
-      g.fillStyle = C.line; g.beginPath(); g.roundRect(bx, y - 22, bw, 26, 8); g.fill();
-      if (r.mins > 0) {
-        let x = bx; const tot = bw * r.mins / mx;
-        g.save(); g.beginPath(); g.roundRect(bx, y - 22, bw, 26, 8); g.clip();
-        POS_KEYS.forEach(k => { if (!r[k]) return; const w = tot * r[k] / r.mins; g.fillStyle = POS_COLORS[k.toUpperCase()]; g.fillRect(x, y - 22, w, 26); x += w; });
-        g.restore();
-      }
-      txt(`${r.mins}'`, W - PAD, y, {size: 28, weight: 800, align: 'right', color: r.mins ? C.ink : C.soft});
-      y += 72;
-    });
-    y += 10;
-  }
-  // notes
-  if (notes.length) {
-    y = heading('Coach notes', y);
-    notes.forEach(n => { y = wrap((n.minute != null ? `${n.minute}'  ` : '') + n.text, PAD, y, W - 2 * PAD, 34, {size: 25}) + 16; });
-    y += 10;
-  }
-  g.fillStyle = C.line; g.fillRect(PAD, y, W - 2 * PAD, 2); y += 38;
-  txt(`Made with Co-Coach · co-coach.uk · ${new Date().toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'})}`, PAD, y, {size: 17, color: C.soft});
-  y += PAD;
-  const out = document.createElement('canvas'); out.width = W; out.height = y;
-  out.getContext('2d').drawImage(c, 0, 0, W, y, 0, 0, W, y);
-  return out;
-}
 function openSummaryModal() {
   track('summary-opened');
   if (!PLAN || !matchFinished) return;
-  const opts = {minutes: true, notes: false};
-  const slug = x => (x || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const name = `summary-${slug(matchFixture.opponent) || 'match'}${matchFixture.date ? '-' + matchFixture.date : ''}.png`;
-  const overlay = openModal(`
-    <div class="picker-title">Post-game summary</div>
-    <div class="check-row" style="margin:2px 0;"><input type="checkbox" id="smMin" checked><label for="smMin">Include minutes &amp; positions</label></div>
-    ${matchNotes.length ? '<div class="check-row" style="margin:2px 0 8px;"><input type="checkbox" id="smNotes"><label for="smNotes">Include my match notes</label></div>' : ''}
-    <div class="config-note" style="margin-bottom:8px;">Tap and hold the image to save it, or use the buttons. It shows players' first names - share it only with your team's parents or club.</div>
-    <img id="summaryImg" alt="Post-game summary" style="width:100%; border-radius:8px; border:1px solid var(--card-line);">
-    <div class="modal-btn-row" style="margin-top:12px;"><button class="btn btn-ghost" id="smClose">Close</button><button class="btn btn-ghost" id="smDownload">Download</button><button class="btn btn-primary" id="smShare">Share / save</button></div>`, {wide: true});
-  let canvas, url;
-  const build = () => {
-    opts.minutes = overlay.querySelector('#smMin').checked; const nb = overlay.querySelector('#smNotes'); opts.notes = !!(nb && nb.checked);
-    try { canvas = renderSummaryCanvas(opts); url = canvas.toDataURL('image/png'); overlay.querySelector('#summaryImg').src = url; }
-    catch (e) { console.error(e); showAlert(`Couldn't build the image (${e.message}).`); }
-  };
-  overlay.querySelector('#smMin').addEventListener('change', build);
-  const nb = overlay.querySelector('#smNotes'); if (nb) nb.addEventListener('change', build);
-  const save = () => { const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); };
-  overlay.querySelector('#smClose').addEventListener('click', () => overlay.remove());
-  overlay.querySelector('#smDownload').addEventListener('click', save);
-  overlay.querySelector('#smShare').addEventListener('click', async () => {
-    try {
-      const f = await new Promise(res => canvas.toBlob(b => res(b ? new File([b], name, {type: 'image/png'}) : null), 'image/png'));
-      if (f && navigator.canShare && navigator.canShare({files: [f]})) { await navigator.share({files: [f], title: fixtureTitle(matchFixture, 'Match summary')}); return; }
-    } catch (e) { if (e && e.name === 'AbortError') return; }
-    save();
-  });
-  build();
+  return openImageExport({heading: 'Full-time summary', shareTitle: fixtureTitle(matchFixture, 'Match summary'),
+    fileBase: `summary-${exportSlug(matchFixture.opponent) || 'match'}${matchFixture.date ? '-' + matchFixture.date : ''}`,
+    sections: [{key: 'result', label: 'Score, goals & awards'}, {key: 'minutes', label: 'Minutes & positions'}, ...(matchNotes.length ? [{key: 'notes', label: 'My match notes', on: false}] : [])],
+    build: summaryExportSpec});
+}
+function openThreesExport(id) {
+  track('threes-image-opened');
+  const md = getThrees(id); if (!md || !md.rounds) return;
+  return openImageExport({heading: 'Export Future Fit 3v3', shareTitle: `Future Fit 3v3${md.opponent ? ' v ' + md.opponent : ''}`,
+    fileBase: `future-fit-${exportSlug(md.opponent) || '3v3'}${md.date ? '-' + md.date : ''}`,
+    sections: [{key: 'games', label: 'Games'}, {key: 'players', label: 'Games per player'}, ...((md.scoring || 'off') !== 'off' ? [{key: 'results', label: 'Results'}] : [])],
+    build: keys => threesExportSpec(getThrees(id), keys)});
+}
+function openTournamentExport(id) {
+  track('tournament-image-opened');
+  const t = getTournament(id); if (!t) return;
+  return openImageExport({heading: 'Export tournament day', shareTitle: t.name,
+    fileBase: `tournament-${exportSlug(t.name) || 'day'}${t.date ? '-' + t.date : ''}`,
+    sections: [{key: 'games', label: 'Games'}, {key: 'minutes', label: 'Minutes today'}],
+    build: keys => tournamentExportSpec(getTournament(id), keys)});
 }
 
 /* ================= MATCH STATS & PLAYER PROFILES ================= */
@@ -9149,7 +9192,7 @@ function renderTournamentHub() {
         <div style="flex:1; height:10px; border-radius:6px; background:var(--card-line); position:relative; overflow:hidden;"><div style="position:absolute; left:0; top:0; bottom:0; width:${r.played / maxM * 100}%; background:var(--good);"></div><div style="position:absolute; top:0; bottom:0; left:${r.played / maxM * 100}%; width:${r.planned / maxM * 100}%; background:var(--good); opacity:.4;"></div></div>
         <span style="width:64px; text-align:right;"><b>${tot(r)}'</b>${r.gk ? `<br><small style="color:var(--ink-soft);">${r.gk}' in goal</small>` : ''}</span></div>`).join('')}
       <div class="config-note" style="margin-top:6px;">Dark: played. Light: planned.</div></div>` : ''}
-    <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="tnDelete" style="color:var(--coral);">Delete tournament</span></div>`;
+    <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="tnExport">Export as images</span> &nbsp;·&nbsp; <span class="decision-link" id="tnDelete" style="color:var(--coral);">Delete tournament</span></div>`;
   const q = s => host.querySelector(s);
   q('#tnBack').addEventListener('click', () => { renderMatchesScreen(); showScreen('matches'); });
   q('#tnEdit').addEventListener('click', () => openTournamentSetup(t.id));
@@ -9170,6 +9213,7 @@ function renderTournamentHub() {
   host.querySelectorAll('[data-gopen]').forEach(b => b.addEventListener('click', () => { const g = getTournament(t.id).games[+b.dataset.gopen]; openMatchFromLibrary(g.matchId); }));
   host.querySelectorAll('[data-gedit]').forEach(b => b.addEventListener('click', () => openTourneyGameEdit(t.id, +b.dataset.gedit)));
   q('#tnAddKo').addEventListener('click', () => openTourneyGameEdit(t.id, null));
+  q('#tnExport').addEventListener('click', () => openTournamentExport(t.id));
   q('#tnDelete').addEventListener('click', () => confirmDeleteTournament(t.id, () => { renderMatchesScreen(); showScreen('matches'); }));
 }
 // Name a game and its opponent, or add a knockout game (gi null).
@@ -9640,7 +9684,8 @@ function renderThreesDay() {
     ${cur >= md.roundsCount ? '<div class="form-card"><b>All games played.</b></div>' : ''}
     <details class="form-card t3-ww" id="t3WW" ${threesStatsOpen ? 'open' : ''}><summary><h2 style="display:inline; margin:0;">Who's played with whom</h2></summary><div style="margin-top:10px;">${threesWithWhomHtml(md)}</div></details>
     <div class="form-card"><div class="config-note">${threesSel ? '' : 'Tap a name to swap two players or sit someone out of a game. '}${toPlace ? `${toPlace} place${toPlace === 1 ? '' : 's'} still to fill in the games to come.` : fewer.length ? `${fewer.map(p => `${esc(p.id)} plays ${p.games}`).join(', ')} of ${md.roundsCount} games; everyone else plays them all.` : `Everyone plays every game, ${md.roundsCount * md.gameLength} minutes each.`} Each player has ${minMates === maxMates ? minMates : minMates + '–' + maxMates} different teammates over the day.</div>
-      <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-ghost" id="t3Shuffle" style="flex:1;">Shuffle games to come</button><button class="btn btn-ghost" id="t3Copy" style="flex:1;">Copy for WhatsApp</button></div></div>
+      <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-ghost" id="t3Shuffle" style="flex:1;">Shuffle games to come</button><button class="btn btn-primary" id="t3Export" style="flex:1;">Export as images</button></div>
+      <div style="text-align:center; margin-top:8px;"><span class="decision-link" id="t3Copy">Copy as text</span></div></div>
     <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="t3Delete" style="color:var(--coral);">Delete this Future Fit 3v3</span></div>`;
   const q = s => host.querySelector(s);
   const replan = (m, from, to) => { planThrees(m, from, to); putThrees(m); threesSel = null; renderThreesDay(); };
@@ -9718,6 +9763,7 @@ function renderThreesDay() {
     window.__threesText = txt;
     try { navigator.clipboard.writeText(txt).then(() => { b.textContent = 'Copied'; }, () => { b.textContent = 'Copy failed'; }); } catch (er) { b.textContent = 'Copy failed'; }
   });
+  q('#t3Export').addEventListener('click', () => openThreesExport(md.id));
   q('#t3Delete').addEventListener('click', () => confirmDeleteThrees(md.id, () => { renderMatchesScreen(); showScreen('matches'); }));
 }
 

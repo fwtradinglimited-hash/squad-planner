@@ -5,7 +5,7 @@
 // VERSION must match APP_VERSION in index.html (a test checks this). Changing
 // it is what makes devices fetch the new files: the new worker downloads them
 // in the background and the app offers "Update now" (or uses them next launch).
-const VERSION = 'beta 0.23';
+const VERSION = 'beta 0.24';
 const CACHE = 'co-coach-' + VERSION.replace(/\s+/g, '-');
 const FONT_CACHE = 'co-coach-fonts';
 const APP_FILES = ['./', 'index.html', 'privacy.html', 'manifest.webmanifest',
