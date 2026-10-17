@@ -322,10 +322,11 @@
   .t3-round.t3-done { opacity: .6; }
   .t3-game { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--card-line); font-size: 14px; }
   .t3-pitch { flex: 0 0 56px; font-size: 12px; color: var(--ink-soft); font-weight: 600; }
-  .t3-who { flex: 1; line-height: 1.7; }
+  .t3-who { flex: 1; min-width: 0; line-height: 1.7; }
   .t3-name { display: inline-block; padding: 1px 7px; margin: 1px 0; border-radius: 7px; background: var(--bench-card); cursor: pointer; font-weight: 600; }
   .t3-name.sel { background: var(--amber); color: var(--amber-ink); }
   .t3-v { color: var(--ink-soft); font-size: 12.5px; }
+  .t3-note { font-size: 12px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
   .t3-clock { font-family: "Oswald", sans-serif; font-size: 22px; font-weight: 600; color: var(--turf-1); font-variant-numeric: tabular-nums; }
   .t3-clock.up { color: var(--coral); }
   .t3-who small { white-space: nowrap; }
@@ -333,6 +334,15 @@
   .t3-name.t3-back { background: none; border: 1px dashed var(--card-line); font-weight: 500; }
   .t3-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
   .t3-actions .btn { margin: 0; }
+  .t3-slot { display: inline-block; padding: 1px 8px; margin: 1px 0; border-radius: 7px; border: 1.5px dashed var(--card-line); color: var(--ink-soft); font-size: 12.5px; }
+  .t3-slot.on { border-color: var(--amber); color: var(--amber-ink); background: #FCEFD9; cursor: pointer; font-weight: 600; }
+  .t3-tools { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  .t3-tools .decision-link { font-size: 12.5px; }
+  .t3-srow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--card-line); font-size: 13px; }
+  .t3-srow > select { justify-self: start; }
+  .t3-srow .t3-sides { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+  .t3-srow .t3-sides > span { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .t3-srow select { padding: 6px; border-radius: 8px; border: 1px solid var(--card-line); background: var(--card); color: var(--ink); font-size: 13px; }
   :root[data-theme="dark"] .t3-clock, :root[data-theme="dark"] .decision-link:not(.secondary) { color: #6FD98F; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .t3-clock, :root:not([data-theme="light"]) .decision-link:not(.secondary) { color: #6FD98F; } }
   .ht-subs { text-align: left; margin: 0 0 14px; }
@@ -796,7 +806,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.20';
+const APP_VERSION = 'beta 0.21';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -9038,7 +9048,7 @@ function loadThrees() { try { const r = JSON.parse(localStorage.getItem(THREES_K
 function saveThrees(list) { try { localStorage.setItem(THREES_KEY, JSON.stringify(list)); return true; } catch (e) { storageProblem = true; return false; } }
 function getThrees(id) { return loadThrees().find(m => m.id === id) || null; }
 function putThrees(m) { const all = loadThrees(); const i = all.findIndex(x => x.id === m.id); if (i >= 0) all[i] = m; else all.push(m); saveThrees(all); }
-const THREES_ETHOS = {mixed: 'Mixed: new teammates each game', balanced: 'Balanced: mixed, with even trios', fixed: 'Fixed: the same trios all day'};
+const THREES_ETHOS = {mixed: 'Mixed: new teammates each game', balanced: 'Balanced: mixed, with even trios', fixed: 'Fixed: the same trios all day', manual: 'Pick it myself: you place every player'};
 
 // The shape of one game round. n = our players playing, m = theirs (null:
 // same as ours). Sides: {kind: 'opp'} our team v theirs; {kind: 'int', game}
@@ -9154,34 +9164,60 @@ function threesRound(players, layout, ethos, hist, rnd) {
   }
   return threesAssemble(layout, cut(best || players));
 }
-function threesAssemble(layout, sides) {
+function threesAssemble(layout, sides, pool) {
   const games = [], sat = []; let pitch = 1; const seen = new Set();
   layout.forEach((s, si) => {
-    if (s.kind === 'opp') games.push({kind: 'opp', pitch: pitch++, sides: [sides[si]]});
+    if (s.kind === 'opp') games.push({kind: 'opp', pitch: pitch++, sides: [sides[si]], cap: [s.size]});
     else if (s.kind === 'sit') sat.push(...sides[si]);
-    else if (!seen.has(s.kind + s.game)) { seen.add(s.kind + s.game); games.push({kind: s.kind, pitch: pitch++, sides: [sides[si], sides[si + 1]], ...(s.kind === 'mix' ? {theirs: [layout[si].theirs || 0, layout[si + 1].theirs || 0]} : {})}); }
+    else if (!seen.has(s.kind + s.game)) { seen.add(s.kind + s.game); const t = layout[si + 1];
+      games.push({kind: s.kind, pitch: pitch++, sides: [sides[si], sides[si + 1]], cap: [s.size, t.size], theirs: [s.theirs || 0, t.theirs || 0]}); }
   });
-  return {games, sat};
+  return {games, sat, pool: pool || []};
+}
+// A coach's own structure for a game: rows of {type: 'opp', a} (our a v them)
+// or {type: 'two', a, ta, b, tb} (a of ours + ta of theirs v b of ours + tb of
+// theirs). Anyone not placed sits out. null if it needs more players than are here.
+function threesRowsLayout(rows, n) {
+  const sides = []; let g = 0, placed = 0;
+  for (const r of rows) {
+    if (r.type === 'opp') { sides.push({kind: 'opp', size: r.a}); placed += r.a; }
+    else { const kind = (r.ta || r.tb) ? 'mix' : 'int'; sides.push({kind, game: g, size: r.a, theirs: r.ta || 0}); sides.push({kind, game: g, size: r.b, theirs: r.tb || 0}); g++; placed += r.a + r.b; }
+  }
+  if (placed > n) return null;
+  if (n > placed) sides.push({kind: 'sit', size: n - placed});
+  return sides;
+}
+function threesRoundRows(round) {
+  return round.games.map(g => g.kind === 'opp' ? {type: 'opp', a: (g.cap || [g.sides[0].length])[0]}
+    : {type: 'two', a: (g.cap || [])[0] ?? g.sides[0].length, ta: (g.theirs || [0, 0])[0] || 0, b: (g.cap || [])[1] ?? g.sides[1].length, tb: (g.theirs || [0, 0])[1] || 0});
 }
 // Who's playing in round r: here, not sat out for that game by the coach.
 function threesPlayersFor(md, r) {
   return md.players.filter(id => squad.some(p => p.id === id) && !(md.absent && md.absent[id] !== undefined && md.absent[id] <= r)
     && !((md.sitOut && md.sitOut[r]) || []).includes(id));
 }
-// (Re)plans games from `from` onward, keeping earlier games as they were.
-function planThrees(md, from) {
-  from = from || 0;
-  const rounds = (md.rounds || []).slice(0, from);
+// (Re)plans games from `from` up to (not including) `to`, keeping the others as they were.
+function planThrees(md, from, to) {
+  from = from || 0; to = to == null ? md.roundsCount : Math.min(to, md.roundsCount);
+  const old = md.rounds || [];
+  const rounds = old.slice(0, from);
   const opts = {oneSpare: md.oneSpare || 'sit', mix: md.mixSpares !== false};
-  for (let r = from; r < md.roundsCount; r++) {
+  const sigOf = layout => layout.filter(s => s.kind !== 'sit').map(s => s.kind + s.size + '/' + (s.theirs || 0)).join(',');
+  const roundSig = rd => rd.games.map(g => g.kind === 'opp' ? 'opp' + (g.cap || [g.sides[0].length])[0] + '/0' : (g.cap || [g.sides[0].length, g.sides[1].length]).map((c, i) => g.kind + c + '/' + ((g.theirs || [])[i] || 0)).join(',')).join(',');
+  for (let r = from; r < to; r++) {
     const here = threesPlayersFor(md, r);
-    const layout = threesLayout(here.length, md.theirs, opts);
+    const rows = md.layouts && md.layouts[r];
+    let layout = rows ? threesRowsLayout(rows, here.length) : null, note = null;
+    if (rows && !layout) note = "Your games for this one need more players than are here, so it's planned automatically.";
+    if (!layout) layout = threesLayout(here.length, md.theirs, opts);
     const prev = rounds[r - 1];
     const prevIds = prev ? prev.games.flatMap(g => g.sides.flat()).concat(prev.sat || []).sort().join(',') : '';
     let round;
-    if (md.ethos === 'fixed' && prev && prevIds === here.slice().sort().join(',') && (prev.sat || []).length === layout.filter(s => s.kind === 'sit').length) {
+    if (md.ethos === 'manual') {
+      round = threesAssemble(layout, layout.map(() => []), here.slice()); // the coach places everyone
+    } else if (md.ethos === 'fixed' && prev && !(prev.pool || []).length && prevIds === here.slice().sort().join(',') && sigOf(layout) === roundSig(prev) && (prev.sat || []).length === layout.filter(s => s.kind === 'sit').reduce((t, s) => t + s.size, 0)) {
       // Same groups; teams move round the pitches (carousel). A spare who sat out swaps with someone, so it isn't always the same child.
-      round = {games: prev.games.map(g => ({...g, sides: g.sides.map(s => s.slice())})), sat: (prev.sat || []).slice()};
+      round = {games: prev.games.map(g => ({...g, sides: g.sides.map(s => s.slice())})), sat: (prev.sat || []).slice(), pool: []};
       const opp = round.games.filter(g => g.kind === 'opp'); const n = opp.length;
       if (n > 1) opp.forEach((g, i) => { g.pitch = ((i + 1) % n) + 1; });
       if (round.sat.length && opp.length) { const g = opp[r % opp.length]; const k = r % g.sides[0].length; const out = round.sat[0]; round.sat[0] = g.sides[0][k]; g.sides[0][k] = out; }
@@ -9190,31 +9226,51 @@ function planThrees(md, from) {
       round = threesRound(here, layout, ethos, threesHistory(rounds), threesRng((md.seed || 1) * 7919 + r * 104729 + (md.shuffles || 0) * 31));
     }
     round.coachSat = ((md.sitOut && md.sitOut[r]) || []).slice();
+    round.custom = !!(rows && !note); if (note) round.note = note;
     rounds.push(round);
   }
+  for (let r = to; r < md.roundsCount && old[r]; r++) rounds.push(old[r]);
   md.rounds = rounds;
   return md;
 }
+// Places the players not yet placed in a game, filling the open places so
+// teammates repeat as little as possible.
+function threesFillRest(md, r) {
+  const round = md.rounds[r]; const hist = threesHistory(md.rounds.slice(0, r));
+  const open = []; round.games.forEach((g, gi) => g.sides.forEach((side, si) => { for (let k = side.length; k < ((g.cap || [])[si] ?? side.length); k++) open.push([gi, si]); }));
+  const pool = (round.pool || []).slice();
+  const rnd = threesRng((md.seed || 1) + r * 17 + (md.shuffles || 0));
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  for (const id of pool) {
+    let best = -1, bestC = Infinity;
+    open.forEach(([gi, si], k) => { if (k < 0) return; const side = round.games[gi].sides[si]; if (side.length >= ((round.games[gi].cap || [])[si] ?? 0)) return;
+      const c = side.reduce((t, p) => t + (hist.mates[pairKey(p, id)] || 0) * 10, 0) - (((round.games[gi].cap || [])[si] ?? 0) - side.length) * 0.1;
+      if (c < bestC) { bestC = c; best = k; } });
+    if (best < 0) break;
+    const [gi, si] = open[best]; round.games[gi].sides[si].push(id); round.pool = round.pool.filter(x => x !== id);
+  }
+}
 function threesSummary(md) {
-  const ids = new Set(md.rounds.flatMap(r => r.games.flatMap(g => g.sides.flat()).concat(r.sat || [], r.coachSat || [])));
+  const ids = new Set(md.rounds.flatMap(r => r.games.flatMap(g => g.sides.flat()).concat(r.sat || [], r.coachSat || [], r.pool || [])));
   const h = threesHistory(md.rounds);
   return [...ids].map(id => ({id, mates: Object.keys(h.mates).filter(k => k.split('|').includes(id) && h.mates[k] > 0).length,
     games: md.rounds.filter(r => r.games.some(g => g.sides.flat().includes(id))).length}));
 }
-function threesGameLine(g, md, nameHtml) {
+function threesGameLine(g, md, nameHtml, slotHtml) {
   const them = esc(md.opponent || 'them');
-  const names = s => s.map(nameHtml).join(' ');
-  if (g.kind === 'opp') return `${names(g.sides[0])} <span class="t3-v">v ${them}</span>${g.sides[0].length > 3 ? ' <small>(4 v 3)</small>' : ''}`;
+  const cap = i => (g.cap || [])[i] ?? g.sides[i].length;
+  const names = (s, i) => s.map(nameHtml).join(' ') + (slotHtml ? Array.from({length: Math.max(0, cap(i) - s.length)}, () => slotHtml(i)).join(' ') : '');
+  if (g.kind === 'opp') return `${names(g.sides[0], 0)} <span class="t3-v">v ${them}</span>${cap(0) !== 3 ? ` <small>(${cap(0)} v 3)</small>` : ''}`;
   const th = Array.isArray(g.theirs) ? g.theirs : [0, g.theirs || 0];
-  const side = i => [names(g.sides[i]), th[i] ? `<span class="t3-them">${g.sides[i].length ? '+ ' : ''}${th[i]} of ${them}</span>` : ''].filter(Boolean).join(' ');
-  return `${side(0)} <span class="t3-v">v</span> ${side(1)} <small>(${g.sides[0].length + th[0]} v ${g.sides[1].length + th[1]})</small>`;
+  const side = i => [names(g.sides[i], i), th[i] ? `<span class="t3-them">${cap(i) ? '+ ' : ''}${th[i]} of ${them}</span>` : ''].filter(Boolean).join(' ');
+  return `${side(0)} <span class="t3-v">v</span> ${side(1)} <small>(${cap(0) + th[0]} v ${cap(1) + th[1]})</small>`;
 }
 function threesText(md) {
   const them = md.opponent || 'them';
   return [`3v3${md.opponent ? ' v ' + md.opponent : ''}${md.date ? ' · ' + fmtFixtureDate(md.date) : ''}`, ...md.rounds.map((r, ri) => {
     const side = (g, i) => { const th = Array.isArray(g.theirs) ? g.theirs[i] : (i ? g.theirs || 0 : 0); return [g.sides[i].join(', '), th ? `${th} of ${them}` : ''].filter(Boolean).join(' + '); };
     const lines = r.games.map(g => `Pitch ${g.pitch}: ` + (g.kind === 'opp' ? `${g.sides[0].join(', ')} v ${them}` : `${side(g, 0)} v ${side(g, 1)}`));
-    const out = [...(r.sat || []), ...(r.coachSat || [])];
+    const out = [...(r.sat || []), ...(r.coachSat || []), ...(r.pool || [])];
     if (out.length) lines.push(`Sitting out: ${out.join(', ')}`);
     return `\nGame ${ri + 1} (${ri * md.gameLength}–${(ri + 1) * md.gameLength}')\n` + lines.join('\n');
   })].join('\n');
@@ -9275,6 +9331,7 @@ function renderThreesDay() {
   const per = threesSummary(md);
   const minMates = per.length ? Math.min(...per.map(p => p.mates)) : 0, maxMates = per.length ? Math.max(...per.map(p => p.mates)) : 0;
   const fewer = per.filter(p => here.includes(p.id) && p.games < md.roundsCount);
+  const toPlace = md.rounds.slice(cur).reduce((t, r) => t + (r.pool || []).length, 0);
   const running = md.roundStartTs && cur < md.roundsCount;
   const nameHtml = ri => id => `<span class="t3-name ${threesSel && threesSel.r === ri && threesSel.id === id ? 'sel' : ''}" data-r="${ri}" data-id="${esc(id)}">${esc(id)}</span>`;
   host.innerHTML = `<div class="plan-topbar" style="margin-bottom:8px;"><span class="plan-back" id="t3Back">‹ Matches</span></div>
@@ -9291,17 +9348,20 @@ function renderThreesDay() {
       return `<div class="form-card t3-round ${now ? 't3-now' : ''} ${done ? 't3-done' : ''}" data-round="${ri}">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><h2 style="margin:0; flex:1;">Game ${ri + 1} <span style="font-weight:400; font-size:14px; color:var(--ink-soft);">${ri * md.gameLength}–${(ri + 1) * md.gameLength}'</span></h2>
           ${now ? (running ? `<span class="t3-clock" id="t3Clock"></span>` : `<button class="btn btn-primary" id="t3Start" style="margin:0; width:auto; padding:8px 20px;">Start</button>`) : done ? '<span class="badge">PLAYED</span>' : ''}</div>
-        ${r.games.map(g => `<div class="t3-game"><span class="t3-pitch">Pitch ${g.pitch}</span><span class="t3-who">${threesGameLine(g, md, nameHtml(ri))}</span></div>`).join('')}
+        ${r.note ? `<div class="config-note" style="margin-bottom:4px;">${esc(r.note)}</div>` : ''}
+        ${r.games.map((g, gi) => `<div class="t3-game"><span class="t3-pitch">Pitch ${g.pitch}</span><span class="t3-who">${threesGameLine(g, md, nameHtml(ri), editable ? i => `<span class="t3-slot ${sel ? 'on' : ''}" data-add="${ri}:${gi}:${i}">${sel ? '＋ ' + esc(sel) : 'empty'}</span>` : null)}</span></div>`).join('')}
+        ${(r.pool || []).length ? `<div class="t3-game"><span class="t3-pitch">To place</span><span class="t3-who">${r.pool.map(nameHtml(ri)).join(' ')}<div class="t3-note">Tap a name, then an empty place. Anyone not placed sits this game out.</div></span></div>` : ''}
         ${out.length ? `<div class="t3-game"><span class="t3-pitch">Sitting out</span><span class="t3-who">${(r.sat || []).map(id => `${nameHtml(ri)(id)} <small class="t3-v">(spare, taking turns)</small>`).join(' ')} ${(r.coachSat || []).map(id => `<span class="t3-name t3-back" data-back="${esc(id)}" data-r="${ri}">${esc(id)} ↩</span>`).join(' ')}</span></div>` : ''}
-        ${sel && editable ? `<div class="t3-actions"><span><b>${esc(sel)}</b>: tap another name to swap, or</span><button class="btn btn-ghost" id="t3SitBtn" style="width:auto; padding:8px 12px; font-size:13px;">Sit out this game</button></div>` : ''}
+        ${sel && editable ? `<div class="t3-actions"><span><b>${esc(sel)}</b>: tap another name to swap${r.games.some(g => g.sides.some((x, i) => x.length < ((g.cap || [])[i] ?? x.length))) ? ', or an empty place to move them' : ''}, or</span><button class="btn btn-ghost" id="t3SitBtn" style="width:auto; padding:8px 12px; font-size:13px;">Sit out this game</button></div>` : ''}
+        ${editable ? `<div class="t3-tools"><span class="decision-link" data-struct="${ri}">Change the games${r.custom ? ' (your set-up)' : ''}</span>${(r.pool || []).length ? `<span class="decision-link" data-fill="${ri}">Fill the rest for me</span>` : ''}</div>` : ''}
         ${editable && (r.sat || []).length === 1 && (md.oneSpare || 'sit') === 'sit' && r.games.some(g => g.kind === 'opp') ? `<div class="config-note" style="margin-top:6px;">One spare player. <span class="decision-link" data-four="1">Make it 4 v 3 instead</span></div>` : ''}
         ${now && running ? `<button class="btn btn-primary" id="t3Next" style="margin-top:8px;">${ri + 1 < md.roundsCount ? 'Next game' : 'Finish'}</button>` : ''}</div>`; }).join('')}
     ${cur >= md.roundsCount ? '<div class="form-card"><b>All games played.</b></div>' : ''}
-    <div class="form-card"><div class="config-note">${threesSel ? '' : 'Tap a name to swap two players or sit someone out of a game. '}${fewer.length ? `${fewer.map(p => `${esc(p.id)} plays ${p.games}`).join(', ')} of ${md.roundsCount} games; everyone else plays them all.` : `Everyone plays every game, ${md.roundsCount * md.gameLength} minutes each.`} Each player has ${minMates === maxMates ? minMates : minMates + '–' + maxMates} different teammates over the day.</div>
+    <div class="form-card"><div class="config-note">${threesSel ? '' : 'Tap a name to swap two players or sit someone out of a game. '}${toPlace ? `${toPlace} place${toPlace === 1 ? '' : 's'} still to fill in the games to come.` : fewer.length ? `${fewer.map(p => `${esc(p.id)} plays ${p.games}`).join(', ')} of ${md.roundsCount} games; everyone else plays them all.` : `Everyone plays every game, ${md.roundsCount * md.gameLength} minutes each.`} Each player has ${minMates === maxMates ? minMates : minMates + '–' + maxMates} different teammates over the day.</div>
       <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-ghost" id="t3Shuffle" style="flex:1;">Shuffle games to come</button><button class="btn btn-ghost" id="t3Copy" style="flex:1;">Copy for WhatsApp</button></div></div>
     <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="t3Delete" style="color:var(--coral);">Delete matchday</span></div>`;
   const q = s => host.querySelector(s);
-  const replan = (m, from) => { planThrees(m, from); putThrees(m); threesSel = null; renderThreesDay(); };
+  const replan = (m, from, to) => { planThrees(m, from, to); putThrees(m); threesSel = null; renderThreesDay(); };
   q('#t3Back').addEventListener('click', () => { clearInterval(threesTicker); renderMatchesScreen(); showScreen('matches'); });
   q('#t3Edit').addEventListener('click', () => openThreesSetup(md.id));
   host.querySelectorAll('[data-t3p]').forEach(ch => ch.addEventListener('click', () => {
@@ -9319,19 +9379,34 @@ function renderThreesDay() {
     const m = getThrees(md.id); const round = m.rounds[r];
     const swapIn = arr => { for (let k = 0; k < arr.length; k++) { if (arr[k] === id) arr[k] = threesSel.id; else if (arr[k] === threesSel.id) arr[k] = id; } };
     for (const g of round.games) for (const s of g.sides) swapIn(s);
-    swapIn(round.sat || []);
+    swapIn(round.sat || []); swapIn(round.pool || []); swapIn(round.coachSat || []);
     threesSel = null; putThrees(m); renderThreesDay();
   }));
+  // Takes a player out of wherever they are in a game (a team, the list to place, sitting out).
+  const lift = (round, id) => { for (const g of round.games) for (const sd of g.sides) { const k = sd.indexOf(id); if (k >= 0) sd.splice(k, 1); } ['pool', 'sat', 'coachSat'].forEach(f => { round[f] = (round[f] || []).filter(x => x !== id); }); };
+  const handPicked = round => md.ethos === 'manual' || (round.pool || []).length > 0;
   if (q('#t3SitBtn')) q('#t3SitBtn').addEventListener('click', () => {
-    const m = getThrees(md.id); const r = threesSel.r; m.sitOut = m.sitOut || {};
-    m.sitOut[r] = [...new Set([...(m.sitOut[r] || []), threesSel.id])];
-    replan(m, r);
+    const m = getThrees(md.id); const r = threesSel.r; const id = threesSel.id; m.sitOut = m.sitOut || {};
+    m.sitOut[r] = [...new Set([...(m.sitOut[r] || []), id])];
+    if (handPicked(m.rounds[r])) { lift(m.rounds[r], id); m.rounds[r].coachSat.push(id); putThrees(m); threesSel = null; renderThreesDay(); }
+    else replan(m, r, r + 1);
   });
   host.querySelectorAll('[data-back]').forEach(el => el.addEventListener('click', () => {
     const r = +el.dataset.r; if (r < editFrom) return;
-    const m = getThrees(md.id); m.sitOut[r] = (m.sitOut[r] || []).filter(x => x !== el.dataset.back);
-    replan(m, r);
+    const m = getThrees(md.id); const id = el.dataset.back; m.sitOut[r] = (m.sitOut[r] || []).filter(x => x !== id);
+    if (handPicked(m.rounds[r])) { lift(m.rounds[r], id); m.rounds[r].pool.push(id); putThrees(m); threesSel = null; renderThreesDay(); }
+    else replan(m, r, r + 1);
   }));
+  host.querySelectorAll('[data-add]').forEach(el => el.addEventListener('click', () => {
+    if (!threesSel) return;
+    const [r, gi, si] = el.dataset.add.split(':').map(Number); if (r !== threesSel.r || r < editFrom) return;
+    const m = getThrees(md.id); const round = m.rounds[r]; const id = threesSel.id;
+    lift(round, id); round.games[gi].sides[si].push(id);
+    if (m.sitOut && m.sitOut[r]) m.sitOut[r] = m.sitOut[r].filter(x => x !== id);
+    threesSel = null; putThrees(m); renderThreesDay();
+  }));
+  host.querySelectorAll('[data-fill]').forEach(el => el.addEventListener('click', () => { const m = getThrees(md.id); threesFillRest(m, +el.dataset.fill); putThrees(m); threesSel = null; renderThreesDay(); }));
+  host.querySelectorAll('[data-struct]').forEach(el => el.addEventListener('click', () => openThreesStructure(md.id, +el.dataset.struct)));
   host.querySelectorAll('[data-four]').forEach(el => el.addEventListener('click', () => { const m = getThrees(md.id); m.oneSpare = 'four'; replan(m, threesEditableFrom(m)); }));
   if (q('#t3Start')) q('#t3Start').addEventListener('click', () => { const m = getThrees(md.id); m.roundStartTs = Date.now(); putThrees(m); threesSel = null; renderThreesDay(); });
   if (q('#t3Next')) q('#t3Next').addEventListener('click', () => { const m = getThrees(md.id); m.current = (m.current || 0) + 1; m.roundStartTs = null; putThrees(m); renderThreesDay(); });
@@ -9353,6 +9428,56 @@ function renderThreesDay() {
   q('#t3Delete').addEventListener('click', () => showConfirm('Delete this 3v3 matchday?', () => { saveThrees(loadThrees().filter(x => x.id !== md.id)); renderMatchesScreen(); showScreen('matches'); }, 'Delete'));
 }
 
+
+// The coach's own games for one game round: pitches, and how many players on each side.
+function openThreesStructure(id, r) {
+  const md = getThrees(id); const round = md.rounds[r];
+  const here = threesPlayersFor(md, r).length;
+  let rows = JSON.parse(JSON.stringify((md.layouts && md.layouts[r]) || threesRoundRows(round)));
+  const them = esc(md.opponent || 'them');
+  const num = (k, i, v, max) => `<select data-row="${i}" data-k="${k}">${Array.from({length: max + 1}, (_, n) => `<option ${n === (v || 0) ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+  const overlay = openModal('<div id="t3sBody"></div>', {wide: true});
+  const draw = () => {
+    const placed = rows.reduce((t, x) => t + (x.type === 'opp' ? x.a : x.a + x.b), 0);
+    overlay.querySelector('#t3sBody').innerHTML = `<div class="picker-title">Game ${r + 1}: your set-up</div>
+      <div class="config-note" style="margin-bottom:10px;">Set the pitches and how many play on each side. Co-Coach fills in the names${md.ethos === 'manual' ? ' (or leaves them for you to place)' : ''}, and you can still swap anyone.</div>
+      ${rows.map((x, i) => `<div class="t3-srow"><b>Pitch ${i + 1}</b>
+        <select data-row="${i}" data-k="type"><option value="opp" ${x.type === 'opp' ? 'selected' : ''}>Ours v ${them}</option><option value="two" ${x.type === 'two' ? 'selected' : ''}>Two sides</option></select>
+        <span class="wiz-rm" data-del="${i}" aria-label="Remove pitch">✕</span>
+        <div class="t3-sides">${x.type === 'opp' ? `<span>${num('a', i, x.a, 6)} of ours v ${them}</span>`
+          : `<span>${num('a', i, x.a, 6)} ours + ${num('ta', i, x.ta, 6)} theirs</span><span class="t3-v">v</span><span>${num('b', i, x.b, 6)} ours + ${num('tb', i, x.tb, 6)} theirs</span>`}</div></div>`).join('')}
+      <button class="btn btn-ghost" id="t3sAdd">+ Add a pitch</button>
+      <div class="config-note" id="t3sCount" style="margin:8px 0;">${placed} of our ${here} players placed${here > placed ? ` · ${here - placed} sit${here - placed === 1 ? 's' : ''} out` : ''}${placed > here ? ` · <b style="color:var(--coral);">that's ${placed - here} more than are here</b>` : ''}</div>
+      ${r + 1 < md.roundsCount ? `<div class="radio-col" style="margin-bottom:10px;"><label class="check-row"><input type="radio" name="t3sScope" value="one" checked><span>Just game ${r + 1}</span></label><label class="check-row"><input type="radio" name="t3sScope" value="all"><span>Game ${r + 1} and all the games after it</span></label></div>` : ''}
+      <div class="warn-box" id="t3sErr" style="display:none;"></div>
+      <div class="modal-btn-row">${md.layouts && md.layouts[r] ? '<button class="btn btn-ghost" id="t3sAuto">Back to automatic</button>' : ''}<button class="btn btn-ghost" id="t3sCancel">Cancel</button><button class="btn btn-primary" id="t3sSave">Use this</button></div>`;
+    const q = s => overlay.querySelector(s);
+    overlay.querySelectorAll('[data-row]').forEach(el => el.addEventListener('change', () => {
+      const x = rows[+el.dataset.row];
+      if (el.dataset.k === 'type') { if (el.value === 'opp') rows[+el.dataset.row] = {type: 'opp', a: x.a || 3}; else rows[+el.dataset.row] = {type: 'two', a: x.a || 1, ta: 0, b: 1, tb: 0}; }
+      else x[el.dataset.k] = +el.value;
+      draw();
+    }));
+    overlay.querySelectorAll('[data-del]').forEach(el => el.addEventListener('click', () => { rows.splice(+el.dataset.del, 1); draw(); }));
+    q('#t3sAdd').addEventListener('click', () => { rows.push({type: 'two', a: 1, ta: 0, b: 1, tb: 0}); draw(); });
+    q('#t3sCancel').addEventListener('click', () => overlay.remove());
+    const scope = () => { const el = overlay.querySelector('[name="t3sScope"]:checked'); return el && el.value === 'all' ? md.roundsCount : r + 1; };
+    if (q('#t3sAuto')) q('#t3sAuto').addEventListener('click', () => {
+      const m = getThrees(id); const to = scope(); for (let k = r; k < to; k++) delete m.layouts[k];
+      planThrees(m, r, to); putThrees(m); overlay.remove(); threesSel = null; renderThreesDay();
+    });
+    q('#t3sSave').addEventListener('click', () => {
+      const err = t => { q('#t3sErr').style.display = 'block'; q('#t3sErr').textContent = t; };
+      if (!rows.length) return err('Add at least one pitch.');
+      if (rows.some(x => x.type === 'opp' ? x.a < 1 : (x.a + x.ta < 1 || x.b + x.tb < 1 || x.a + x.b < 1))) return err('Every side needs at least one player, and every pitch at least one of ours.');
+      if (placed > here) return err(`That places ${placed} of ours, but only ${here} are here.`);
+      const m = getThrees(id); m.layouts = m.layouts || {}; const to = scope();
+      for (let k = r; k < to; k++) m.layouts[k] = JSON.parse(JSON.stringify(rows));
+      planThrees(m, r, to); putThrees(m); overlay.remove(); threesSel = null; renderThreesDay();
+    });
+  };
+  draw();
+}
 /* ================= USAGE STATS (opt-in) =================
  * Off unless the coach turns it on. When on, the app counts which features get
  * used (e.g. "Match kicked off", "Why? explanation opened") through GoatCounter,
