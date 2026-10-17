@@ -796,7 +796,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.18';
+const APP_VERSION = 'beta 0.19';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -9049,29 +9049,30 @@ function threesLayout(n, m, opts) {
   opts = opts || {};
   const theirs = m == null ? n : m;
   const vsTeams = Math.min(Math.floor(n / 3), Math.floor(theirs / 3));
-  let spare = n - vsTeams * 3;
-  const theirSpare = m == null ? 0 : theirs - vsTeams * 3;
+  const spare = n - vsTeams * 3;
+  const theirSpare = m == null || opts.mix === false ? 0 : theirs - vsTeams * 3;
   const sides = [];
   for (let i = 0; i < vsTeams; i++) sides.push({kind: 'opp', size: 3});
-  let game = 0;
-  // Spares from both clubs make one game together: all of theirs on one side.
-  if (opts.mix !== false && theirSpare > 0 && spare > 0) {
-    const total = spare + theirSpare, per = total / 2;
-    if (total % 2 === 0 && per <= 3 && theirSpare <= per) {
-      sides.push({kind: 'mix', game, size: per, theirs: 0});
-      sides.push({kind: 'mix', game, size: per - theirSpare, theirs: theirSpare});
-      game++; spare -= total - theirSpare;
-    }
+  if (!spare) return sides;
+  // Everyone plays: all the spare players (ours, and theirs if combining) make
+  // up extra games, each as even as possible and no bigger than 3 a side.
+  const pool = spare + theirSpare;
+  if (pool === 1) {
+    if (vsTeams > 0 && opts.oneSpare === 'four') sides[0].size = 4; // 4 v 3, if the coach allows it
+    else sides.push({kind: 'sit', size: 1});
+    return sides;
   }
-  const internal = (a, b) => { sides.push({kind: 'int', game, size: a}); sides.push({kind: 'int', game, size: b}); game++; };
-  if (spare % 2 === 1) {
-    if (spare >= 5) { internal(3, 2); spare -= 5; }
-    else if (spare === 3) { internal(2, 1); spare -= 3; }
-    else if (vsTeams > 0 && opts.oneSpare === 'four') { sides[0].size = 4; spare -= 1; } // 4 v 3, if the coach allows it
-    else { sides.push({kind: 'sit', size: 1}); spare -= 1; }
+  const nGames = Math.ceil(pool / 6), base = Math.floor(pool / nGames), extra = pool % nGames;
+  let theirsLeft = theirSpare;
+  for (let g = 0; g < nGames; g++) {
+    const k = base + (g < extra ? 1 : 0), a = Math.ceil(k / 2), b = Math.floor(k / 2);
+    // Their players go on the smaller side first, so neither side is all one club unless it has to be.
+    const tb = Math.min(theirsLeft, b); theirsLeft -= tb;
+    const ta = Math.min(theirsLeft, a); theirsLeft -= ta;
+    const kind = ta + tb > 0 ? 'mix' : 'int';
+    sides.push({kind, game: g, size: a - ta, theirs: ta});
+    sides.push({kind, game: g, size: b - tb, theirs: tb});
   }
-  while (spare >= 6) { internal(3, 3); spare -= 6; }
-  if (spare === 4) internal(2, 2); else if (spare === 2) internal(1, 1);
   return sides;
 }
 function threesRng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 100000) / 100000; }; }
@@ -9085,7 +9086,8 @@ function threesHistory(rounds) {
       gm.sides.forEach(side => { for (let i = 0; i < side.length; i++) for (let j = i + 1; j < side.length; j++) mates[pairKey(side[i], side[j])] = (mates[pairKey(side[i], side[j])] || 0) + 1; });
       if (gm.kind === 'int' || gm.kind === 'mix') {
         for (const a of gm.sides[0]) for (const b of gm.sides[1]) opps[pairKey(a, b)] = (opps[pairKey(a, b)] || 0) + 1;
-        const size = Math.max(gm.sides[0].length, gm.sides[1].length + (gm.theirs || 0));
+        const th = Array.isArray(gm.theirs) ? gm.theirs : [0, gm.theirs || 0];
+        const size = Math.max(gm.sides[0].length + th[0], gm.sides[1].length + th[1]);
         if (size < 3) gm.sides.flat().forEach(p => { small[p] = (small[p] || 0) + 1; });
       }
       if (gm.kind === 'opp' && gm.sides[0].length > 3) gm.sides[0].forEach(p => { big[p] = (big[p] || 0) + 1; });
@@ -9145,7 +9147,7 @@ function threesAssemble(layout, sides) {
   layout.forEach((s, si) => {
     if (s.kind === 'opp') games.push({kind: 'opp', pitch: pitch++, sides: [sides[si]]});
     else if (s.kind === 'sit') sat.push(...sides[si]);
-    else if (!seen.has(s.kind + s.game)) { seen.add(s.kind + s.game); games.push({kind: s.kind, pitch: pitch++, sides: [sides[si], sides[si + 1]], ...(s.kind === 'mix' ? {theirs: layout[si + 1].theirs} : {})}); }
+    else if (!seen.has(s.kind + s.game)) { seen.add(s.kind + s.game); games.push({kind: s.kind, pitch: pitch++, sides: [sides[si], sides[si + 1]], ...(s.kind === 'mix' ? {theirs: [layout[si].theirs || 0, layout[si + 1].theirs || 0]} : {})}); }
   });
   return {games, sat};
 }
@@ -9191,13 +9193,15 @@ function threesGameLine(g, md, nameHtml) {
   const them = esc(md.opponent || 'them');
   const names = s => s.map(nameHtml).join(' ');
   if (g.kind === 'opp') return `${names(g.sides[0])} <span class="t3-v">v ${them}</span>${g.sides[0].length > 3 ? ' <small>(4 v 3)</small>' : ''}`;
-  const b = names(g.sides[1]) + (g.theirs ? ` <span class="t3-them">+ ${g.theirs} of ${them}</span>` : '');
-  return `${names(g.sides[0])} <span class="t3-v">v</span> ${b} <small>(${g.sides[0].length} v ${g.sides[1].length + (g.theirs || 0)})</small>`;
+  const th = Array.isArray(g.theirs) ? g.theirs : [0, g.theirs || 0];
+  const side = i => [names(g.sides[i]), th[i] ? `<span class="t3-them">${g.sides[i].length ? '+ ' : ''}${th[i]} of ${them}</span>` : ''].filter(Boolean).join(' ');
+  return `${side(0)} <span class="t3-v">v</span> ${side(1)} <small>(${g.sides[0].length + th[0]} v ${g.sides[1].length + th[1]})</small>`;
 }
 function threesText(md) {
   const them = md.opponent || 'them';
   return [`3v3${md.opponent ? ' v ' + md.opponent : ''}${md.date ? ' · ' + fmtFixtureDate(md.date) : ''}`, ...md.rounds.map((r, ri) => {
-    const lines = r.games.map(g => `Pitch ${g.pitch}: ` + (g.kind === 'opp' ? `${g.sides[0].join(', ')} v ${them}` : `${g.sides[0].join(', ')} v ${g.sides[1].join(', ')}${g.theirs ? ` + ${g.theirs} of ${them}` : ''}`));
+    const side = (g, i) => { const th = Array.isArray(g.theirs) ? g.theirs[i] : (i ? g.theirs || 0 : 0); return [g.sides[i].join(', '), th ? `${th} of ${them}` : ''].filter(Boolean).join(' + '); };
+    const lines = r.games.map(g => `Pitch ${g.pitch}: ` + (g.kind === 'opp' ? `${g.sides[0].join(', ')} v ${them}` : `${side(g, 0)} v ${side(g, 1)}`));
     const out = [...(r.sat || []), ...(r.coachSat || [])];
     if (out.length) lines.push(`Sitting out: ${out.join(', ')}`);
     return `\nGame ${ri + 1} (${ri * md.gameLength}–${(ri + 1) * md.gameLength}')\n` + lines.join('\n');
@@ -9216,12 +9220,12 @@ function openThreesSetup(existingId) {
     <div class="config-note" id="t3Total" style="margin:-4px 0 10px;"></div>
     <div class="field"><label for="t3Theirs">How many players they bring <span style="font-weight:400; color:var(--ink-soft);">(optional)</span></label>
       <select id="t3Theirs"><option value="">Not sure (same as us)</option>${Array.from({length: 18}, (_, i) => i + 1).map(n => `<option ${ex && ex.theirs === n ? 'selected' : ''}>${n}</option>`).join('')}</select>
-      <div class="config-note">Our trios play theirs. Spare players play each other: 1v1, 2v2 or 3v2.</div></div>
-    <div class="field"><label for="t3One">If one player is spare</label><select id="t3One">
+      <div class="config-note">Our trios play theirs. Everyone else plays too: spare players from both clubs make up extra games, as even as possible (8 v 7 gives a 2v1, 9 v 7 a 2v2).</div></div>
+    <div class="field"><label for="t3One">If just one player is left over</label><select id="t3One">
       <option value="sit" ${!ex || (ex.oneSpare || 'sit') === 'sit' ? 'selected' : ''}>They sit out, taking turns</option>
       <option value="four" ${ex && ex.oneSpare === 'four' ? 'selected' : ''}>They join a trio to make 4 v 3</option></select>
       <div class="config-note">Check your league allows 4 v 3 before choosing it.</div></div>
-    <div class="check-row" style="margin:0 0 12px; align-items:flex-start;"><input type="checkbox" id="t3Mix" ${!ex || ex.mixSpares !== false ? 'checked' : ''} style="margin-top:3px;"><label for="t3Mix" style="font-size:13px; line-height:1.4;">When both clubs have spare players, combine them into one game (e.g. our 3 and their 1 make a 2v2)</label></div>
+    <div class="check-row" style="margin:0 0 12px; align-items:flex-start;"><input type="checkbox" id="t3Mix" ${!ex || ex.mixSpares !== false ? 'checked' : ''} style="margin-top:3px;"><label for="t3Mix" style="font-size:13px; line-height:1.4;">Include their spare players in the extra games (untick to keep the extra games to our players only)</label></div>
     <div class="field"><label>Who plays with whom</label><div class="radio-col">
       ${Object.entries(THREES_ETHOS).map(([k, v]) => `<label class="check-row"><input type="radio" name="t3Ethos" value="${k}" ${(ex ? ex.ethos : 'mixed') === k ? 'checked' : ''}><span>${esc(v)}${k === 'balanced' && !squadHasLevels(squad) ? ' <small style="color:var(--ink-soft);">(set private levels on players for this)</small>' : ''}</span></label>`).join('')}
     </div></div>

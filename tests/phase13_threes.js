@@ -12,7 +12,7 @@ const { launch, openPage, ok, summary } = require('./_harness');
   let s = await page.evaluate(() => {
     const desc = l => l.map(x => x.kind === 'opp' ? `T${x.size}` : x.kind === 'sit' ? 'S' : x.kind === 'mix' ? `m${x.size}${x.theirs ? '+' + x.theirs : ''}` : `i${x.size}`).join(' ');
     return { e86: desc(threesLayout(8, 6)), e9: desc(threesLayout(9, null)), e10: desc(threesLayout(10, null)), e10four: desc(threesLayout(10, null, {oneSpare: 'four'})), e7: desc(threesLayout(7, 6)),
-      e12v6: desc(threesLayout(12, 6)), e5: desc(threesLayout(5, 0)), e97: desc(threesLayout(9, 7)), e97nomix: desc(threesLayout(9, 7, {mix: false})), e76: desc(threesLayout(7, 7)) };
+      e12v6: desc(threesLayout(12, 6)), e5: desc(threesLayout(5, 0)), e97: desc(threesLayout(9, 7)), e97nomix: desc(threesLayout(9, 7, {mix: false})), e76: desc(threesLayout(7, 7)), e87: desc(threesLayout(8, 7)), e1310: desc(threesLayout(13, 6)) };
   });
   ok(s.e86 === 'T3 T3 i1 i1', '8 of ours v 6 of theirs: two 3v3s, and our other two play 1v1', s.e86);
   ok(s.e9 === 'T3 T3 T3', '9 v 9: three trios', s.e9);
@@ -22,6 +22,8 @@ const { launch, openPage, ok, summary } = require('./_harness');
   ok(s.e97 === 'T3 T3 m2 m1+1', '9 v 7: two 3v3s, and our 3 spares with their 1 spare make a 2v2', s.e97);
   ok(s.e97nomix === 'T3 T3 i2 i1', '...or, without combining, our 3 spares play 2v1', s.e97nomix);
   ok(s.e76 === 'T3 T3 m1 m0+1', '7 v 7: the spare from each club play 1v1', s.e76);
+  ok(s.e87 === 'T3 T3 m2 m0+1', '8 v 7: our two spares and their one make a 2v1, so everyone plays', s.e87);
+  ok(s.e1310 === 'T3 T3 i2 i2 i2 i1', '13 v 6: our 7 spares make a 2v2 and a 2v1 (never more than 3 a side)', s.e1310);
   ok(s.e12v6 === 'T3 T3 i3 i3', '12 of ours v 6 of theirs: two trios v them, and a 3v3 among ours', s.e12v6);
   ok(s.e5 === 'i3 i2', 'no opposition: our own 3v2', s.e5);
 
