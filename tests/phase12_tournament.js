@@ -17,7 +17,7 @@ const { launch, openPage, ok, summary } = require('./_harness');
   await page.click('[data-tab="matches"]');
   ok(await page.locator('#newTourneyBtn').count() === 1 && await page.locator('#newThreesBtn').count() === 1, 'Matches offers a tournament and a 3v3 matchday alongside a normal fixture');
   await page.click('#newTourneyBtn');
-  await page.fill('#tnName', 'Spring Cup'); await page.selectOption('#tnPlayers', '7'); await page.selectOption('#tnLen', '12'); await page.selectOption('#tnGames', '4');
+  await page.fill('#tnName', 'Spring Cup'); await page.selectOption('#tnPlayers', '7'); await page.fill('#tnLen', '12'); await page.selectOption('#tnGames', '4');
   await page.fill('[data-opp="0"]', 'Hawks'); await page.fill('[data-opp="1"]', 'Rovers');
   let s = await page.evaluate(() => ({ fair: document.querySelector('[name="tnFair"]:checked').value, keep: document.querySelector('[name="tnKeep"]:checked').value }));
   ok(s.fair === 'day' && s.keep === 'day', 'by default playing time evens out over the whole day and keepers take turns', s);
@@ -25,6 +25,9 @@ const { launch, openPage, ok, summary } = require('./_harness');
   s = await page.evaluate(() => ({ screen: document.querySelector('.screen.active').id, games: [...document.querySelectorAll('#tourneyBody [data-game] .mc-title')].map(e => e.textContent) }));
   ok(s.screen === 'screen-tournament' && s.games.length === 4 && /vs Hawks/.test(s.games[0]), 'the tournament opens with its four games', s.games);
 
+  console.log('Any length, any number of periods');
+  s = await page.evaluate(() => { const t = loadTournaments()[0]; return {d: t.format.duration}; });
+  ok(s.d === 12, 'game length is typed in, so any length works');
   console.log('Planning the day');
   await page.click('#tnPlanAll'); await waitPlanned();
   s = await page.evaluate(() => {
@@ -105,6 +108,17 @@ const { launch, openPage, ok, summary } = require('./_harness');
   await page.click('#tnDelete'); await page.click('#modalConfirm');
   s = await page.evaluate(() => ({ t: loadTournaments().length, lib: loadMatchLibrary().map(r => r.status) }));
   ok(s.t === 0 && s.lib.length === 1 && s.lib[0] === 'finished', 'deleting the tournament removes games not played; the played game stays in the history', s);
+
+  console.log('Long games, more periods');
+  await page.click('#newTourneyBtn');
+  await page.fill('#tnName', 'Summer Festival'); await page.fill('#tnLen', '40'); await page.selectOption('#tnHalves', '4'); await page.selectOption('#tnGames', '1');
+  await page.click('#tnSave');
+  await page.click('[data-gplan="0"]'); await waitPlanned();
+  s = await page.evaluate(() => { const t = loadTournaments().find(x => x.name === 'Summer Festival'); const r = loadMatchLibrary().find(x => x.id === t.games[0].matchId); return { fmt: r && r.format, label: tourneyFormatLabel(t.format) }; });
+  ok(s.fmt === "7v7 · 40' · 4 periods" && /4 × 10'/.test(s.label), 'a 40-minute game in four quarters plans fine (no 30-minute or two-period limit)', s);
+  await page.click('#tnEdit'); await page.fill('#tnLen', '6'); await page.selectOption('#tnHalves', '4'); await page.click('#tnSave');
+  ok(/too short for 4 periods/.test(await page.textContent('#tnErr')), 'a game too short for its periods is caught');
+  await page.click('#tnCancel');
 
   summary('phase12_tournament', errors);
   await browser.close();

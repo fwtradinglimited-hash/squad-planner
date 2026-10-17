@@ -329,6 +329,10 @@
   .t3-clock { font-family: "Oswald", sans-serif; font-size: 22px; font-weight: 600; color: var(--turf-1); font-variant-numeric: tabular-nums; }
   .t3-clock.up { color: var(--coral); }
   .t3-who small { white-space: nowrap; }
+  .t3-them { font-size: 12.5px; color: var(--ink-soft); font-style: italic; white-space: nowrap; }
+  .t3-name.t3-back { background: none; border: 1px dashed var(--card-line); font-weight: 500; }
+  .t3-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
+  .t3-actions .btn { margin: 0; }
   :root[data-theme="dark"] .t3-clock, :root[data-theme="dark"] .decision-link:not(.secondary) { color: #6FD98F; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .t3-clock, :root:not([data-theme="light"]) .decision-link:not(.secondary) { color: #6FD98F; } }
   .ht-subs { text-align: left; margin: 0 0 14px; }
@@ -792,7 +796,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.17';
+const APP_VERSION = 'beta 0.18';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -8671,12 +8675,11 @@ const ETHOS_TOUR_KEYS = ['preset', 'sliders.season', 'rules.leagueMinPct', 'rule
  * catch-up. Keepers can take turns, one per game.
  */
 const TOURNAMENTS_KEY = K('rf_tournaments_v1');
-const TOURNEY_LENGTHS = [5, 6, 7, 8, 9, 10, 12, 14, 15, 20, 25, 30];
 function loadTournaments() { try { const r = JSON.parse(localStorage.getItem(TOURNAMENTS_KEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; } }
 function saveTournaments(list) { try { localStorage.setItem(TOURNAMENTS_KEY, JSON.stringify(list)); return true; } catch (e) { storageProblem = true; return false; } }
 function getTournament(id) { return loadTournaments().find(t => t.id === id) || null; }
 function putTournament(t) { const all = loadTournaments(); const i = all.findIndex(x => x.id === t.id); if (i >= 0) all[i] = t; else all.push(t); saveTournaments(all); }
-function tourneyFormatLabel(f) { return `${f.players}v${f.players}${f.hasGk ? '' : ' (no GK)'} · ${f.periods > 1 ? f.periods + ' × ' + Math.round(f.duration / f.periods) + "'" : f.duration + "'"} games`; }
+function tourneyFormatLabel(f) { return `${f.players}v${f.players}${f.hasGk ? '' : ' (no GK)'} · ${f.periods > 1 ? (f.duration % f.periods ? f.duration + "' in " + f.periods + ' periods' : f.periods + ' × ' + f.duration / f.periods + "'") : f.duration + "'"} games`; }
 function tourneyGameRec(g) { return g.matchId ? loadMatchLibrary().find(r => r.id === g.matchId) || null : null; }
 function tourneyGameStatus(g) { const r = tourneyGameRec(g); return r ? r.status : 'unplanned'; }
 
@@ -8713,7 +8716,7 @@ function tournamentLedgerFor(fx) {
   return tourneyDayLedger(t, gi);
 }
 // When changes may happen in a tournament game (short games rotate mostly between games).
-const TOURNEY_SUBS = {halfway: 'Once, at halfway', none: 'None: rotate between games', approach: 'As your team approach says'};
+const TOURNEY_SUBS = {halfway: 'At halfway (or the breaks)', none: 'None: rotate between games', approach: 'As your team approach says'};
 function tournamentSubTimingFor(fx) {
   if (!fx || !fx.tournamentId) return null;
   const t = getTournament(fx.tournamentId); if (!t) return null;
@@ -8790,6 +8793,8 @@ function planTournamentGame(t, gi) {
   cfg = {...cfg, autoSubs: true, engine: 'window'}; updatePlanModeUI();
   const durSel = document.getElementById('fmt-duration');
   if (![...durSel.options].some(o => +o.value === f.duration)) { const o = document.createElement('option'); o.value = f.duration; o.textContent = f.duration; durSel.appendChild(o); }
+  const perSel = document.getElementById('fmt-periods');
+  if (![...perSel.options].some(o => +o.value === f.periods)) { const o = document.createElement('option'); o.value = f.periods; o.textContent = f.periods; perSel.appendChild(o); }
   loadFormatIntoSetup({players: f.players, duration: f.duration, periods: f.periods, hasGk: f.hasGk, formation: matchDefaults.formation});
   document.getElementById('confirmFormatBtn').click();
   availableIds = new Set(t.players.filter(id => squad.some(p => p.id === id)));
@@ -8842,14 +8847,13 @@ function openTournamentSetup(existingId) {
   const ex = existingId ? getTournament(existingId) : null;
   const f = ex ? ex.format : {players: matchDefaults.players, duration: 10, periods: 1, hasGk: matchDefaults.hasGk};
   const groupGames = ex ? ex.games.filter(g => g.stage === 'group') : null;
-  const lengths = TOURNEY_LENGTHS.includes(f.duration) ? TOURNEY_LENGTHS : [...TOURNEY_LENGTHS, f.duration].sort((a, b) => a - b);
   const overlay = openModal(`<div class="picker-title">${ex ? 'Tournament settings' : 'New tournament'}</div>
     <div class="field"><label for="tnName">Tournament name</label><input id="tnName" maxlength="40" placeholder="e.g. Spring Cup" value="${ex ? esc(ex.name) : ''}"></div>
     <div class="row-2"><div class="field"><label for="tnDate">Date</label><input id="tnDate" type="date" value="${ex ? esc(ex.date || '') : todayISO()}"></div>
       <div class="field"><label for="tnVenue">Venue <span style="font-weight:400; color:var(--ink-soft);">(optional)</span></label><input id="tnVenue" maxlength="40" value="${ex ? esc(ex.venue || '') : ''}"></div></div>
     <div class="row-2"><div class="field"><label for="tnPlayers">Players a side</label><select id="tnPlayers">${[3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => `<option ${n === f.players ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-      <div class="field"><label for="tnLen">Game length (minutes)</label><select id="tnLen">${lengths.map(n => `<option ${n === f.duration ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
-    <div class="row-2"><div class="field"><label for="tnHalves">Halves</label><select id="tnHalves"><option value="1" ${f.periods === 1 ? 'selected' : ''}>One period</option><option value="2" ${f.periods === 2 ? 'selected' : ''}>Two halves</option></select></div>
+      <div class="field"><label for="tnLen">Game length (minutes)</label><input id="tnLen" type="number" inputmode="numeric" min="1" max="120" value="${f.duration}"></div></div>
+    <div class="row-2"><div class="field"><label for="tnHalves">Periods</label><select id="tnHalves">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<option value="${n}" ${f.periods === n ? 'selected' : ''}>${n === 1 ? 'One period' : n === 2 ? 'Two halves' : n === 4 ? 'Four quarters' : n + ' periods'}</option>`).join('')}</select></div>
       <div class="field"><label>&nbsp;</label><div class="check-row" style="margin-top:6px;"><input type="checkbox" id="tnGk" ${f.hasGk ? 'checked' : ''}><label for="tnGk">Goalkeepers</label></div></div></div>
     <div class="field"><label for="tnGames">Group games</label><select id="tnGames" ${ex && ex.games.some(g => g.matchId) ? 'disabled' : ''}>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option ${n === (groupGames ? groupGames.length : 3) ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <div class="config-note">Add semi-finals or a final on the day if you get through.</div></div>
@@ -8886,7 +8890,8 @@ function openTournamentSetup(existingId) {
     const err = m => { q('#tnErr').style.display = 'block'; q('#tnErr').textContent = m; };
     if (!name) return err('Give the tournament a name.');
     const fmt = {players: +q('#tnPlayers').value, duration: +q('#tnLen').value, periods: +q('#tnHalves').value, hasGk: q('#tnGk').checked};
-    if (fmt.periods === 2 && fmt.duration % 2) return err('Two halves need an even game length.');
+    if (!(fmt.duration >= 1 && fmt.duration <= 120) || !Number.isInteger(fmt.duration)) return err('Enter a game length in whole minutes (1 to 120).');
+    if (fmt.duration < fmt.periods * 2) return err(`A ${fmt.duration}-minute game is too short for ${fmt.periods} periods.`);
     const opps = [...overlay.querySelectorAll('[data-opp]')].map(i => i.value.trim());
     const t = ex ? JSON.parse(JSON.stringify(ex)) : {id: 't' + Date.now().toString(36), createdAt: Date.now(), players: squad.map(p => p.id), games: []};
     const fmtChanged = ex && JSON.stringify(ex.format) !== JSON.stringify(fmt);
@@ -9019,13 +9024,14 @@ function openTourneyGameEdit(id, gi) {
 
 /* ================= 3v3 MATCHDAYS (FA Future Fits) =================
  * Short games (6-10 minutes) on several small pitches at once, with no subs
- * and no keepers: everyone plays every game. The coach decides who plays with
- * whom each round. Our trios play the other club's trios; anyone left over
- * plays each other (1v1, 2v2, 3v3), or makes a team of four if it's one spare.
- * Grouping, chosen by the coach:
- *   mixed    - new teammates each round, so everyone plays with as many others as possible
- *   balanced - mixed, but each trio roughly as strong as the others (private levels)
- *   fixed    - the same trios all day
+ * and no keepers. The coach decides who plays with whom each game. Our trios
+ * play the other club's trios; spare players play each other (1v1, 2v2,
+ * 3v2...). Coach's choices:
+ *   - grouping: mixed (new teammates each game), balanced (even trios by
+ *     private levels) or fixed (the same trios all day);
+ *   - one spare player: sits out, taking turns (default), or joins a trio for 4 v 3;
+ *   - spares on both sides: combined into one game (e.g. our 3 and their 1 make a 2v2);
+ *   - anyone can sit out a particular game.
  */
 const THREES_KEY = K('rf_threes_v1');
 function loadThrees() { try { const r = JSON.parse(localStorage.getItem(THREES_KEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; } }
@@ -9034,36 +9040,59 @@ function getThrees(id) { return loadThrees().find(m => m.id === id) || null; }
 function putThrees(m) { const all = loadThrees(); const i = all.findIndex(x => x.id === m.id); if (i >= 0) all[i] = m; else all.push(m); saveThrees(all); }
 const THREES_ETHOS = {mixed: 'Mixed: new teammates each game', balanced: 'Balanced: mixed, with even trios', fixed: 'Fixed: the same trios all day'};
 
-// The shape of one round: our teams against the other club, and games among
-// our spare players. n = our players here, m = theirs (null: same as ours).
-function threesLayout(n, m) {
+// The shape of one game round. n = our players playing, m = theirs (null:
+// same as ours). Sides: {kind: 'opp'} our team v theirs; {kind: 'int', game}
+// one side of a game among ours; {kind: 'mix', game, theirs} a side of a game
+// that combines spares from both clubs (theirs = how many of theirs are on it);
+// {kind: 'sit'} a spare player sitting this one out.
+function threesLayout(n, m, opts) {
+  opts = opts || {};
   const theirs = m == null ? n : m;
-  let vsTeams = Math.min(Math.floor(n / 3), Math.floor(theirs / 3));
+  const vsTeams = Math.min(Math.floor(n / 3), Math.floor(theirs / 3));
   let spare = n - vsTeams * 3;
-  const sides = []; // {kind: 'opp', size} or {kind: 'int', game, size}
+  const theirSpare = m == null ? 0 : theirs - vsTeams * 3;
+  const sides = [];
   for (let i = 0; i < vsTeams; i++) sides.push({kind: 'opp', size: 3});
-  if (vsTeams > 0 && spare % 2 === 1) { sides[0].size = 4; spare--; } // one spare joins a team: 4 v 3
   let game = 0;
+  // Spares from both clubs make one game together: all of theirs on one side.
+  if (opts.mix !== false && theirSpare > 0 && spare > 0) {
+    const total = spare + theirSpare, per = total / 2;
+    if (total % 2 === 0 && per <= 3 && theirSpare <= per) {
+      sides.push({kind: 'mix', game, size: per, theirs: 0});
+      sides.push({kind: 'mix', game, size: per - theirSpare, theirs: theirSpare});
+      game++; spare -= total - theirSpare;
+    }
+  }
   const internal = (a, b) => { sides.push({kind: 'int', game, size: a}); sides.push({kind: 'int', game, size: b}); game++; };
-  if (spare % 2 === 1) { if (spare >= 5) { internal(3, 2); spare -= 5; } else if (spare === 3) { internal(2, 1); spare -= 3; } else { sides.push({kind: 'free', size: 1}); spare -= 1; } }
+  if (spare % 2 === 1) {
+    if (spare >= 5) { internal(3, 2); spare -= 5; }
+    else if (spare === 3) { internal(2, 1); spare -= 3; }
+    else if (vsTeams > 0 && opts.oneSpare === 'four') { sides[0].size = 4; spare -= 1; } // 4 v 3, if the coach allows it
+    else { sides.push({kind: 'sit', size: 1}); spare -= 1; }
+  }
   while (spare >= 6) { internal(3, 3); spare -= 6; }
   if (spare === 4) internal(2, 2); else if (spare === 2) internal(1, 1);
   return sides;
 }
 function threesRng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return ((s >>> 0) % 100000) / 100000; }; }
 const pairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
-// History from earlier rounds: how often each pair were teammates or
-// opponents, and how often each player was in a small game or a team of four.
+// From earlier games: how often each pair were teammates or opponents, and how
+// often each player was in a small game, a team of four, or sat out.
 function threesHistory(rounds) {
-  const mates = {}, opps = {}, small = {}, big = {};
-  for (const r of rounds) for (const gm of r.games) {
-    gm.sides.forEach(side => { for (let i = 0; i < side.length; i++) for (let j = i + 1; j < side.length; j++) mates[pairKey(side[i], side[j])] = (mates[pairKey(side[i], side[j])] || 0) + 1; });
-    if (gm.kind === 'int') { for (const a of gm.sides[0]) for (const b of gm.sides[1]) opps[pairKey(a, b)] = (opps[pairKey(a, b)] || 0) + 1; }
-    if (gm.kind === 'int' && Math.max(gm.sides[0].length, gm.sides[1].length) < 3) gm.sides.flat().forEach(p => { small[p] = (small[p] || 0) + 1; });
-    if (gm.kind === 'free') gm.sides.flat().forEach(p => { small[p] = (small[p] || 0) + 2; });
-    if (gm.kind === 'opp' && gm.sides[0].length > 3) gm.sides[0].forEach(p => { big[p] = (big[p] || 0) + 1; });
+  const mates = {}, opps = {}, small = {}, big = {}, sat = {};
+  for (const r of rounds) {
+    for (const gm of r.games) {
+      gm.sides.forEach(side => { for (let i = 0; i < side.length; i++) for (let j = i + 1; j < side.length; j++) mates[pairKey(side[i], side[j])] = (mates[pairKey(side[i], side[j])] || 0) + 1; });
+      if (gm.kind === 'int' || gm.kind === 'mix') {
+        for (const a of gm.sides[0]) for (const b of gm.sides[1]) opps[pairKey(a, b)] = (opps[pairKey(a, b)] || 0) + 1;
+        const size = Math.max(gm.sides[0].length, gm.sides[1].length + (gm.theirs || 0));
+        if (size < 3) gm.sides.flat().forEach(p => { small[p] = (small[p] || 0) + 1; });
+      }
+      if (gm.kind === 'opp' && gm.sides[0].length > 3) gm.sides[0].forEach(p => { big[p] = (big[p] || 0) + 1; });
+    }
+    (r.sat || []).forEach(p => { sat[p] = (sat[p] || 0) + 1; });
   }
-  return {mates, opps, small, big};
+  return {mates, opps, small, big, sat};
 }
 // Builds one round: places players in the layout's sides, searching for the
 // arrangement that best fits the coach's grouping choice.
@@ -9072,22 +9101,24 @@ function threesRound(players, layout, ethos, hist, rnd) {
   const useLv = ethos === 'balanced' && squadHasLevels(squad.filter(p => players.includes(p.id)));
   const sizes = layout.map(s => s.size);
   const cut = arr => { const out = []; let k = 0; for (const n of sizes) { out.push(arr.slice(k, k + n)); k += n; } return out; };
-  // Internal games as pairs of side indexes; which sides are small games (1v1, 2v2, free play).
-  const intPairs = [];
-  layout.forEach((s, si) => { if (s.kind === 'int' && !(si > 0 && layout[si - 1].kind === 'int' && layout[si - 1].game === s.game)) intPairs.push([si, si + 1]); });
-  const smallSide = layout.map(s => s.kind === 'free' || (s.kind === 'int' && layout.filter(x => x.kind === 'int' && x.game === s.game).every(x => x.size < 3)));
-  const sideLv = side => side.reduce((t, p) => t + lv(p), 0) / side.length;
+  // Two-sided games among ours as pairs of side indexes; which sides are small games.
+  const pairs = [];
+  layout.forEach((s, si) => { if ((s.kind === 'int' || s.kind === 'mix') && !(si > 0 && layout[si - 1].kind === s.kind && layout[si - 1].game === s.game)) pairs.push([si, si + 1]); });
+  const smallSide = layout.map(s => (s.kind === 'int' || s.kind === 'mix') && layout.filter(x => x.kind === s.kind && x.game === s.game).every(x => x.size + (x.theirs || 0) < 3));
+  const sideLv = side => side.length ? side.reduce((t, p) => t + lv(p), 0) / side.length : LEVEL_DEFAULT;
   const cost = arr => {
     const sides = cut(arr); let c = 0;
     sides.forEach((side, si) => {
+      const kind = layout[si].kind;
+      if (kind === 'sit') { side.forEach(p => { const n = (hist.sat[p] || 0) + 1; c += n * n * 25; }); return; }
       for (let i = 0; i < side.length; i++) for (let j = i + 1; j < side.length; j++) { const n = hist.mates[pairKey(side[i], side[j])] || 0; c += n * n * 10; }
       if (smallSide[si]) side.forEach(p => { const n = (hist.small[p] || 0) + 1; c += n * n * 8; });
-      if (layout[si].kind === 'opp' && side.length > 3) side.forEach(p => { const n = (hist.big[p] || 0) + 1; c += n * n * 3; });
+      if (kind === 'opp' && side.length > 3) side.forEach(p => { const n = (hist.big[p] || 0) + 1; c += n * n * 3; });
     });
-    for (const [ia, ib] of intPairs) {
+    for (const [ia, ib] of pairs) {
       const a = sides[ia], b = sides[ib];
       for (const x of a) for (const y of b) c += (hist.opps[pairKey(x, y)] || 0) * 4;
-      if (useLv) c += Math.abs(sideLv(a) - sideLv(b)) * 6;
+      if (useLv && layout[ia].kind === 'int') c += Math.abs(sideLv(a) - sideLv(b)) * 6;
     }
     if (useLv) { const teams = sides.filter((_, si) => layout[si].kind === 'opp'); if (teams.length > 1) { const avg = teams.map(sideLv); const mean = avg.reduce((t, x) => t + x, 0) / avg.length; c += avg.reduce((t, x) => t + (x - mean) ** 2, 0) * 12; } }
     return c;
@@ -9107,80 +9138,104 @@ function threesRound(players, layout, ethos, hist, rnd) {
     }
     if (c < bestC) { bestC = c; best = arr.slice(); }
   }
-  const sides = cut(best || players);
-  const games = []; let pitch = 1;
+  return threesAssemble(layout, cut(best || players));
+}
+function threesAssemble(layout, sides) {
+  const games = [], sat = []; let pitch = 1; const seen = new Set();
   layout.forEach((s, si) => {
     if (s.kind === 'opp') games.push({kind: 'opp', pitch: pitch++, sides: [sides[si]]});
-    else if (s.kind === 'free') games.push({kind: 'free', pitch: null, sides: [sides[si]]});
-    else if (!games.some(g => g.kind === 'int' && g.game === s.game)) games.push({kind: 'int', game: s.game, pitch: pitch++, sides: [sides[si], sides[si + 1]]});
+    else if (s.kind === 'sit') sat.push(...sides[si]);
+    else if (!seen.has(s.kind + s.game)) { seen.add(s.kind + s.game); games.push({kind: s.kind, pitch: pitch++, sides: [sides[si], sides[si + 1]], ...(s.kind === 'mix' ? {theirs: layout[si + 1].theirs} : {})}); }
   });
-  games.forEach(g => delete g.game);
-  return {games};
+  return {games, sat};
 }
-// (Re)plans rounds from `from` onward, keeping earlier rounds as they were.
+// Who's playing in round r: here, not sat out for that game by the coach.
+function threesPlayersFor(md, r) {
+  return md.players.filter(id => squad.some(p => p.id === id) && !(md.absent && md.absent[id] !== undefined && md.absent[id] <= r)
+    && !((md.sitOut && md.sitOut[r]) || []).includes(id));
+}
+// (Re)plans games from `from` onward, keeping earlier games as they were.
 function planThrees(md, from) {
   from = from || 0;
-  const kept = (md.rounds || []).slice(0, from);
-  const rounds = kept.slice();
+  const rounds = (md.rounds || []).slice(0, from);
+  const opts = {oneSpare: md.oneSpare || 'sit', mix: md.mixSpares !== false};
   for (let r = from; r < md.roundsCount; r++) {
-    const here = md.players.filter(id => squad.some(p => p.id === id) && !(md.absent && md.absent[id] !== undefined && md.absent[id] <= r));
-    const layout = threesLayout(here.length, md.theirs);
-    let round;
+    const here = threesPlayersFor(md, r);
+    const layout = threesLayout(here.length, md.theirs, opts);
     const prev = rounds[r - 1];
-    const prevIds = prev ? prev.games.flatMap(g => g.sides.flat()).sort().join(',') : '';
-    if (md.ethos === 'fixed' && prev && prevIds === here.slice().sort().join(',')) {
-      // Same groups; teams move round the pitches (carousel).
-      const opp = prev.games.filter(g => g.kind === 'opp');
-      round = {games: prev.games.map(g => ({...g, sides: g.sides.map(s => s.slice())}))};
-      const n = opp.length; if (n > 1) round.games.filter(g => g.kind === 'opp').forEach((g, i) => { g.pitch = ((i + 1) % n) + 1; });
+    const prevIds = prev ? prev.games.flatMap(g => g.sides.flat()).concat(prev.sat || []).sort().join(',') : '';
+    let round;
+    if (md.ethos === 'fixed' && prev && prevIds === here.slice().sort().join(',') && (prev.sat || []).length === layout.filter(s => s.kind === 'sit').length) {
+      // Same groups; teams move round the pitches (carousel). A spare who sat out swaps with someone, so it isn't always the same child.
+      round = {games: prev.games.map(g => ({...g, sides: g.sides.map(s => s.slice())})), sat: (prev.sat || []).slice()};
+      const opp = round.games.filter(g => g.kind === 'opp'); const n = opp.length;
+      if (n > 1) opp.forEach((g, i) => { g.pitch = ((i + 1) % n) + 1; });
+      if (round.sat.length && opp.length) { const g = opp[r % opp.length]; const k = r % g.sides[0].length; const out = round.sat[0]; round.sat[0] = g.sides[0][k]; g.sides[0][k] = out; }
     } else {
-      round = threesRound(here, layout, md.ethos === 'fixed' ? (squadHasLevels(squad) ? 'balanced' : 'mixed') : md.ethos, threesHistory(rounds), threesRng((md.seed || 1) * 7919 + r * 104729 + (md.shuffles || 0) * 31));
+      const ethos = md.ethos === 'fixed' ? (squadHasLevels(squad) ? 'balanced' : 'mixed') : md.ethos;
+      round = threesRound(here, layout, ethos, threesHistory(rounds), threesRng((md.seed || 1) * 7919 + r * 104729 + (md.shuffles || 0) * 31));
     }
+    round.coachSat = ((md.sitOut && md.sitOut[r]) || []).slice();
     rounds.push(round);
   }
   md.rounds = rounds;
   return md;
 }
 function threesSummary(md) {
-  const ids = new Set(md.rounds.flatMap(r => r.games.flatMap(g => g.sides.flat())));
+  const ids = new Set(md.rounds.flatMap(r => r.games.flatMap(g => g.sides.flat()).concat(r.sat || [], r.coachSat || [])));
   const h = threesHistory(md.rounds);
-  const per = [...ids].map(id => ({id, mates: Object.keys(h.mates).filter(k => k.split('|').includes(id) && h.mates[k] > 0).length,
+  return [...ids].map(id => ({id, mates: Object.keys(h.mates).filter(k => k.split('|').includes(id) && h.mates[k] > 0).length,
     games: md.rounds.filter(r => r.games.some(g => g.sides.flat().includes(id))).length}));
-  return per;
 }
-function threesGameText(g, md) {
-  const nm = s => s.map(esc).join(', ');
-  if (g.kind === 'opp') return `${nm(g.sides[0])} <span class="t3-v">v ${esc(md.opponent || 'them')}</span>${g.sides[0].length > 3 ? ' <small>(4 v 3)</small>' : ''}`;
-  if (g.kind === 'free') return `${nm(g.sides[0])} <span class="t3-v">free play</span>`;
-  return `${nm(g.sides[0])} <span class="t3-v">v</span> ${nm(g.sides[1])} <small>(${g.sides[0].length} v ${g.sides[1].length})</small>`;
+function threesGameLine(g, md, nameHtml) {
+  const them = esc(md.opponent || 'them');
+  const names = s => s.map(nameHtml).join(' ');
+  if (g.kind === 'opp') return `${names(g.sides[0])} <span class="t3-v">v ${them}</span>${g.sides[0].length > 3 ? ' <small>(4 v 3)</small>' : ''}`;
+  const b = names(g.sides[1]) + (g.theirs ? ` <span class="t3-them">+ ${g.theirs} of ${them}</span>` : '');
+  return `${names(g.sides[0])} <span class="t3-v">v</span> ${b} <small>(${g.sides[0].length} v ${g.sides[1].length + (g.theirs || 0)})</small>`;
+}
+function threesText(md) {
+  const them = md.opponent || 'them';
+  return [`3v3${md.opponent ? ' v ' + md.opponent : ''}${md.date ? ' · ' + fmtFixtureDate(md.date) : ''}`, ...md.rounds.map((r, ri) => {
+    const lines = r.games.map(g => `Pitch ${g.pitch}: ` + (g.kind === 'opp' ? `${g.sides[0].join(', ')} v ${them}` : `${g.sides[0].join(', ')} v ${g.sides[1].join(', ')}${g.theirs ? ` + ${g.theirs} of ${them}` : ''}`));
+    const out = [...(r.sat || []), ...(r.coachSat || [])];
+    if (out.length) lines.push(`Sitting out: ${out.join(', ')}`);
+    return `\nGame ${ri + 1} (${ri * md.gameLength}–${(ri + 1) * md.gameLength}')\n` + lines.join('\n');
+  })].join('\n');
 }
 
 function openThreesSetup(existingId) {
   const ex = existingId ? getThrees(existingId) : null;
   const len = ex ? ex.gameLength : 8, rounds = ex ? ex.roundsCount : 4;
   const overlay = openModal(`<div class="picker-title">${ex ? '3v3 matchday settings' : 'New 3v3 matchday'}</div>
-    <div class="config-note" style="margin-bottom:8px;">FA Future Fits 3v3: short games on small pitches, no subs and no keepers, so everyone plays every game. Co-Coach picks who plays with whom each round.</div>
+    <div class="config-note" style="margin-bottom:8px;">FA Future Fits 3v3: short games on small pitches, no subs and no keepers. Co-Coach picks who plays with whom each game.</div>
     <div class="row-2"><div class="field"><label for="t3Opp">Playing against</label><input id="t3Opp" maxlength="30" placeholder="e.g. Hawks" value="${ex ? esc(ex.opponent || '') : ''}"></div>
       <div class="field"><label for="t3Date">Date</label><input id="t3Date" type="date" value="${ex ? esc(ex.date || '') : todayISO()}"></div></div>
-    <div class="row-2"><div class="field"><label for="t3Len">Game length</label><select id="t3Len">${[5, 6, 7, 8, 9, 10, 12].map(n => `<option value="${n}" ${n === len ? 'selected' : ''}>${n} minutes</option>`).join('')}</select></div>
-      <div class="field"><label for="t3Rounds">Games each</label><select id="t3Rounds">${[2, 3, 4, 5, 6, 7, 8].map(n => `<option ${n === rounds ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
+    <div class="row-2"><div class="field"><label for="t3Len">Game length</label><select id="t3Len">${[4, 5, 6, 7, 8, 9, 10, 12, 15].map(n => `<option value="${n}" ${n === len ? 'selected' : ''}>${n} minutes</option>`).join('')}</select></div>
+      <div class="field"><label for="t3Rounds">Games each</label><select id="t3Rounds">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<option ${n === rounds ? 'selected' : ''}>${n}</option>`).join('')}</select></div></div>
     <div class="config-note" id="t3Total" style="margin:-4px 0 10px;"></div>
     <div class="field"><label for="t3Theirs">How many players they bring <span style="font-weight:400; color:var(--ink-soft);">(optional)</span></label>
-      <select id="t3Theirs"><option value="">Not sure (same as us)</option>${Array.from({length: 16}, (_, i) => i + 1).map(n => `<option ${ex && ex.theirs === n ? 'selected' : ''}>${n}</option>`).join('')}</select>
-      <div class="config-note">Our trios play theirs. Anyone left over plays each other (1v1 or 2v2), or joins a team if it's just one.</div></div>
+      <select id="t3Theirs"><option value="">Not sure (same as us)</option>${Array.from({length: 18}, (_, i) => i + 1).map(n => `<option ${ex && ex.theirs === n ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <div class="config-note">Our trios play theirs. Spare players play each other: 1v1, 2v2 or 3v2.</div></div>
+    <div class="field"><label for="t3One">If one player is spare</label><select id="t3One">
+      <option value="sit" ${!ex || (ex.oneSpare || 'sit') === 'sit' ? 'selected' : ''}>They sit out, taking turns</option>
+      <option value="four" ${ex && ex.oneSpare === 'four' ? 'selected' : ''}>They join a trio to make 4 v 3</option></select>
+      <div class="config-note">Check your league allows 4 v 3 before choosing it.</div></div>
+    <div class="check-row" style="margin:0 0 12px; align-items:flex-start;"><input type="checkbox" id="t3Mix" ${!ex || ex.mixSpares !== false ? 'checked' : ''} style="margin-top:3px;"><label for="t3Mix" style="font-size:13px; line-height:1.4;">When both clubs have spare players, combine them into one game (e.g. our 3 and their 1 make a 2v2)</label></div>
     <div class="field"><label>Who plays with whom</label><div class="radio-col">
       ${Object.entries(THREES_ETHOS).map(([k, v]) => `<label class="check-row"><input type="radio" name="t3Ethos" value="${k}" ${(ex ? ex.ethos : 'mixed') === k ? 'checked' : ''}><span>${esc(v)}${k === 'balanced' && !squadHasLevels(squad) ? ' <small style="color:var(--ink-soft);">(set private levels on players for this)</small>' : ''}</span></label>`).join('')}
     </div></div>
     <div class="modal-btn-row"><button class="btn btn-ghost" id="t3Cancel">Cancel</button><button class="btn btn-primary" id="t3Save">${ex ? 'Save and re-plan' : 'Create matchday'}</button></div>`, {wide: true});
   const q = s => overlay.querySelector(s);
-  const total = () => { const m = +q('#t3Len').value * +q('#t3Rounds').value; q('#t3Total').textContent = `${m} minutes of football each.${m < 30 ? ' The FA suggests 30–40.' : m > 40 ? ' The FA suggests 30–40.' : ''}`; };
+  const total = () => { const m = +q('#t3Len').value * +q('#t3Rounds').value; q('#t3Total').textContent = `${m} minutes of football each.${m < 30 || m > 40 ? ' The FA suggests 30–40.' : ''}`; };
   total(); q('#t3Len').addEventListener('change', total); q('#t3Rounds').addEventListener('change', total);
   q('#t3Cancel').addEventListener('click', () => overlay.remove());
   q('#t3Save').addEventListener('click', () => {
-    const md = ex ? JSON.parse(JSON.stringify(ex)) : {id: 'c' + Date.now().toString(36), createdAt: Date.now(), players: squad.map(p => p.id), absent: {}, seed: Math.floor(Math.random() * 1e6) + 1, current: 0};
+    const md = ex ? JSON.parse(JSON.stringify(ex)) : {id: 'c' + Date.now().toString(36), createdAt: Date.now(), players: squad.map(p => p.id), absent: {}, sitOut: {}, seed: Math.floor(Math.random() * 1e6) + 1, current: 0};
     Object.assign(md, {opponent: q('#t3Opp').value.trim(), date: q('#t3Date').value || todayISO(), gameLength: +q('#t3Len').value, roundsCount: +q('#t3Rounds').value,
-      theirs: q('#t3Theirs').value ? +q('#t3Theirs').value : null, ethos: overlay.querySelector('[name="t3Ethos"]:checked').value});
-    planThrees(md, ex ? Math.min(md.current || 0, md.roundsCount) : 0);
+      theirs: q('#t3Theirs').value ? +q('#t3Theirs').value : null, oneSpare: q('#t3One').value, mixSpares: q('#t3Mix').checked,
+      ethos: overlay.querySelector('[name="t3Ethos"]:checked').value});
+    planThrees(md, ex ? Math.min((md.current || 0) + (md.roundStartTs ? 1 : 0), md.roundsCount) : 0);
     putThrees(md);
     if (!ex) track('threes-created', md.ethos);
     overlay.remove(); openThreesDay(md.id);
@@ -9193,53 +9248,76 @@ function openThreesDay(id) {
   openThreesId = id; threesSel = null;
   renderThreesDay(); showScreen('threes');
 }
+// The first game that can still change: the next one, or the one after the game being played.
+function threesEditableFrom(md) { return Math.min((md.current || 0) + (md.roundStartTs ? 1 : 0), md.roundsCount); }
 function renderThreesDay() {
   const md = getThrees(openThreesId); const host = document.getElementById('threesBody');
   clearInterval(threesTicker);
   if (!md) { renderMatchesScreen(); showScreen('matches'); return; }
-  const cur = Math.min(md.current || 0, md.roundsCount);
+  const cur = Math.min(md.current || 0, md.roundsCount), editFrom = threesEditableFrom(md);
   const here = md.players.filter(id => !(md.absent && md.absent[id] !== undefined && md.absent[id] <= cur));
   const per = threesSummary(md);
   const minMates = per.length ? Math.min(...per.map(p => p.mates)) : 0, maxMates = per.length ? Math.max(...per.map(p => p.mates)) : 0;
+  const fewer = per.filter(p => here.includes(p.id) && p.games < md.roundsCount);
   const running = md.roundStartTs && cur < md.roundsCount;
+  const nameHtml = ri => id => `<span class="t3-name ${threesSel && threesSel.r === ri && threesSel.id === id ? 'sel' : ''}" data-r="${ri}" data-id="${esc(id)}">${esc(id)}</span>`;
   host.innerHTML = `<div class="plan-topbar" style="margin-bottom:8px;"><span class="plan-back" id="t3Back">‹ Matches</span></div>
     <div class="form-card"><div style="display:flex; gap:8px; align-items:flex-start;"><div style="flex:1;">
       <div style="font-family:Oswald,sans-serif; font-size:24px; font-weight:600; line-height:1.15;">3v3${md.opponent ? ' v ' + esc(md.opponent) : ' matchday'}</div>
-      <div class="mc-sub">${esc(fmtFixtureDate(md.date) || '')}${md.date ? ' · ' : ''}${md.roundsCount} games of ${md.gameLength}' · ${md.roundsCount * md.gameLength} minutes each</div>
-      <div class="mc-sub">${esc(THREES_ETHOS[md.ethos])}</div></div><span class="decision-link" id="t3Edit">Settings</span></div></div>
+      <div class="mc-sub">${esc(fmtFixtureDate(md.date) || '')}${md.date ? ' · ' : ''}${md.roundsCount} games of ${md.gameLength}'</div>
+      <div class="mc-sub">${esc(THREES_ETHOS[md.ethos])}${(md.oneSpare || 'sit') === 'four' ? ' · a spare joins a trio (4 v 3)' : ''}</div></div><span class="decision-link" id="t3Edit">Settings</span></div></div>
     <div class="form-card"><h2 style="margin-top:0;">Who's here</h2>
       <div class="chip-wrap">${md.players.concat(squad.map(p => p.id).filter(id => !md.players.includes(id))).map(id => { const on = here.includes(id) && md.players.includes(id); return `<span class="preset-chip ${on ? 'active' : ''}" data-t3p="${esc(id)}">${esc(id)}</span>`; }).join('')}</div>
-      <div class="config-note" style="margin-top:6px;">${here.length} here. Tap someone who arrives late or has to stop: the games from now on are re-planned, earlier ones stay as they were.</div></div>
-    ${md.rounds.map((r, ri) => { const done = ri < cur, now = ri === cur;
+      <div class="config-note" style="margin-top:6px;">${here.length} here. Tap someone who arrives late or has to leave: the games from now on are re-planned, earlier ones stay as they were.</div></div>
+    ${md.rounds.map((r, ri) => { const done = ri < cur, now = ri === cur, editable = ri >= editFrom;
+      const out = [...(r.sat || []), ...(r.coachSat || [])];
+      const sel = threesSel && threesSel.r === ri ? threesSel.id : null;
       return `<div class="form-card t3-round ${now ? 't3-now' : ''} ${done ? 't3-done' : ''}" data-round="${ri}">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><h2 style="margin:0; flex:1;">Game ${ri + 1} <span style="font-weight:400; font-size:14px; color:var(--ink-soft);">${ri * md.gameLength}–${(ri + 1) * md.gameLength}'</span></h2>
-          ${now ? (running ? `<span class="t3-clock" id="t3Clock"></span>` : `<button class="btn btn-primary mc-btn" id="t3Start" style="margin:0;">Start</button>`) : done ? '<span class="badge">PLAYED</span>' : ''}</div>
-        ${r.games.map((g, gi) => `<div class="t3-game"><span class="t3-pitch">${g.pitch ? 'Pitch ' + g.pitch : 'Spare'}</span><span class="t3-who">${(g.kind === 'opp' ? [g.sides[0]] : g.sides).map((s, si) => s.map(id => `<span class="t3-name ${threesSel && threesSel.r === ri && threesSel.id === id ? 'sel' : ''}" data-r="${ri}" data-id="${esc(id)}">${esc(id)}</span>`).join(' ')).join(' <span class="t3-v">v</span> ')}${g.kind === 'opp' ? ` <span class="t3-v">v ${esc(md.opponent || 'them')}</span>` : ''}${g.kind === 'free' ? ' <span class="t3-v">free play</span>' : ''}${g.kind === 'int' ? ` <small>(${g.sides[0].length} v ${g.sides[1].length})</small>` : g.sides[0].length > 3 ? ' <small>(4 v 3)</small>' : ''}</span></div>`).join('')}
+          ${now ? (running ? `<span class="t3-clock" id="t3Clock"></span>` : `<button class="btn btn-primary" id="t3Start" style="margin:0; width:auto; padding:8px 20px;">Start</button>`) : done ? '<span class="badge">PLAYED</span>' : ''}</div>
+        ${r.games.map(g => `<div class="t3-game"><span class="t3-pitch">Pitch ${g.pitch}</span><span class="t3-who">${threesGameLine(g, md, nameHtml(ri))}</span></div>`).join('')}
+        ${out.length ? `<div class="t3-game"><span class="t3-pitch">Sitting out</span><span class="t3-who">${(r.sat || []).map(id => `${nameHtml(ri)(id)} <small class="t3-v">(spare, taking turns)</small>`).join(' ')} ${(r.coachSat || []).map(id => `<span class="t3-name t3-back" data-back="${esc(id)}" data-r="${ri}">${esc(id)} ↩</span>`).join(' ')}</span></div>` : ''}
+        ${sel && editable ? `<div class="t3-actions"><span><b>${esc(sel)}</b>: tap another name to swap, or</span><button class="btn btn-ghost" id="t3SitBtn" style="width:auto; padding:8px 12px; font-size:13px;">Sit out this game</button></div>` : ''}
+        ${editable && (r.sat || []).length === 1 && (md.oneSpare || 'sit') === 'sit' && r.games.some(g => g.kind === 'opp') ? `<div class="config-note" style="margin-top:6px;">One spare player. <span class="decision-link" data-four="1">Make it 4 v 3 instead</span></div>` : ''}
         ${now && running ? `<button class="btn btn-primary" id="t3Next" style="margin-top:8px;">${ri + 1 < md.roundsCount ? 'Next game' : 'Finish'}</button>` : ''}</div>`; }).join('')}
-    ${cur >= md.roundsCount ? '<div class="form-card"><b>All games played.</b> Everyone played every game.</div>' : ''}
-    <div class="form-card"><div class="config-note">${threesSel ? `<b>${esc(threesSel.id)}</b> selected: tap another player in game ${threesSel.r + 1} to swap them.` : 'Tap a name, then another name in the same game, to swap two players.'} Everyone plays every game, ${md.roundsCount * md.gameLength} minutes each. Each player has ${minMates === maxMates ? minMates : minMates + '–' + maxMates} different teammates over the day.</div>
+    ${cur >= md.roundsCount ? '<div class="form-card"><b>All games played.</b></div>' : ''}
+    <div class="form-card"><div class="config-note">${threesSel ? '' : 'Tap a name to swap two players or sit someone out of a game. '}${fewer.length ? `${fewer.map(p => `${esc(p.id)} plays ${p.games}`).join(', ')} of ${md.roundsCount} games; everyone else plays them all.` : `Everyone plays every game, ${md.roundsCount * md.gameLength} minutes each.`} Each player has ${minMates === maxMates ? minMates : minMates + '–' + maxMates} different teammates over the day.</div>
       <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-ghost" id="t3Shuffle" style="flex:1;">Shuffle games to come</button><button class="btn btn-ghost" id="t3Copy" style="flex:1;">Copy for WhatsApp</button></div></div>
     <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="t3Delete" style="color:var(--coral);">Delete matchday</span></div>`;
   const q = s => host.querySelector(s);
+  const replan = (m, from) => { planThrees(m, from); putThrees(m); threesSel = null; renderThreesDay(); };
   q('#t3Back').addEventListener('click', () => { clearInterval(threesTicker); renderMatchesScreen(); showScreen('matches'); });
   q('#t3Edit').addEventListener('click', () => openThreesSetup(md.id));
   host.querySelectorAll('[data-t3p]').forEach(ch => ch.addEventListener('click', () => {
-    const m = getThrees(md.id); const id = ch.dataset.t3p; const from = Math.min(m.current || 0, m.roundsCount);
+    const m = getThrees(md.id); const id = ch.dataset.t3p; const from = threesEditableFrom(m);
     if (!m.players.includes(id)) { m.players.push(id); if (m.absent) delete m.absent[id]; }
     else if (m.absent && m.absent[id] !== undefined && m.absent[id] <= from) delete m.absent[id];
     else { m.absent = m.absent || {}; m.absent[id] = from; }
-    planThrees(m, from); putThrees(m); renderThreesDay();
+    replan(m, from);
   }));
-  host.querySelectorAll('.t3-name').forEach(el => el.addEventListener('click', () => {
+  host.querySelectorAll('.t3-name:not(.t3-back)').forEach(el => el.addEventListener('click', () => {
     const r = +el.dataset.r, id = el.dataset.id;
-    if (r < cur) return; // games already played stay as they were
+    if (r < editFrom) return; // games played or under way stay as they are
     if (!threesSel || threesSel.r !== r) { threesSel = {r, id}; renderThreesDay(); return; }
     if (threesSel.id === id) { threesSel = null; renderThreesDay(); return; }
     const m = getThrees(md.id); const round = m.rounds[r];
-    for (const g of round.games) for (const s of g.sides) for (let k = 0; k < s.length; k++) { if (s[k] === id) s[k] = threesSel.id; else if (s[k] === threesSel.id) s[k] = id; }
+    const swapIn = arr => { for (let k = 0; k < arr.length; k++) { if (arr[k] === id) arr[k] = threesSel.id; else if (arr[k] === threesSel.id) arr[k] = id; } };
+    for (const g of round.games) for (const s of g.sides) swapIn(s);
+    swapIn(round.sat || []);
     threesSel = null; putThrees(m); renderThreesDay();
   }));
-  if (q('#t3Start')) q('#t3Start').addEventListener('click', () => { const m = getThrees(md.id); m.roundStartTs = Date.now(); putThrees(m); renderThreesDay(); });
+  if (q('#t3SitBtn')) q('#t3SitBtn').addEventListener('click', () => {
+    const m = getThrees(md.id); const r = threesSel.r; m.sitOut = m.sitOut || {};
+    m.sitOut[r] = [...new Set([...(m.sitOut[r] || []), threesSel.id])];
+    replan(m, r);
+  });
+  host.querySelectorAll('[data-back]').forEach(el => el.addEventListener('click', () => {
+    const r = +el.dataset.r; if (r < editFrom) return;
+    const m = getThrees(md.id); m.sitOut[r] = (m.sitOut[r] || []).filter(x => x !== el.dataset.back);
+    replan(m, r);
+  }));
+  host.querySelectorAll('[data-four]').forEach(el => el.addEventListener('click', () => { const m = getThrees(md.id); m.oneSpare = 'four'; replan(m, threesEditableFrom(m)); }));
+  if (q('#t3Start')) q('#t3Start').addEventListener('click', () => { const m = getThrees(md.id); m.roundStartTs = Date.now(); putThrees(m); threesSel = null; renderThreesDay(); });
   if (q('#t3Next')) q('#t3Next').addEventListener('click', () => { const m = getThrees(md.id); m.current = (m.current || 0) + 1; m.roundStartTs = null; putThrees(m); renderThreesDay(); });
   if (running && q('#t3Clock')) {
     const tick = () => {
@@ -9250,13 +9328,11 @@ function renderThreesDay() {
     };
     tick(); threesTicker = setInterval(tick, 1000);
   }
-  q('#t3Shuffle').addEventListener('click', () => { const m = getThrees(md.id); m.shuffles = (m.shuffles || 0) + 1; planThrees(m, Math.min(m.current || 0, m.roundsCount) + (m.roundStartTs ? 1 : 0)); putThrees(m); threesSel = null; renderThreesDay(); });
+  q('#t3Shuffle').addEventListener('click', () => { const m = getThrees(md.id); m.shuffles = (m.shuffles || 0) + 1; replan(m, threesEditableFrom(m)); });
   q('#t3Copy').addEventListener('click', e => {
-    const m = getThrees(md.id);
-    const txt = [`3v3${m.opponent ? ' v ' + m.opponent : ''}${m.date ? ' · ' + fmtFixtureDate(m.date) : ''}`, ...m.rounds.map((r, ri) => `\nGame ${ri + 1} (${ri * m.gameLength}–${(ri + 1) * m.gameLength}')\n` + r.games.map(g => `${g.pitch ? 'Pitch ' + g.pitch : 'Spare'}: ` + (g.kind === 'opp' ? `${g.sides[0].join(', ')} v ${m.opponent || 'them'}` : g.kind === 'free' ? `${g.sides[0].join(', ')} free play` : `${g.sides[0].join(', ')} v ${g.sides[1].join(', ')}`)).join('\n'))].join('\n');
-    const b = e.target;
-    try { navigator.clipboard.writeText(txt).then(() => { b.textContent = 'Copied'; }, () => { b.textContent = 'Copy failed'; }); } catch (er) { b.textContent = 'Copy failed'; }
+    const txt = threesText(getThrees(md.id)); const b = e.target;
     window.__threesText = txt;
+    try { navigator.clipboard.writeText(txt).then(() => { b.textContent = 'Copied'; }, () => { b.textContent = 'Copy failed'; }); } catch (er) { b.textContent = 'Copy failed'; }
   });
   q('#t3Delete').addEventListener('click', () => showConfirm('Delete this 3v3 matchday?', () => { saveThrees(loadThrees().filter(x => x.id !== md.id)); renderMatchesScreen(); showScreen('matches'); }, 'Delete'));
 }
