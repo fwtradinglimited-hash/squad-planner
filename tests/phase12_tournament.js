@@ -65,21 +65,22 @@ const { launch, openPage, ok, summary } = require('./_harness');
   console.log('Playing a game');
   await page.click('[data-gopen="0"]');
   ok(await page.evaluate(() => document.querySelector('.screen.active').id) === 'screen-plan', 'a game opens like any match');
-  await page.click('#startMatchBtn'); await page.waitForTimeout(100);
-  await page.evaluate(() => { clearInterval(liveTicker); document.querySelectorAll('.modal-overlay').forEach(e => e.remove()); });
   const benchFirst = await page.evaluate(() => PLAYERS.map(p => p.id).find(id => !Object.values(computeStateAt(0).onPitch).includes(id)));
-  // The coach keeps someone on longer than planned: mark a bench player unavailable so they miss the game.
-  await page.evaluate(id => { markPlayerUnavailable(id); }, benchFirst);
-  await page.evaluate(() => { const b = document.getElementById('modalConfirm'); if (b) b.click(); document.querySelectorAll('.modal-overlay').forEach(e => e.remove()); finishMatch(DURATION); });
+  // The coach keeps someone on the bench all game (available, but given no minutes).
+  await page.evaluate(id => { matchFixture.exceptions = {...(matchFixture.exceptions || {}), [id]: {cap: 0}}; regeneratePlan(); }, benchFirst);
+  await page.click('#startMatchBtn'); await page.waitForTimeout(100);
+  await page.evaluate(() => { clearInterval(liveTicker); document.querySelectorAll('.modal-overlay').forEach(e => e.remove()); finishMatch(DURATION); });
+  ok(await page.evaluate(id => { const r = loadMatchLibrary().find(x => x.id === loadTournaments()[0].games[0].matchId); return r.stats.players[id].mins === 0 && r.stats.players[id].avail > 0; }, benchFirst), `${benchFirst} was available for game 1 but didn't play`);
   await page.click('#planBackBtn');
   s = await page.evaluate(() => ({ screen: document.querySelector('.screen.active').id, stale: !!document.getElementById('tnStale'), played: document.querySelectorAll('#tourneyBody .badge').length }));
   ok(s.screen === 'screen-tournament', 'Back from a game returns to the tournament');
   ok(s.stale, 'after a game is played, the page offers to re-plan the games still to play with the real minutes');
-  const before = await page.evaluate(id => { const t = loadTournaments()[0]; const r = loadMatchLibrary().find(x => x.id === t.games[1].matchId); return { mins: t.games[1].forecast[id].mins }; }, benchFirst);
+  const before = await page.evaluate(id => { const t = loadTournaments()[0]; const rest = t.games.slice(1); const avg = rest.reduce((a, g) => a + Object.values(g.forecast).reduce((x, p) => x + p.mins - p.gk, 0) / Object.keys(g.forecast).length, 0);
+    return { mins: rest.reduce((a, g) => a + ((g.forecast[id] || {}).mins || 0), 0), avg }; }, benchFirst);
   await page.click('#tnReplan'); await waitPlanned();
   const after = await page.evaluate(id => { const t = loadTournaments()[0]; return { mins: t.games.slice(1).reduce((a, g) => a + ((g.forecast[id] || {}).mins || 0), 0), first: t.games[1].forecast[id].mins, stale: tourneyStaleGames(t).length }; }, benchFirst);
   ok(after.stale === 0 && !(await page.locator('#tnStale').count()), 'Re-plan brings the rest of the day up to date');
-  ok(after.first >= before.mins, `${benchFirst}, who missed game 1, gets at least as much time next game (${before.mins}' → ${after.first}')`, { before, after });
+  ok(after.mins > before.mins, `${benchFirst}, who didn't play in game 1, gets more time over the rest of the day (${before.mins}' → ${after.mins}')`, { before, after });
 
   console.log('Knockouts and changes');
   await page.click('#tnAddKo'); await page.selectOption('#tgLabel', 'Semi-final'); await page.fill('#tgOpp', 'City'); await page.click('#tgSave'); await waitPlanned();
@@ -118,6 +119,15 @@ const { launch, openPage, ok, summary } = require('./_harness');
   ok(s.fmt === "7v7 · 40' · 4 periods" && /4 × 10'/.test(s.label), 'a 40-minute game in four quarters plans fine (no 30-minute or two-period limit)', s);
   await page.click('#tnEdit'); await page.fill('#tnLen', '6'); await page.selectOption('#tnHalves', '4'); await page.click('#tnSave');
   ok(/too short for 4 periods/.test(await page.textContent('#tnErr')), 'a game too short for its periods is caught');
+  await page.click('#tnCancel');
+
+  console.log('From Matches');
+  await page.click('#tnBack');
+  ok(await page.locator('[data-tdel]').count() === 1, 'a tournament card has a Delete button');
+  await page.click('[data-tdel]'); await page.click('#modalConfirm');
+  ok(await page.evaluate(() => loadTournaments().length === 0 && !document.querySelector('[data-tourney]')), 'and it deletes the tournament');
+  await page.click('#newTourneyBtn');
+  ok(await page.evaluate(() => document.querySelector('.screen.active').id === 'screen-form' && !document.querySelector('.modal-overlay')), 'tournament set-up is a normal screen too');
   await page.click('#tnCancel');
 
   summary('phase12_tournament', errors);

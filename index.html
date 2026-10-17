@@ -84,6 +84,18 @@
   .avail-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--card-line); font-size: 14px; }
   .avail-row input { width: 19px; height: 19px; flex-shrink: 0; }
   .avail-row .name { flex: 1; font-weight: 500; }
+  .avail-chip .ex-badge { background: rgba(255,255,255,.18); border-color: transparent; color: inherit; }
+  .fixture-type { margin-bottom: 12px; }
+  .fixture-type .radio-opt { font-size: 13px; line-height: 1.25; padding: 9px 4px; }
+  .fixture-type .radio-opt small { font-size: 10.5px; opacity: .8; }
+  .t3-resrow { display: flex; align-items: center; gap: 6px; margin: 2px 0 2px 66px; font-size: 12.5px; color: var(--ink-soft); flex-wrap: wrap; }
+  .t3-res { border: 1px solid var(--card-line); background: var(--card); color: var(--ink); border-radius: 7px; padding: 3px 9px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .t3-res.on { background: var(--turf-1); color: var(--chalk); border-color: var(--turf-1); }
+  .t3-res.on.L { background: var(--coral); border-color: var(--coral); }
+  .t3-res.on.D { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+  .t3-sc { width: 40px; padding: 4px; border-radius: 7px; border: 1px solid var(--card-line); background: var(--card); color: var(--ink); text-align: center; font-size: 14px; }
+  .t3-out { font-weight: 700; }
+  .form-screen .modal-btn-row { margin-top: 14px; }
   .avail-count { font-size: 12.5px; color: var(--ink-soft); margin: 8px 0 4px; }
   .avail-count.warn { color: var(--coral); font-weight: 600; }
   .preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
@@ -326,6 +338,7 @@
   .t3-name { display: inline-block; padding: 1px 7px; margin: 1px 0; border-radius: 7px; background: var(--bench-card); cursor: pointer; font-weight: 600; }
   .t3-name.sel { background: var(--amber); color: var(--amber-ink); }
   .t3-v { color: var(--ink-soft); font-size: 12.5px; }
+  .t3-totals { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--card-line); font-size: 14px; }
   .t3-note { font-size: 12px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
   .t3-clock { font-family: "Oswald", sans-serif; font-size: 22px; font-weight: 600; color: var(--turf-1); font-variant-numeric: tabular-nums; }
   .t3-clock.up { color: var(--coral); }
@@ -551,6 +564,11 @@
   <!-- SETUP SCREEN -->
   <div class="screen" id="screen-setup">
     <div class="decision-link" id="setupBackLink" style="margin-bottom:10px; display:inline-block;">‹ Matches</div>
+    <div class="radio-row fixture-type" id="fixtureType">
+      <div class="radio-opt selected" data-ftype="match">Match<br><small>One opponent, with subs</small></div>
+      <div class="radio-opt" data-ftype="tournament">Tournament<br><small>Several games in a day</small></div>
+      <div class="radio-opt" data-ftype="ff3">Future Fit 3v3<br><small>Everyone plays, several pitches</small></div>
+    </div>
 
     <!-- STEP 1: MATCH FORMAT (must be confirmed before planning) -->
     <div id="setupStepFormat">
@@ -623,10 +641,10 @@
       </section>
 
       <section id="secAvail">
-        <h2 id="availHeading">Available for this match</h2>
+        <h2 id="availHeading">Who's here</h2>
         <div id="availList"></div>
         <div class="avail-count" id="availCount"></div>
-        <div class="config-note" id="availExNote" style="display:none;">Tap a name for anything different today: arriving late, leaving early, a minutes limit, extra minutes, must start, start on the bench or keeper today.</div>
+        <div class="config-note" id="availExNote" style="display:none;"><span class="decision-link" id="exPickLink" style="font-size:12.5px;">Something different for someone today?</span> Arriving late, leaving early, a minutes limit, must start, start on the bench or keeper today.</div>
       </section>
 
       <section id="gkSection">
@@ -662,6 +680,7 @@
     </section>
   </div>
 
+  <div class="screen" id="screen-form"><div id="formBody"></div></div>
   <div class="screen" id="screen-tournament"><div id="tourneyBody"></div></div>
   <div class="screen" id="screen-threes"><div id="threesBody"></div></div>
 
@@ -806,7 +825,7 @@
    Keeps the last ~100 errors, warnings and key actions on this phone so a
    coach can attach them to a problem report. Nothing is sent unless the coach
    chooses to send feedback with diagnostics ticked. */
-const APP_VERSION = 'beta 0.21';
+const APP_VERSION = 'beta 0.22';
 const PRIVACY_VERSION = '2026-10-16';
 const DIAG_KEY = 'rf_diag_v1';
 const diag = (() => {
@@ -1169,7 +1188,7 @@ function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  const tabName = (name === 'playerForm' || name === 'playerStats') ? 'squad' : (['setup', 'tournament', 'threes'].includes(name) ? 'matches' : name);
+  const tabName = (name === 'playerForm' || name === 'playerStats') ? 'squad' : (['setup', 'tournament', 'threes', 'form'].includes(name) ? 'matches' : name);
   const tabEl = document.querySelector(`.tab[data-tab="${tabName}"]`);
   if (tabEl) tabEl.classList.add('active');
   // The Plan screen has its own compact back button + Live/Details sub-tabs,
@@ -1358,25 +1377,20 @@ let gkKeepers = []; // one chosen keeper id per period (rotate mode uses all; si
 function renderSetupScreen() {
   if (availableIds.size === 0) squad.forEach(p => availableIds.add(p.id)); // default: everyone available
 
-  document.getElementById('availHeading').textContent = `Available for this match (${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH})`;
+  document.getElementById('availHeading').textContent = "Who's here";
 
+  // Who's here: tap a player to mark them available or not (same chips as Future Fit 3v3).
   const list = document.getElementById('availList');
-  list.innerHTML = '';
-  squad.forEach(p => {
-    const row = document.createElement('div');
-    row.className = 'avail-row';
-    row.innerHTML = `<input type="checkbox" id="avail-${p.id}" ${availableIds.has(p.id) ? 'checked' : ''}>
-      <span class="name">${p.id}${p.gk ? '<span class="gk-pill">GK</span>' : ''}</span>`;
-    row.querySelector('input').addEventListener('change', e => {
-      if (e.target.checked) availableIds.add(p.id); else availableIds.delete(p.id);
-      renderSetupScreen();
-    });
-    list.appendChild(row);
-  });
+  list.innerHTML = `<div class="chip-wrap">${squad.map(p => `<span class="preset-chip avail-chip ${availableIds.has(p.id) ? 'active' : ''}" data-avail="${esc(p.id)}"><span class="name">${esc(p.id)}${p.gk ? ' 🧤' : ''}</span></span>`).join('')}</div>`;
+  list.querySelectorAll('[data-avail]').forEach(ch => ch.addEventListener('click', () => {
+    const id = ch.dataset.avail;
+    if (availableIds.has(id)) availableIds.delete(id); else availableIds.add(id);
+    renderSetupScreen();
+  }));
 
   const countEl = document.getElementById('availCount');
   const n = availableIds.size;
-  countEl.textContent = `${n} available · need at least ${PLAYERS_ON_PITCH}`;
+  countEl.textContent = `${n} here · need at least ${PLAYERS_ON_PITCH} for ${PLAYERS_ON_PITCH}v${PLAYERS_ON_PITCH}. Tap anyone who isn't.`;
   countEl.classList.toggle('warn', n < PLAYERS_ON_PITCH);
 
   renderGkSection();
@@ -2402,6 +2416,11 @@ function requestNewFixture() {
   go();
 }
 document.getElementById('setupBackLink').addEventListener('click', () => { renderMatchesScreen(); showScreen('matches'); });
+document.getElementById('fixtureType').addEventListener('click', e => {
+  const o = e.target.closest('[data-ftype]'); if (!o || o.dataset.ftype === 'match') return;
+  const back = () => showScreen('setup');
+  if (o.dataset.ftype === 'tournament') openTournamentSetup(null, back); else openThreesSetup(null, back);
+});
 
 /* ================= PLANNING SPEC & SCORECARD (evaluator) =================
  * One function marks any plan against the coach's rules, tier by tier, and
@@ -5292,20 +5311,23 @@ function renderMatchesScreen() {
     if (x.kind === 't') { const t = x.t; const st = t.games.map(tourneyGameStatus); const played = st.filter(v => v === 'finished').length;
       return `<div class="match-card" data-tourney="${t.id}"><div class="mc-kind">TOURNAMENT</div><div class="mc-title">🏆 ${esc(t.name)}</div>
         <div class="mc-sub">${esc([fmtFixtureDate(t.date), t.venue].filter(Boolean).join(' · '))}</div><div class="mc-sub">${esc(tourneyFormatLabel(t.format))} · ${t.games.length} game${t.games.length === 1 ? '' : 's'} · ${played} played</div>
-        <div class="mc-row">${st.includes('live') ? '<span class="badge live">LIVE</span>' : played === t.games.length && played ? '<span class="badge">FINISHED</span>' : '<span class="badge planned">UPCOMING</span>'}<button class="btn btn-primary mc-btn" data-topen="${t.id}">Open</button></div></div>`; }
+        <div class="mc-row">${st.includes('live') ? '<span class="badge live">LIVE</span>' : played === t.games.length && played ? '<span class="badge">FINISHED</span>' : '<span class="badge planned">UPCOMING</span>'}<button class="btn btn-ghost mc-small mc-del" data-tdel="${t.id}">Delete</button><button class="btn btn-primary mc-btn" data-topen="${t.id}">Open</button></div></div>`; }
     const m = x.m; const cur = Math.min(m.current || 0, m.roundsCount);
-    return `<div class="match-card" data-threes="${m.id}"><div class="mc-kind">3v3 MATCHDAY</div><div class="mc-title">3v3${m.opponent ? ' v ' + esc(m.opponent) : ''}</div>
-      <div class="mc-sub">${esc(fmtFixtureDate(m.date) || '')}${m.date ? ' · ' : ''}${m.roundsCount} games of ${m.gameLength}' · ${esc(THREES_ETHOS[m.ethos].split(':')[0])}</div>
-      <div class="mc-row">${cur >= m.roundsCount ? '<span class="badge">FINISHED</span>' : cur > 0 ? `<span class="badge live">GAME ${cur + 1}</span>` : '<span class="badge planned">UPCOMING</span>'}<button class="btn btn-primary mc-btn" data-copen="${m.id}">Open</button></div></div>`;
+    const tt = (m.scoring || 'off') !== 'off' ? threesTotals(m) : null;
+    return `<div class="match-card" data-threes="${m.id}"><div class="mc-kind">FUTURE FIT 3v3</div><div class="mc-title">${m.opponent ? 'v ' + esc(m.opponent) : 'Future Fit 3v3'}</div>
+      <div class="mc-sub">${esc(fmtFixtureDate(m.date) || '')}${m.date ? ' · ' : ''}${m.roundsCount} games of ${m.gameLength}' · ${esc(THREES_ETHOS[m.ethos].split(':')[0])}${tt && tt.W + tt.D + tt.L ? ` · W${tt.W} D${tt.D} L${tt.L}` : ''}</div>
+      <div class="mc-row">${cur >= m.roundsCount ? '<span class="badge">FINISHED</span>' : cur > 0 ? `<span class="badge live">GAME ${cur + 1}</span>` : '<span class="badge planned">UPCOMING</span>'}<button class="btn btn-ghost mc-small mc-del" data-cdel="${m.id}">Delete</button><button class="btn btn-primary mc-btn" data-copen="${m.id}">Open</button></div></div>`;
   };
   list.innerHTML = `<button class="btn btn-primary" id="newFixtureBtn" style="margin-bottom:6px;">+ Plan a new fixture</button>
-    <div class="new-row"><button class="btn btn-ghost" id="newTourneyBtn">+ Tournament</button><button class="btn btn-ghost" id="newThreesBtn">+ 3v3 matchday</button></div>`
-    + (solo.length || dayCards.length ? section('In progress', live) + (dayCards.length ? `<h2 style="margin:16px 0 8px;">Tournaments and matchdays</h2>${dayCards.map(dayCard).join('')}` : '') + section('Upcoming fixtures', planned) + section('Finished', done)
+    <div class="new-row"><button class="btn btn-ghost" id="newTourneyBtn">+ Tournament</button><button class="btn btn-ghost" id="newThreesBtn">+ Future Fit 3v3</button></div>`
+    + (solo.length || dayCards.length ? section('In progress', live) + (dayCards.length ? `<h2 style="margin:16px 0 8px;">Tournaments and Future Fit 3v3</h2>${dayCards.map(dayCard).join('')}` : '') + section('Upcoming fixtures', planned) + section('Finished', done)
       : '<div class="config-note">No matches yet - plan a fixture and its line-up will be saved here.</div>');
   document.getElementById('newTourneyBtn').addEventListener('click', () => openTournamentSetup(null));
   document.getElementById('newThreesBtn').addEventListener('click', () => openThreesSetup(null));
   list.querySelectorAll('[data-topen]').forEach(b => b.addEventListener('click', () => openTournament(b.dataset.topen)));
   list.querySelectorAll('[data-copen]').forEach(b => b.addEventListener('click', () => openThreesDay(b.dataset.copen)));
+  list.querySelectorAll('[data-tdel]').forEach(b => b.addEventListener('click', () => confirmDeleteTournament(b.dataset.tdel, renderMatchesScreen)));
+  list.querySelectorAll('[data-cdel]').forEach(b => b.addEventListener('click', () => confirmDeleteThrees(b.dataset.cdel, renderMatchesScreen)));
   document.getElementById('newFixtureBtn').addEventListener('click', requestNewFixture);
   list.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openMatchFromLibrary(b.dataset.open)));
   list.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copyPlannedMatch(b.dataset.copy)));
@@ -7961,14 +7983,25 @@ function renderTodayAndExceptions() {
   document.getElementById('approachLineText').textContent = `${pre.label}${tweaks ? ' (fine-tuned)' : ''}: ${ETHOS_BLURBS[e.preset]} Order: ${priorityWords(e.priority || pre.priority)}.`;
   // Badges on the availability list, and a tap on a name for exceptions.
   const ex = draftFixture.exceptions || (draftFixture.exceptions = {});
-  const rows = document.querySelectorAll('#availList .avail-row');
-  squad.forEach((p, i) => {
-    const row = rows[i]; if (!row) return;
-    const name = row.querySelector('.name');
+  squad.forEach(p => {
+    const chip = document.querySelector(`#availList [data-avail="${CSS.escape(p.id)}"]`); if (!chip) return;
+    const name = chip.querySelector('.name');
     name.querySelectorAll('.ex-badge').forEach(b => b.remove());
     exceptionBadges(ex[p.id]).forEach(t => { const s = document.createElement('span'); s.className = 'ex-badge'; s.textContent = t; name.appendChild(s); });
-    if (!name.dataset.exWired) { name.dataset.exWired = '1'; name.style.cursor = 'pointer'; name.addEventListener('click', () => { if (availableIds.has(p.id)) openExceptionSheet(p.id); }); }
   });
+  const link = document.getElementById('exPickLink');
+  if (link && !link.dataset.wired) { link.dataset.wired = '1'; link.addEventListener('click', openExceptionPicker); }
+}
+// Pick who has something different today, then set it.
+function openExceptionPicker() {
+  const here = squad.filter(p => availableIds.has(p.id));
+  const ex = draftFixture.exceptions || {};
+  const overlay = openModal(`<div class="picker-title">Something different today</div>
+    <div class="config-note" style="margin-bottom:8px;">Who for?</div>
+    <div class="chip-wrap">${here.map(p => `<span class="preset-chip ${exceptionBadges(ex[p.id]).length ? 'active' : ''}" data-expick="${esc(p.id)}">${esc(p.id)}</span>`).join('')}</div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="exPickClose">Close</button></div>`);
+  overlay.querySelector('#exPickClose').addEventListener('click', () => overlay.remove());
+  overlay.querySelectorAll('[data-expick]').forEach(ch => ch.addEventListener('click', () => openExceptionSheet(ch.dataset.expick)));
 }
 function openExceptionSheet(pid) {
   track('player-exception');
@@ -8684,6 +8717,21 @@ const ETHOS_TOUR_KEYS = ['preset', 'sliders.season', 'rules.leagueMinPct', 'rule
  * have) in the earlier games: the day works like a mini-season with full
  * catch-up. Keepers can take turns, one per game.
  */
+// Set-up forms for tournaments and Future Fit 3v3 open as a normal screen
+// (not a pop-up). Returns an object shaped like a modal overlay, so the form
+// code can use querySelector and remove() (which goes back).
+let formReturn = null;
+function openFormScreen(html, back) {
+  const host = document.getElementById('formBody');
+  host.innerHTML = `<div class="plan-topbar" style="margin-bottom:8px;"><span class="plan-back" id="formBack">‹ Back</span></div><div class="form-card form-screen">${html}</div>`;
+  formReturn = back;
+  const goBack = () => { const b = formReturn; formReturn = null; if (b) b(); };
+  host.querySelector('#formBack').addEventListener('click', goBack);
+  showScreen('form'); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ }
+  return {querySelector: q => host.querySelector(q), querySelectorAll: q => host.querySelectorAll(q), remove: goBack};
+}
+// Where a new tournament / Future Fit form goes back to.
+const backToMatches = () => { renderMatchesScreen(); showScreen('matches'); };
 const TOURNAMENTS_KEY = K('rf_tournaments_v1');
 function loadTournaments() { try { const r = JSON.parse(localStorage.getItem(TOURNAMENTS_KEY) || '[]'); return Array.isArray(r) ? r : []; } catch (e) { return []; } }
 function saveTournaments(list) { try { localStorage.setItem(TOURNAMENTS_KEY, JSON.stringify(list)); return true; } catch (e) { storageProblem = true; return false; } }
@@ -8826,7 +8874,7 @@ function planTournamentGame(t, gi) {
   saveLiveMatchState(); // records the plan's minutes on the game
   detachOpenMatch();
   if (old && old !== made) { const r = loadMatchLibrary().find(x => x.id === old); if (r && r.status === 'planned') deleteMatchRecord(old); }
-  const t2 = getTournament(t.id); const g2 = t2.games[gi]; g2.matchId = made; putTournament(t2);
+  const t2 = getTournament(t.id); const g2 = t2.games[gi]; g2.matchId = made; g2.plannedAt = Date.now(); putTournament(t2); // re-planned now, even if the minutes came out the same
   return null;
 }
 // Plans games in order (each one knowing the minutes before it), a little at a
@@ -8853,11 +8901,11 @@ function planTournamentGames(id, indices, done) {
 
 function newTourneyGame(label, opponent, stage) { return {id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), label, opponent: opponent || '', stage}; }
 
-function openTournamentSetup(existingId) {
+function openTournamentSetup(existingId, back) {
   const ex = existingId ? getTournament(existingId) : null;
   const f = ex ? ex.format : {players: matchDefaults.players, duration: 10, periods: 1, hasGk: matchDefaults.hasGk};
   const groupGames = ex ? ex.games.filter(g => g.stage === 'group') : null;
-  const overlay = openModal(`<div class="picker-title">${ex ? 'Tournament settings' : 'New tournament'}</div>
+  const overlay = openFormScreen(`<div class="wiz-hero" style="font-size:24px;">${ex ? 'Tournament settings' : 'New tournament'}</div>
     <div class="field"><label for="tnName">Tournament name</label><input id="tnName" maxlength="40" placeholder="e.g. Spring Cup" value="${ex ? esc(ex.name) : ''}"></div>
     <div class="row-2"><div class="field"><label for="tnDate">Date</label><input id="tnDate" type="date" value="${ex ? esc(ex.date || '') : todayISO()}"></div>
       <div class="field"><label for="tnVenue">Venue <span style="font-weight:400; color:var(--ink-soft);">(optional)</span></label><input id="tnVenue" maxlength="40" value="${ex ? esc(ex.venue || '') : ''}"></div></div>
@@ -8882,7 +8930,7 @@ function openTournamentSetup(existingId) {
         <label class="check-row"><input type="radio" name="tnKeep" value="same" ${ex && ex.keepers === 'same' ? 'checked' : ''}><span><b>Same keeper all day</b>: <select id="tnSameKeeper" style="max-width:150px;">${squad.filter(p => p.gk).map(p => `<option ${ex && ex.sameKeeper === p.id ? 'selected' : ''}>${esc(p.id)}</option>`).join('') || '<option value="">No keepers</option>'}</select></span></label>
       </div></div>
     <div class="warn-box" id="tnErr" style="display:none;"></div>
-    <div class="modal-btn-row"><button class="btn btn-ghost" id="tnCancel">Cancel</button><button class="btn btn-primary" id="tnSave">${ex ? 'Save' : 'Create tournament'}</button></div>`, {wide: true});
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="tnCancel">Cancel</button><button class="btn btn-primary" id="tnSave">${ex ? 'Save' : 'Create tournament'}</button></div>`, existingId ? () => openTournament(existingId) : (back || backToMatches));
   const q = s => overlay.querySelector(s);
   const drawOpps = () => {
     const n = +q('#tnGames').value;
@@ -8918,11 +8966,19 @@ function openTournamentSetup(existingId) {
     if (ex && (fmtChanged || ex.fairness !== t.fairness || (ex.subs || 'halfway') !== t.subs || ex.keepers !== t.keepers || ex.sameKeeper !== t.sameKeeper)) t.playersChangedAt = Date.now();
     putTournament(t);
     if (!ex) track('tournament-created', `${fmt.players}-a-side-${fmt.duration}min`);
-    overlay.remove();
+    formReturn = null;
     openTournament(t.id);
   });
 }
 
+function confirmDeleteTournament(id, after) {
+  const t = getTournament(id); if (!t) return;
+  showConfirm(`Delete ${t.name}? Games not played yet are deleted too. Games already played stay in your match history and season stats.`, () => {
+    for (const g of t.games) { const r = tourneyGameRec(g); if (r && r.status === 'planned') deleteMatchRecord(r.id); }
+    saveTournaments(loadTournaments().filter(x => x.id !== id));
+    after && after();
+  }, 'Delete');
+}
 let openTournamentId = null;
 function openTournament(id) {
   if (currentMatchId) { if (liveMode && !matchFinished) { /* the live game keeps its clock */ } detachOpenMatch(); }
@@ -8995,11 +9051,7 @@ function renderTournamentHub() {
   host.querySelectorAll('[data-gopen]').forEach(b => b.addEventListener('click', () => { const g = getTournament(t.id).games[+b.dataset.gopen]; openMatchFromLibrary(g.matchId); }));
   host.querySelectorAll('[data-gedit]').forEach(b => b.addEventListener('click', () => openTourneyGameEdit(t.id, +b.dataset.gedit)));
   q('#tnAddKo').addEventListener('click', () => openTourneyGameEdit(t.id, null));
-  q('#tnDelete').addEventListener('click', () => showConfirm(`Delete ${t.name}? Games not played yet are deleted too. Games already played stay in your match history and season stats.`, () => {
-    for (const g of t.games) { const r = tourneyGameRec(g); if (r && r.status === 'planned') deleteMatchRecord(r.id); }
-    saveTournaments(loadTournaments().filter(x => x.id !== t.id));
-    renderMatchesScreen(); showScreen('matches');
-  }, 'Delete'));
+  q('#tnDelete').addEventListener('click', () => confirmDeleteTournament(t.id, () => { renderMatchesScreen(); showScreen('matches'); }));
 }
 // Name a game and its opponent, or add a knockout game (gi null).
 function openTourneyGameEdit(id, gi) {
@@ -9048,6 +9100,32 @@ function loadThrees() { try { const r = JSON.parse(localStorage.getItem(THREES_K
 function saveThrees(list) { try { localStorage.setItem(THREES_KEY, JSON.stringify(list)); return true; } catch (e) { storageProblem = true; return false; } }
 function getThrees(id) { return loadThrees().find(m => m.id === id) || null; }
 function putThrees(m) { const all = loadThrees(); const i = all.findIndex(x => x.id === m.id); if (i >= 0) all[i] = m; else all.push(m); saveThrees(all); }
+const THREES_SCORING = {off: "Don't keep results", result: 'Won, drawn or lost for each game', score: 'Scores for each game'};
+// Our side in a game between the two clubs (0 or 1), or null for a game among
+// our own players (no win or loss for the club).
+function threesOurSide(g) {
+  if (g.kind === 'opp') return 0;
+  if (g.kind !== 'mix') return null;
+  const cap = g.cap || [g.sides[0].length, g.sides[1].length], th = g.theirs || [0, 0];
+  if (!th[0] && cap[0] > 0 && th[1] > 0 && !cap[1]) return 0;
+  if (!th[1] && cap[1] > 0 && th[0] > 0 && !cap[0]) return 1;
+  return null;
+}
+// W / D / L for a game between the clubs: noted directly, or from its score.
+function threesResult(g) {
+  const k = threesOurSide(g); if (k === null) return null;
+  if (g.score && g.score[0] != null && g.score[1] != null) { const us = g.score[k], them = g.score[1 - k]; return us > them ? 'W' : us < them ? 'L' : 'D'; }
+  return g.result || null;
+}
+function threesTotals(md) {
+  const t = {W: 0, D: 0, L: 0, gf: 0, ga: 0, scored: 0};
+  for (const r of md.rounds || []) for (const g of r.games) {
+    const res = threesResult(g); if (res) t[res]++;
+    const k = threesOurSide(g);
+    if (k !== null && g.score && g.score[0] != null && g.score[1] != null) { t.gf += g.score[k]; t.ga += g.score[1 - k]; t.scored++; }
+  }
+  return t;
+}
 const THREES_ETHOS = {mixed: 'Mixed: new teammates each game', balanced: 'Balanced: mixed, with even trios', fixed: 'Fixed: the same trios all day', manual: 'Pick it myself: you place every player'};
 
 // The shape of one game round. n = our players playing, m = theirs (null:
@@ -9265,22 +9343,36 @@ function threesGameLine(g, md, nameHtml, slotHtml) {
   const side = i => [names(g.sides[i], i), th[i] ? `<span class="t3-them">${cap(i) ? '+ ' : ''}${th[i]} of ${them}</span>` : ''].filter(Boolean).join(' ');
   return `${side(0)} <span class="t3-v">v</span> ${side(1)} <small>(${cap(0) + th[0]} v ${cap(1) + th[1]})</small>`;
 }
+// Result entry under a game (games played or being played), as the coach chose.
+function threesResultRow(md, g, ri, gi) {
+  const mode = md.scoring || 'off'; if (mode === 'off') return '';
+  const k = threesOurSide(g), res = threesResult(g);
+  if (mode === 'result') {
+    if (k === null) return '';
+    return `<div class="t3-resrow">${['W', 'D', 'L'].map(x => `<button class="t3-res ${x} ${res === x ? 'on' : ''}" data-res="${ri}:${gi}:${x}">${{W: 'Won', D: 'Drew', L: 'Lost'}[x]}</button>`).join('')}</div>`;
+  }
+  const sc = g.score || [null, null];
+  const lbl = i => k === null ? `Side ${i + 1}` : i === k ? 'Us' : esc(md.opponent || 'Them');
+  return `<div class="t3-resrow">${lbl(0)} <input class="t3-sc" inputmode="numeric" maxlength="2" data-sc="${ri}:${gi}:0" value="${sc[0] ?? ''}"> – <input class="t3-sc" inputmode="numeric" maxlength="2" data-sc="${ri}:${gi}:1" value="${sc[1] ?? ''}"> ${lbl(1)}${res ? ` <span class="t3-out">${{W: 'Won', D: 'Drew', L: 'Lost'}[res]}</span>` : ''}</div>`;
+}
 function threesText(md) {
   const them = md.opponent || 'them';
-  return [`3v3${md.opponent ? ' v ' + md.opponent : ''}${md.date ? ' · ' + fmtFixtureDate(md.date) : ''}`, ...md.rounds.map((r, ri) => {
+  return [`Future Fit 3v3${md.opponent ? ' v ' + md.opponent : ''}${md.date ? ' · ' + fmtFixtureDate(md.date) : ''}`, ...md.rounds.map((r, ri) => {
     const side = (g, i) => { const th = Array.isArray(g.theirs) ? g.theirs[i] : (i ? g.theirs || 0 : 0); return [g.sides[i].join(', '), th ? `${th} of ${them}` : ''].filter(Boolean).join(' + '); };
-    const lines = r.games.map(g => `Pitch ${g.pitch}: ` + (g.kind === 'opp' ? `${g.sides[0].join(', ')} v ${them}` : `${side(g, 0)} v ${side(g, 1)}`));
+    const after = g => { const res = threesResult(g); const sc = g.score && g.score[0] != null && g.score[1] != null ? `${g.score[0]}–${g.score[1]}` : ''; return sc || res ? ` (${[sc, res ? {W: 'won', D: 'drew', L: 'lost'}[res] : ''].filter(Boolean).join(', ')})` : ''; };
+    const lines = r.games.map(g => `Pitch ${g.pitch}: ` + (g.kind === 'opp' ? `${g.sides[0].join(', ')} v ${them}` : `${side(g, 0)} v ${side(g, 1)}`) + after(g));
     const out = [...(r.sat || []), ...(r.coachSat || []), ...(r.pool || [])];
     if (out.length) lines.push(`Sitting out: ${out.join(', ')}`);
     return `\nGame ${ri + 1} (${ri * md.gameLength}–${(ri + 1) * md.gameLength}')\n` + lines.join('\n');
   })].join('\n');
 }
 
-function openThreesSetup(existingId) {
+function openThreesSetup(existingId, back) {
   const ex = existingId ? getThrees(existingId) : null;
   const len = ex ? ex.gameLength : 8, rounds = ex ? ex.roundsCount : 4;
-  const overlay = openModal(`<div class="picker-title">${ex ? '3v3 matchday settings' : 'New 3v3 matchday'}</div>
-    <div class="config-note" style="margin-bottom:8px;">FA Future Fits 3v3: short games on small pitches, no subs and no keepers. Co-Coach picks who plays with whom each game.</div>
+  let picked = new Set(ex ? ex.players : squad.map(p => p.id));
+  const overlay = openFormScreen(`<div class="wiz-hero" style="font-size:24px;">${ex ? 'Future Fit 3v3 settings' : 'New Future Fit 3v3'}</div>
+    <div class="config-note" style="margin-bottom:10px;">The FA's Future Fit 3v3: short games on small pitches at the same time, no subs and no keepers, so everyone plays. Co-Coach works out who plays with whom each game. (For a normal 3-a-side match against one team, with subs, plan a match instead.)</div>
     <div class="row-2"><div class="field"><label for="t3Opp">Playing against</label><input id="t3Opp" maxlength="30" placeholder="e.g. Hawks" value="${ex ? esc(ex.opponent || '') : ''}"></div>
       <div class="field"><label for="t3Date">Date</label><input id="t3Date" type="date" value="${ex ? esc(ex.date || '') : todayISO()}"></div></div>
     <div class="row-2"><div class="field"><label for="t3Len">Game length</label><select id="t3Len">${[4, 5, 6, 7, 8, 9, 10, 12, 15].map(n => `<option value="${n}" ${n === len ? 'selected' : ''}>${n} minutes</option>`).join('')}</select></div>
@@ -9297,23 +9389,35 @@ function openThreesSetup(existingId) {
     <div class="field"><label>Who plays with whom</label><div class="radio-col">
       ${Object.entries(THREES_ETHOS).map(([k, v]) => `<label class="check-row"><input type="radio" name="t3Ethos" value="${k}" ${(ex ? ex.ethos : 'mixed') === k ? 'checked' : ''}><span>${esc(v)}${k === 'balanced' && !squadHasLevels(squad) ? ' <small style="color:var(--ink-soft);">(set private levels on players for this)</small>' : ''}</span></label>`).join('')}
     </div></div>
-    <div class="modal-btn-row"><button class="btn btn-ghost" id="t3Cancel">Cancel</button><button class="btn btn-primary" id="t3Save">${ex ? 'Save and re-plan' : 'Create matchday'}</button></div>`, {wide: true});
+    <div class="field"><label for="t3Score">Results</label><select id="t3Score">${Object.entries(THREES_SCORING).map(([k, v]) => `<option value="${k}" ${(ex ? ex.scoring || 'off' : 'off') === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      <div class="config-note">Future Fit doesn't ask you to keep scores, but you can note results or scores for each game if you like.</div></div>
+    ${ex ? '' : `<div class="field"><label>Who's here</label><div class="chip-wrap" id="t3Who">${squad.map(p => `<span class="preset-chip active" data-who="${esc(p.id)}">${esc(p.id)}</span>`).join('')}</div><div class="config-note" id="t3WhoCount" style="margin-top:6px;"></div></div>`}
+    <div class="warn-box" id="t3Err" style="display:none;"></div>
+    <div class="modal-btn-row"><button class="btn btn-ghost" id="t3Cancel">Cancel</button><button class="btn btn-primary" id="t3Save">${ex ? 'Save and re-plan' : 'Create Future Fit 3v3'}</button></div>`, existingId ? () => openThreesDay(existingId) : (back || backToMatches));
   const q = s => overlay.querySelector(s);
   const total = () => { const m = +q('#t3Len').value * +q('#t3Rounds').value; q('#t3Total').textContent = `${m} minutes of football each.${m < 30 || m > 40 ? ' The FA suggests 30–40.' : ''}`; };
   total(); q('#t3Len').addEventListener('change', total); q('#t3Rounds').addEventListener('change', total);
   q('#t3Cancel').addEventListener('click', () => overlay.remove());
+  const whoCount = () => { const el = q('#t3WhoCount'); if (el) el.textContent = `${picked.size} here. Tap anyone who isn't.`; };
+  whoCount();
+  overlay.querySelectorAll('[data-who]').forEach(ch => ch.addEventListener('click', () => { const id = ch.dataset.who; if (picked.has(id)) picked.delete(id); else picked.add(id); ch.classList.toggle('active', picked.has(id)); whoCount(); }));
   q('#t3Save').addEventListener('click', () => {
-    const md = ex ? JSON.parse(JSON.stringify(ex)) : {id: 'c' + Date.now().toString(36), createdAt: Date.now(), players: squad.map(p => p.id), absent: {}, sitOut: {}, seed: Math.floor(Math.random() * 1e6) + 1, current: 0};
+    if (!ex && picked.size < 2) { q('#t3Err').style.display = 'block'; q('#t3Err').textContent = 'Pick at least two players who are here.'; return; }
+    const md = ex ? JSON.parse(JSON.stringify(ex)) : {id: 'c' + Date.now().toString(36), createdAt: Date.now(), players: squad.map(p => p.id).filter(id => picked.has(id)), absent: {}, sitOut: {}, seed: Math.floor(Math.random() * 1e6) + 1, current: 0};
     Object.assign(md, {opponent: q('#t3Opp').value.trim(), date: q('#t3Date').value || todayISO(), gameLength: +q('#t3Len').value, roundsCount: +q('#t3Rounds').value,
-      theirs: q('#t3Theirs').value ? +q('#t3Theirs').value : null, oneSpare: q('#t3One').value, mixSpares: q('#t3Mix').checked,
+      theirs: q('#t3Theirs').value ? +q('#t3Theirs').value : null, oneSpare: q('#t3One').value, mixSpares: q('#t3Mix').checked, scoring: q('#t3Score').value,
       ethos: overlay.querySelector('[name="t3Ethos"]:checked').value});
     planThrees(md, ex ? Math.min((md.current || 0) + (md.roundStartTs ? 1 : 0), md.roundsCount) : 0);
     putThrees(md);
     if (!ex) track('threes-created', md.ethos);
-    overlay.remove(); openThreesDay(md.id);
+    formReturn = null; openThreesDay(md.id);
   });
 }
 
+function confirmDeleteThrees(id, after) {
+  const m = getThrees(id);
+  showConfirm(`Delete Future Fit 3v3${m && m.opponent ? ' v ' + m.opponent : ''}? This can't be undone.`, () => { saveThrees(loadThrees().filter(x => x.id !== id)); after && after(); }, 'Delete');
+}
 let openThreesId = null, threesTicker = null, threesSel = null;
 function openThreesDay(id) {
   if (currentMatchId) detachOpenMatch();
@@ -9336,9 +9440,10 @@ function renderThreesDay() {
   const nameHtml = ri => id => `<span class="t3-name ${threesSel && threesSel.r === ri && threesSel.id === id ? 'sel' : ''}" data-r="${ri}" data-id="${esc(id)}">${esc(id)}</span>`;
   host.innerHTML = `<div class="plan-topbar" style="margin-bottom:8px;"><span class="plan-back" id="t3Back">‹ Matches</span></div>
     <div class="form-card"><div style="display:flex; gap:8px; align-items:flex-start;"><div style="flex:1;">
-      <div style="font-family:Oswald,sans-serif; font-size:24px; font-weight:600; line-height:1.15;">3v3${md.opponent ? ' v ' + esc(md.opponent) : ' matchday'}</div>
+      <div style="font-family:Oswald,sans-serif; font-size:24px; font-weight:600; line-height:1.15;">Future Fit 3v3${md.opponent ? ' v ' + esc(md.opponent) : ''}</div>
       <div class="mc-sub">${esc(fmtFixtureDate(md.date) || '')}${md.date ? ' · ' : ''}${md.roundsCount} games of ${md.gameLength}'</div>
-      <div class="mc-sub">${esc(THREES_ETHOS[md.ethos])}${(md.oneSpare || 'sit') === 'four' ? ' · a spare joins a trio (4 v 3)' : ''}</div></div><span class="decision-link" id="t3Edit">Settings</span></div></div>
+      <div class="mc-sub">${esc(THREES_ETHOS[md.ethos])}${(md.oneSpare || 'sit') === 'four' ? ' · a spare joins a trio (4 v 3)' : ''}</div></div><span class="decision-link" id="t3Edit">Settings</span></div>
+      ${(md.scoring || 'off') !== 'off' ? (() => { const tt = threesTotals(md); return `<div class="t3-totals">Won <b>${tt.W}</b> · Drew <b>${tt.D}</b> · Lost <b>${tt.L}</b>${md.scoring === 'score' && tt.scored ? ` · Goals <b>${tt.gf}–${tt.ga}</b>` : ''}</div>`; })() : ''}</div>
     <div class="form-card"><h2 style="margin-top:0;">Who's here</h2>
       <div class="chip-wrap">${md.players.concat(squad.map(p => p.id).filter(id => !md.players.includes(id))).map(id => { const on = here.includes(id) && md.players.includes(id); return `<span class="preset-chip ${on ? 'active' : ''}" data-t3p="${esc(id)}">${esc(id)}</span>`; }).join('')}</div>
       <div class="config-note" style="margin-top:6px;">${here.length} here. Tap someone who arrives late or has to leave: the games from now on are re-planned, earlier ones stay as they were.</div></div>
@@ -9349,7 +9454,7 @@ function renderThreesDay() {
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;"><h2 style="margin:0; flex:1;">Game ${ri + 1} <span style="font-weight:400; font-size:14px; color:var(--ink-soft);">${ri * md.gameLength}–${(ri + 1) * md.gameLength}'</span></h2>
           ${now ? (running ? `<span class="t3-clock" id="t3Clock"></span>` : `<button class="btn btn-primary" id="t3Start" style="margin:0; width:auto; padding:8px 20px;">Start</button>`) : done ? '<span class="badge">PLAYED</span>' : ''}</div>
         ${r.note ? `<div class="config-note" style="margin-bottom:4px;">${esc(r.note)}</div>` : ''}
-        ${r.games.map((g, gi) => `<div class="t3-game"><span class="t3-pitch">Pitch ${g.pitch}</span><span class="t3-who">${threesGameLine(g, md, nameHtml(ri), editable ? i => `<span class="t3-slot ${sel ? 'on' : ''}" data-add="${ri}:${gi}:${i}">${sel ? '＋ ' + esc(sel) : 'empty'}</span>` : null)}</span></div>`).join('')}
+        ${r.games.map((g, gi) => `<div class="t3-game"><span class="t3-pitch">Pitch ${g.pitch}</span><span class="t3-who">${threesGameLine(g, md, nameHtml(ri), editable ? i => `<span class="t3-slot ${sel ? 'on' : ''}" data-add="${ri}:${gi}:${i}">${sel ? '＋ ' + esc(sel) : 'empty'}</span>` : null)}</span></div>${ri <= cur ? threesResultRow(md, g, ri, gi) : ''}`).join('')}
         ${(r.pool || []).length ? `<div class="t3-game"><span class="t3-pitch">To place</span><span class="t3-who">${r.pool.map(nameHtml(ri)).join(' ')}<div class="t3-note">Tap a name, then an empty place. Anyone not placed sits this game out.</div></span></div>` : ''}
         ${out.length ? `<div class="t3-game"><span class="t3-pitch">Sitting out</span><span class="t3-who">${(r.sat || []).map(id => `${nameHtml(ri)(id)} <small class="t3-v">(spare, taking turns)</small>`).join(' ')} ${(r.coachSat || []).map(id => `<span class="t3-name t3-back" data-back="${esc(id)}" data-r="${ri}">${esc(id)} ↩</span>`).join(' ')}</span></div>` : ''}
         ${sel && editable ? `<div class="t3-actions"><span><b>${esc(sel)}</b>: tap another name to swap${r.games.some(g => g.sides.some((x, i) => x.length < ((g.cap || [])[i] ?? x.length))) ? ', or an empty place to move them' : ''}, or</span><button class="btn btn-ghost" id="t3SitBtn" style="width:auto; padding:8px 12px; font-size:13px;">Sit out this game</button></div>` : ''}
@@ -9359,7 +9464,7 @@ function renderThreesDay() {
     ${cur >= md.roundsCount ? '<div class="form-card"><b>All games played.</b></div>' : ''}
     <div class="form-card"><div class="config-note">${threesSel ? '' : 'Tap a name to swap two players or sit someone out of a game. '}${toPlace ? `${toPlace} place${toPlace === 1 ? '' : 's'} still to fill in the games to come.` : fewer.length ? `${fewer.map(p => `${esc(p.id)} plays ${p.games}`).join(', ')} of ${md.roundsCount} games; everyone else plays them all.` : `Everyone plays every game, ${md.roundsCount * md.gameLength} minutes each.`} Each player has ${minMates === maxMates ? minMates : minMates + '–' + maxMates} different teammates over the day.</div>
       <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-ghost" id="t3Shuffle" style="flex:1;">Shuffle games to come</button><button class="btn btn-ghost" id="t3Copy" style="flex:1;">Copy for WhatsApp</button></div></div>
-    <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="t3Delete" style="color:var(--coral);">Delete matchday</span></div>`;
+    <div style="text-align:center; margin:4px 0 20px;"><span class="decision-link" id="t3Delete" style="color:var(--coral);">Delete this Future Fit 3v3</span></div>`;
   const q = s => host.querySelector(s);
   const replan = (m, from, to) => { planThrees(m, from, to); putThrees(m); threesSel = null; renderThreesDay(); };
   q('#t3Back').addEventListener('click', () => { clearInterval(threesTicker); renderMatchesScreen(); showScreen('matches'); });
@@ -9405,6 +9510,15 @@ function renderThreesDay() {
     if (m.sitOut && m.sitOut[r]) m.sitOut[r] = m.sitOut[r].filter(x => x !== id);
     threesSel = null; putThrees(m); renderThreesDay();
   }));
+  host.querySelectorAll('[data-res]').forEach(el => el.addEventListener('click', () => {
+    const [r, gi, x] = el.dataset.res.split(':'); const m = getThrees(md.id); const g = m.rounds[+r].games[+gi];
+    g.result = g.result === x ? null : x; putThrees(m); renderThreesDay();
+  }));
+  host.querySelectorAll('[data-sc]').forEach(el => el.addEventListener('change', () => {
+    const [r, gi, k] = el.dataset.sc.split(':').map(Number); const m = getThrees(md.id); const g = m.rounds[r].games[gi];
+    const v = el.value.trim() === '' ? null : Math.max(0, parseInt(el.value, 10) || 0);
+    g.score = g.score || [null, null]; g.score[k] = v; putThrees(m); renderThreesDay();
+  }));
   host.querySelectorAll('[data-fill]').forEach(el => el.addEventListener('click', () => { const m = getThrees(md.id); threesFillRest(m, +el.dataset.fill); putThrees(m); threesSel = null; renderThreesDay(); }));
   host.querySelectorAll('[data-struct]').forEach(el => el.addEventListener('click', () => openThreesStructure(md.id, +el.dataset.struct)));
   host.querySelectorAll('[data-four]').forEach(el => el.addEventListener('click', () => { const m = getThrees(md.id); m.oneSpare = 'four'; replan(m, threesEditableFrom(m)); }));
@@ -9425,7 +9539,7 @@ function renderThreesDay() {
     window.__threesText = txt;
     try { navigator.clipboard.writeText(txt).then(() => { b.textContent = 'Copied'; }, () => { b.textContent = 'Copy failed'; }); } catch (er) { b.textContent = 'Copy failed'; }
   });
-  q('#t3Delete').addEventListener('click', () => showConfirm('Delete this 3v3 matchday?', () => { saveThrees(loadThrees().filter(x => x.id !== md.id)); renderMatchesScreen(); showScreen('matches'); }, 'Delete'));
+  q('#t3Delete').addEventListener('click', () => confirmDeleteThrees(md.id, () => { renderMatchesScreen(); showScreen('matches'); }));
 }
 
 
@@ -9523,7 +9637,7 @@ function statEvents() {
     'app-installed': {title: 'Added to home screen'},
     'tournament-created': {title: 'Tournament set up'},
     'tournament-planned': {title: 'Tournament games planned'},
-    'threes-created': {title: '3v3 matchday set up'},
+    'threes-created': {title: 'Future Fit 3v3 set up'},
   };
 }
 function statsOn() { try { return !!(profile && profile.stats && profile.stats.on); } catch (e) { return false; } }

@@ -71,7 +71,8 @@ const { launch, openPage, newMatch, ok, summary } = require('./_harness');
   await page.fill('#fx-comp', 'Friendly');
   ok(await page.evaluate(() => draftFixture.today === 'normal'), 'once the coach picks Today, the competition no longer changes it');
   // Exceptions: Jack arrives at 10', Leo must start.
-  const nameEl = name => page.locator('#availList .avail-row .name', {hasText: name}).first();
+  // Exceptions: "Something different for someone today?", then the player.
+  const nameEl = name => ({ click: async () => { await page.click('#exPickLink'); await page.click(`[data-expick="${name}"]`); } });
   await nameEl('Jack').click(); await page.waitForTimeout(100);
   await page.fill('#exArrive', '10'); await page.click('#exSave'); await page.waitForTimeout(100);
   await nameEl('Leo').click(); await page.waitForTimeout(100);
